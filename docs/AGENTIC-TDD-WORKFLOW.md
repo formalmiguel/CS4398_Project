@@ -150,7 +150,7 @@ It has done exactly what you asked. FR-RSC-02 works. The tests pass.
 
 **The contract is `shared/src/contract.ts`: the domain types, and nothing else.** No logic, no functions, no constants with behavior. It is the seam that the SRS's module boundaries — engine / adapter / catalog / frontend — are *made of*.
 
-- We write it **once, by hand** (it is given verbatim in `prompts/01-project-scaffold.md`), and **all three of us read it line by line and ratify it** before a single agent runs.
+- We write it **once, by hand** (it is given verbatim in `prompts/foundation/01-project-scaffold.md`), and **all three of us read it line by line and ratify it** before a single agent runs.
 - Every work packet **imports from it and may never redefine, widen, or shadow a type in it.**
 - **Changing it is a team decision with a row in the decision log** (`TEAM-MEETING.md`) — never an agent's unilateral refactor. **An agent that wants to change the contract must stop and escalate.**
 
@@ -317,7 +317,7 @@ But the fresh session is only *half* of what separates RED from GREEN, and it's 
 ```bash
 # 1. RED — fresh session
 /clear
-# paste prompts/04-engine-tests-RED.md
+# paste prompts/engine/04-engine-tests-RED.md
 npx jest engine
 #   ✅ EXPECT: every test FAILS with `Error: 05` (the stub).
 #   ❌ A failure for any OTHER reason  = a broken test. Fix it.
@@ -331,7 +331,7 @@ git add engine/test/ && git commit -m "P04 RED: engine test suite (frozen)"
 
 # 4. GREEN — fresh session
 /clear
-# paste prompts/05-engine-implementation-GREEN.md
+# paste prompts/engine/05-engine-implementation-GREEN.md
 npx jest engine --coverage
 git diff --stat engine/test/
 #   ✅ EXPECT: empty. Nothing in engine/test/ changed.
@@ -457,11 +457,11 @@ Copy `prompts/_TEMPLATE.md`. Every packet has:
 
 | # | Packet | Phase | Owner | Produces |
 |---|---|---|---|---|
-| **01** | `prompts/01-project-scaffold.md` | Scaffold | *(whoever creates the repo)* | Repo, workspaces, package boundaries, the **empty `engine` dependencies block** |
-| **02** | `prompts/02-toolchain-and-dependencies.md` | Scaffold | *(same)* | TS/Jest/lint/fast-check, CI with the 90% engine gate and the purity guard |
-| **03** | `prompts/03-shared-contract-types.md` | **Human-authored** | **The whole team, together** | `shared/src/contract.ts` — **the contract** |
-| **04** | `prompts/04-engine-tests-RED.md` | 🔴 RED | Scheduling Lead | The engine's whole test suite: 8 boundary cases, ranking, determinism, purity, the 1,000-case property test |
-| **05** | `prompts/05-engine-implementation-GREEN.md` | 🟢 GREEN | Scheduling Lead | `findCandidateSlots` — and nothing else |
+| **01** | `prompts/foundation/01-project-scaffold.md` | Scaffold | *(whoever creates the repo)* | Repo, workspaces, package boundaries, the **empty `engine` dependencies block** |
+| **02** | `prompts/foundation/02-toolchain-and-dependencies.md` | Scaffold | *(same)* | TS/Jest/lint/fast-check, CI with the 90% engine gate and the purity guard |
+| **03** | `prompts/foundation/03-shared-contract-types.md` | **Human-authored** | **The whole team, together** | `shared/src/contract.ts` — **the contract** |
+| **04** | `prompts/engine/04-engine-tests-RED.md` | 🔴 RED | Scheduling Lead | The engine's whole test suite: 8 boundary cases, ranking, determinism, purity, the 1,000-case property test |
+| **05** | `prompts/engine/05-engine-implementation-GREEN.md` | 🟢 GREEN | Scheduling Lead | `findCandidateSlots` — and nothing else |
 
 **We start with the engine, and we start now.** Not because it's easiest — because:
 

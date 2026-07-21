@@ -27,27 +27,46 @@ Each prompt follows the required formatting techniques with **Sandwich Method**,
 
 ---
 
+### **MANDATORY**: Folders Are Ownership. Numbers Are Order.
+
+**CRITICAL**: Packets are grouped into folders by **who owns them**, and numbered by **when they run**. These are two different axes and **both are binding**:
+
+| Folder | Packets | Human owner | Module |
+|---|---|---|---|
+| `foundation/` | 01–03 | **Patrick Rucker** | scaffold, toolchain, the contract |
+| `engine/` | 04–07 | **Patrick Rucker** | FR-SCH, FR-RSC |
+| `wearable/` | 08–11 | **Ryan Woosley** | FR-WER, FR-REC, FR-LIB |
+| `backend/` | 12 | **Miguel Alvarez** | FR-USR, FR-TSK, FR-CAL |
+| `frontend/` | 13–15 | **Miguel Alvarez** | FR-DSH, FR-WEL, FR-ANL |
+| `verification/` | 16–17 | **Patrick Rucker** | the **(I)** guards, integration |
+
+> **⛔ CRITICAL: Run packets in NUMERICAL order — `01` through `17` — regardless of folder.** A folder is not a work queue. `wearable/08` runs after `engine/07` is available, not whenever Ryan gets to it. *(Parallelism is real and documented in `docs/AGENTIC-TDD-WORKFLOW.md` §9 — but it is described there in terms of what each packet is BLOCKED BY, not by folder.)*
+>
+> **MANDATORY**: The **`Human owner` field inside each packet is authoritative.** The folder is a convenience for finding things. **If the two ever disagree, the packet wins** and the folder is the thing to fix.
+
+---
+
 ### **PROMPT FILES**:
 
 | # | File | Phase | Status |
 |---|---|---|---|
-| 01 | `01-project-scaffold.md` | SCAFFOLD | ✅ Written |
-| 02 | `02-toolchain-and-dependencies.md` | SCAFFOLD | ✅ Written |
-| 03 | `03-shared-contract-types.md` | **HUMAN-AUTHORED** | ✅ Written |
-| 04 | `04-engine-tests-RED.md` | 🔴 RED | ✅ Written |
-| 05 | `05-engine-implementation-GREEN.md` | 🟢 GREEN | ✅ Written |
-| 06 | `06-reschedule-service-tests-RED.md` | 🔴 RED | ⬜ Not yet written |
-| 07 | `07-reschedule-service-GREEN.md` | 🟢 GREEN | ⬜ Not yet written |
-| 08 | `08-wearable-adapter-and-metric-set.md` | 🔴/🟢 | ⬜ Not yet written |
-| 09 | `09-recommendation-rules-tests-RED.md` | 🔴 RED | ⬜ Not yet written |
-| 10 | `10-recommendation-rules-GREEN.md` | 🟢 GREEN | ⬜ Not yet written |
-| 11 | `11-catalog-and-seeded-libraries.md` | 🔴/🟢 | ⬜ Not yet written |
-| 12 | `12-backend-api.md` | 🔴/🟢 | ⬜ Not yet written — **⛔ must carry the OPEN-12 escalation, below** |
-| 13 | `13-frontend-schedule-dashboard.md` | BUILD | ⬜ Not yet written |
-| 14 | `14-frontend-wellness-view.md` | BUILD | ⬜ Not yet written |
-| 15 | `15-frontend-analytics-view.md` | BUILD | ⬜ Not yet written |
-| 16 | `16-inspection-requirement-guards.md` | GUARD | ⬜ Not yet written |
-| 17 | `17-complete-implementation-guide.md` | INTEGRATION | ⬜ Not yet written |
+| 01 | `foundation/01-project-scaffold.md` | SCAFFOLD | ✅ Written |
+| 02 | `foundation/02-toolchain-and-dependencies.md` | SCAFFOLD | ✅ Written |
+| 03 | `foundation/03-shared-contract-types.md` | **HUMAN-AUTHORED** | ✅ Written |
+| 04 | `engine/04-engine-tests-RED.md` | 🔴 RED | ✅ Written |
+| 05 | `engine/05-engine-implementation-GREEN.md` | 🟢 GREEN | ✅ Written |
+| 06 | `engine/06-reschedule-service-tests-RED.md` | 🔴 RED | ⬜ Not yet written |
+| 07 | `engine/07-reschedule-service-GREEN.md` | 🟢 GREEN | ⬜ Not yet written |
+| 08 | `wearable/08-wearable-adapter-and-metric-set.md` | 🔴/🟢 | ⬜ Not yet written |
+| 09 | `wearable/09-recommendation-rules-tests-RED.md` | 🔴 RED | ⬜ Not yet written |
+| 10 | `wearable/10-recommendation-rules-GREEN.md` | 🟢 GREEN | ⬜ Not yet written |
+| 11 | `wearable/11-catalog-and-seeded-libraries.md` | 🔴/🟢 | ⬜ Not yet written |
+| 12 | `backend/12-backend-api.md` | 🔴/🟢 | ⬜ Not yet written — **⛔ must carry the OPEN-12 escalation, below** |
+| 13 | `frontend/13-frontend-schedule-dashboard.md` | BUILD | ⬜ Not yet written |
+| 14 | `frontend/14-frontend-wellness-view.md` | BUILD | ⬜ Not yet written |
+| 15 | `frontend/15-frontend-analytics-view.md` | BUILD | ⬜ Not yet written |
+| 16 | `verification/16-inspection-requirement-guards.md` | GUARD | ⬜ Not yet written |
+| 17 | `verification/17-complete-implementation-guide.md` | INTEGRATION | ⬜ Not yet written |
 
 > **CRITICAL**: Prompts 06–17 are **enumerated but not yet authored.** Their scope, phase, and requirement IDs are fixed below and derived from the SRS; their detailed text is written when the packet is run. **This is deliberate.** A prompt authored weeks before its module is designed encodes guesses, and an agent will implement a guess as faithfully as a requirement. **A prompt that does not exist is visibly missing; a prompt written from speculation is invisibly wrong.**
 

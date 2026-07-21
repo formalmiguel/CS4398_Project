@@ -65,7 +65,7 @@ The user has said this explicitly: *"I can't remember everything. Documentation 
 | *"That behavior was right — keep it"* | **It's a requirement.** Add it to `docs/SRS-v2.md` (with revision history + cross-refs, §0 rule 3), then quote it verbatim into the packet. Now it's binding because the team agreed, not because one run did it. |
 | *"Don't let it do X"* | **It's a constraint.** State it as a prohibition in the packet's *Files you must NOT touch* or *Escalation clause*. Constraints belong in prompts; implementations don't. |
 | *"I want re-runs to be consistent"* | **That's what the frozen tests are for.** They are the only invariant across runs — which is exactly why they're written first (packet 04) and committed before any implementation exists (packet 05). |
-| *"These types must be exact"* | **Already handled.** `prompts/03-shared-contract-types.md` is human-authored and transcribed verbatim, by design (§4.7). |
+| *"These types must be exact"* | **Already handled.** `prompts/foundation/03-shared-contract-types.md` is human-authored and transcribed verbatim, by design (§4.7). |
 
 ### ✅ Pasting code is FINE in all of these cases — do not over-apply this rule
 
@@ -73,7 +73,7 @@ The user has said this explicitly: *"I can't remember everything. Documentation 
 - **Type signatures, interfaces, and the contract** — those are obligations the code must satisfy, not implementations
 - **Boundary tables and required test cases** quoted from the SRS
 - Error messages, stack traces, failing test output
-- Anything in `prompts/03-shared-contract-types.md`
+- Anything in `prompts/foundation/03-shared-contract-types.md`
 
 > **The prohibition is narrow and specific: implementation code must not enter a file in `prompts/`.** Everything else is ordinary work. Full reasoning: §4.11.
 
@@ -112,7 +112,7 @@ A web application that combines an **adaptive scheduling engine** with **real we
 | **`docs/build-pdf.sh`** | **Builds the submission PDF.** Run `./build-pdf.sh` **from inside `docs/`** → `docs/build/SRS-v2-CS4398.pdf` (65pp). Pre-renders the four Mermaid diagrams to SVG, inlines them, prints via the installed Chrome. **Everything under `build/` is generated, gitignored, and disposable — never edit it.** *(Mermaid diagrams are code blocks; most Markdown→PDF exporters emit the raw code rather than the picture, which is worse than no diagram at all. This script exists so that cannot happen. It needs Node.js and Chrome on the machine — both are checked at startup.)* |
 | **`docs/AGENTIC-TDD-WORKFLOW.md`** | **How the code actually gets written.** The RED/GREEN agent split, the contract rule, the executable guards. **Read §1 before running any agent** — it is the three ways this method fails silently. |
 | **`docs/TEAM-MEETING.md`** | Agenda, open questions, and the running decision log. §0 requires decisions to be written here **as they are made**. |
-| **`prompts/`** | **The work packets.** One packet ≈ one agent session ≈ one reviewable diff ≈ one human owner. **Numbered `01`…`17` and delivered in exact numerical order**; `00-prompt-collection-summary.md` is the index and `README-prompts.md` the phase map. `01`–`03` scaffold, toolchain, contract → `04` engine RED → **human gate** → `05` engine GREEN. `_TEMPLATE.md` for new ones. **Prompts `06`–`17` are enumerated with their requirement IDs but not yet authored** *(deliberately — see §4.11)*. |
+| **`prompts/`** | **The work packets.** One packet ≈ one agent session ≈ one reviewable diff ≈ one human owner. **Numbered `01`…`17` and delivered in exact numerical order**, and **grouped into folders by owner** so nobody has to ask whose packet a file is. `00-prompt-collection-summary.md` is the index, `README-prompts.md` the phase map, `_TEMPLATE.md` for new ones. **Packets `06`–`17` are enumerated with their requirement IDs but not yet authored** *(deliberately — §4.11)*.<br><br>`foundation/` **01–03** *(Patrick)* · `engine/` **04–07** *(Patrick)* · `wearable/` **08–11** *(Ryan)* · `backend/` **12** *(Miguel)* · `frontend/` **13–15** *(Miguel)* · `verification/` **16–17** *(Patrick)*<br><br>⚠️ **The numbers are the delivery order and the folders are the ownership** — they are two different axes and both matter. **The `Human owner` field inside each packet is authoritative**; the folder is a convenience, and if the two ever disagree, the packet wins. |
 
 ### 3.1 What deliberately did NOT come into the repo
 
@@ -364,7 +364,7 @@ Owner: Patrick Rucker
 | 1 | **Pull a real Garmin export and look at the actual fields** (OPEN-01) | On the critical path. Until it's done, the sleep-score formula and the meal library's calorie assumptions are guesses. **It is small work.** Due 16 Jul. |
 | 2 | Assign the three roles | Blocks the SRS's annotated TOC and signature page. |
 | 3 | Ratify the scope cuts as a team | The point of writing them down is that nobody is surprised on 29 July. |
-| 4 | **Ratify the contract** (`prompts/03-shared-contract-types.md`), then run **01 → 02 → 03 → 04 (RED) → human gate → 05 (GREEN)** | The engine is the grade, and it is the **only** module blocked by nothing — pure, no DB, no clock, no network, no framework. **Everything else is written against its contract**, including FR-REC-04. Build it first, and shake out the agentic loop on the one module the SRS specifies at test-case granularity. |
+| 4 | **Ratify the contract** (`prompts/foundation/03-shared-contract-types.md`), then run **01 → 02 → 03 → 04 (RED) → human gate → 05 (GREEN)** | The engine is the grade, and it is the **only** module blocked by nothing — pure, no DB, no clock, no network, no framework. **Everything else is written against its contract**, including FR-REC-04. Build it first, and shake out the agentic loop on the one module the SRS specifies at test-case granularity. |
 
 **Suggested build order:** engine + tests (12–15 Jul) → **real Garmin metric driving a real decision by the 16 Jul midpoint** ← go/no-go gate → backend API + rules + libraries (17–21 Jul) → frontend (start against a *mocked* API on 17 Jul, do not wait for the backend) → integration + at least three full demo rehearsals (28–30 Jul).
 

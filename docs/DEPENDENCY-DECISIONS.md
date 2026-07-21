@@ -3,14 +3,14 @@
 > **CLOSED 21 July 2026. Miguel decided all six.** Express · **official `mongodb` driver** (not Mongoose) · bcrypt · JSON Web Tokens · React + Vite · `engine`/`shared` empty.
 >
 > **The decisions now live in two places, and this file is neither of them:**
-> - **`prompts/02-toolchain-and-dependencies.md`** — the pinned manifest an agent installs from
+> - **`prompts/foundation/02-toolchain-and-dependencies.md`** — the pinned manifest an agent installs from
 > - **`docs/TEAM-MEETING.md`** — the decision log row, with the reasoning
 >
 > **This file is kept only as the record of what was asked and why.** It is not authoritative and must not be updated — if it ever disagrees with the two above, they are right. *(Safe to delete once everyone has read it.)*
 
 ---
 
-**From:** Patrick · **Date:** 21 July 2026 · **Blocked:** work packet `prompts/02-toolchain-and-dependencies.md`
+**From:** Patrick · **Date:** 21 July 2026 · **Blocked:** work packet `prompts/foundation/02-toolchain-and-dependencies.md`
 
 **What I needed:** a yes/no or a counter-proposal on **six package choices** below. They're backend and frontend, which is your module. Ten minutes of reading, and the Mongoose one is worth actually thinking about.
 

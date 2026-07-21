@@ -11,37 +11,37 @@ The System demonstrates a **pure-function scheduling core** with **observer-free
 ## **MANDATORY EXECUTION SEQUENCE**
 
 ### **Phase 1: Project Foundation (Prompts 1–3)**
-- **`01-project-scaffold.md`** — Creates the workspace layout and package boundaries
-- **`02-toolchain-and-dependencies.md`** — Configures TypeScript, Jest, fast-check, ESLint, and the CI gates
-- **`03-shared-contract-types.md`** — Defines the domain contract every other package imports
+- **`foundation/01-project-scaffold.md`** — Creates the workspace layout and package boundaries
+- **`foundation/02-toolchain-and-dependencies.md`** — Configures TypeScript, Jest, fast-check, ESLint, and the CI gates
+- **`foundation/03-shared-contract-types.md`** — Defines the domain contract every other package imports
 
 > **CRITICAL**: Prompt 03 is **human-authored and ratified before any agent runs.** See "The Contract Is Frozen" below.
 
 ### **Phase 2: The Scheduling Engine (Prompts 4–5)**
-- **`04-engine-tests-RED.md`** — Writes the failing test suite. **No implementation.**
-- **`05-engine-implementation-GREEN.md`** — Makes the suite pass. **May not edit a test.**
+- **`engine/04-engine-tests-RED.md`** — Writes the failing test suite. **No implementation.**
+- **`engine/05-engine-implementation-GREEN.md`** — Makes the suite pass. **May not edit a test.**
 
 ### **Phase 3: Automatic Rescheduling (Prompts 6–7)**
-- **`06-reschedule-service-tests-RED.md`** — Trigger tests: missed, skipped, displaced, corrected
-- **`07-reschedule-service-GREEN.md`** — The service. **Calls the engine of Phase 2 — no new placement logic.**
+- **`engine/06-reschedule-service-tests-RED.md`** — Trigger tests: missed, skipped, displaced, corrected
+- **`engine/07-reschedule-service-GREEN.md`** — The service. **Calls the engine of Phase 2 — no new placement logic.**
 
 ### **Phase 4: Wearable Data and Recommendations (Prompts 8–10)**
-- **`08-wearable-adapter-and-metric-set.md`** — Source-independent metric ingestion
-- **`09-recommendation-rules-tests-RED.md`** — Sleep→intensity and calories→target rule tests
-- **`10-recommendation-rules-GREEN.md`** — The rule registry and the two shipping rules
+- **`wearable/08-wearable-adapter-and-metric-set.md`** — Source-independent metric ingestion
+- **`wearable/09-recommendation-rules-tests-RED.md`** — Sleep→intensity and calories→target rule tests
+- **`wearable/10-recommendation-rules-GREEN.md`** — The rule registry and the two shipping rules
 
 ### **Phase 5: Content and Backend (Prompts 11–12)**
-- **`11-catalog-and-seeded-libraries.md`** — Workout and meal libraries behind a catalog interface
-- **`12-backend-api.md`** — Accounts, tasks, commitments, persistence
+- **`wearable/11-catalog-and-seeded-libraries.md`** — Workout and meal libraries behind a catalog interface
+- **`backend/12-backend-api.md`** — Accounts, tasks, commitments, persistence
 
 ### **Phase 6: Frontend (Prompts 13–15)**
-- **`13-frontend-schedule-dashboard.md`** — The day view, complete/skip actions, reschedule notices
-- **`14-frontend-wellness-view.md`** — Metrics, recommended workout, meal plan
-- **`15-frontend-analytics-view.md`** — Streaks and completion rates
+- **`frontend/13-frontend-schedule-dashboard.md`** — The day view, complete/skip actions, reschedule notices
+- **`frontend/14-frontend-wellness-view.md`** — Metrics, recommended workout, meal plan
+- **`frontend/15-frontend-analytics-view.md`** — Streaks and completion rates
 
 ### **Phase 7: Guards and Integration (Prompts 16–17)**
-- **`16-inspection-requirement-guards.md`** — Executable CI guards for every **(I)** requirement
-- **`17-complete-implementation-guide.md`** — Integration, acceptance demonstration, verification
+- **`verification/16-inspection-requirement-guards.md`** — Executable CI guards for every **(I)** requirement
+- **`verification/17-complete-implementation-guide.md`** — Integration, acceptance demonstration, verification
 
 ---
 
