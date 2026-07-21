@@ -42,10 +42,83 @@ The SRS is at **v2.5** — ~84 numbered verifiable requirements, formal use case
 │   ├── AGENTIC-TDD-WORKFLOW.md # How the code gets written. Read §1 first.
 │   ├── TEAM-MEETING.md         # Decision log, open issues, action items.
 │   └── build-pdf.sh            # Builds the submission PDF.
-└── prompts/           # The agent work packets, 01…17, run in exact order.
-    ├── 00-prompt-collection-summary.md   # Start here — the index.
-    └── README-prompts.md                 # Phase map and formatting conventions.
+├── prompts/           # The agent work packets, 01…17, run in exact numerical order.
+│   ├── 00-prompt-collection-summary.md   # Start here — the index.
+│   ├── README-prompts.md                 # Phase map and formatting conventions.
+│   ├── _TEMPLATE.md
+│   ├── foundation/    # 01–03  scaffold, toolchain, the contract   (Patrick)
+│   ├── engine/        # 04–07  scheduling + rescheduling           (Patrick)
+│   ├── wearable/      # 08–11  adapter, rules, libraries           (Ryan)
+│   ├── backend/       # 12     API, accounts, persistence          (Miguel)
+│   ├── frontend/      # 13–15  schedule, wellness, analytics       (Miguel)
+│   └── verification/  # 16–17  (I)-requirement guards, integration (Patrick)
+│
+├── shared/            # The domain contract. Types only. Zero dependencies.
+├── engine/            # The pure scheduling function. Zero dependencies, permanently.
+├── server/            # API, persistence, sessions.
+└── web/               # React frontend.
 ```
+
+**Numbers are the delivery order; folders are the ownership.** Two different axes, and both matter — run `01` → `17` regardless of which folder a packet lives in. The `Human owner` field *inside* each packet is authoritative; the folder is a convenience.
+
+---
+
+## Dependencies and Setup
+
+> ⚠️ **Not applicable yet.** There is no `package.json` in this repository today — it holds documents only. **Work packets `01` and `02` create the manifests and install everything.** This section describes how it will work once they have run, so you know what you're getting.
+
+### The shape: four packages, one install
+
+This is an **npm workspaces** monorepo. One language across the whole stack, so any of the three of us can review any file.
+
+```
+package.json          { "workspaces": ["shared", "engine", "server", "web"] }
+├── shared/           dependencies: {}          the domain contract — types only
+├── engine/           dependencies: {}          PURE. Empty permanently. See below.
+├── server/           dependencies: express, mongodb, bcrypt, jsonwebtoken, cors, dotenv
+└── web/              dependencies: react, react-dom
+```
+
+You run **one command at the root**. npm reads all five manifests, resolves the entire graph at once, and produces:
+
+- **one `package-lock.json` at the root** — every package *and every transitive dependency*, pinned to an exact version
+- **one `node_modules/` at the root** — installed once and "hoisted", not four copies
+- **symlinks** for our own packages, which is what lets `engine/` and `server/` write `import { Task } from '@capstone/shared'` instead of `../../shared/src`
+
+### Commands
+
+| Command | What it does | When to use it |
+|---|---|---|
+| **`npm ci`** | Wipes `node_modules` and installs **exactly** what the lock file says. Fails if manifest and lock disagree. | **Fresh clone, and CI** |
+| `npm install` | Resolves version ranges and **may update** `package-lock.json` | Only when adding or changing a dependency |
+| `npm install <pkg> -w server` | Adds one package to one workspace | Adding a dependency to a specific package |
+
+**Full setup from scratch:**
+
+```bash
+git clone https://github.com/formalmiguel/CS4398_Project.git
+cd CS4398_Project
+npm ci
+npm test
+```
+
+**Use `npm ci`, not `npm install`, on a fresh clone.** `npm install` can silently drift the lock file, which means your tree and Miguel's stop being identical — and **CON-10** requires this project to be runnable on a clean machine from one documented command sequence. `npm ci` is what makes that true rather than hopeful.
+
+### Why `package-lock.json` is committed
+
+`package.json` says *"Express 4-ish."* The lock file says *"Express 4.21.2, and these 400 transitive packages at these exact versions."* Without it committed, two people installing a week apart get subtly different trees — the classic *"works on my machine"*, discovered the night before a demo.
+
+`node_modules/` is **never** committed. It is reproducible from the lock file, and it is gitignored.
+
+### ⚠️ `engine/` has zero runtime dependencies — permanently
+
+`engine/package.json` has an **empty `dependencies` block**, and CI fails if one is added.
+
+That is not tidiness. **FR-SCH-05** requires the engine to be a pure function — no clock, no database, no side effects — and **NFR-COR-01** requires it to be property-tested over 1,000 randomized days with no database and no browser. **An engine that cannot import anything cannot accidentally import a clock.**
+
+*(This constrains runtime `dependencies` only. Jest, ts-jest and fast-check are dev tooling, live in the **root** `devDependencies`, and are hoisted to all four packages — otherwise the guard would fire the moment anyone added a test runner, and people would switch it off.)*
+
+**One caveat contributors should know:** because npm hoists everything to the root `node_modules/`, Node will happily resolve `import { MongoClient } from 'mongodb'` *from inside `engine/`*, even though `engine/package.json` declares nothing. The CI guard checks the **manifest**, not the **imports** — so it catches `npm install mongodb -w engine` but not a stray import line. A lint rule restricting `engine/**` to relative imports plus the contract closes that gap; it belongs to packet 16 with the other **(I)**-requirement guards.
 
 ---
 

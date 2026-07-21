@@ -1,0 +1,34 @@
+{
+  "name": "adaptive-scheduler",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Adaptive Habit, Schedule & Wellness System — CS 4398 Capstone",
+  "workspaces": [
+    "shared",
+    "engine",
+    "server",
+    "web"
+  ],
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "lint": "eslint . --ext .ts,.tsx",
+    "test": "jest --passWithNoTests",
+    "test:coverage": "jest --coverage --passWithNoTests",
+    "guard:engine-deps": "node scripts/guard-engine-deps.mjs",
+    "verify": "npm run typecheck && npm run lint && npm run guard:engine-deps && npm run test:coverage"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "devDependencies": {
+    "@types/jest": "^30.0.0",
+    "@types/node": "^26.1.1",
+    "@typescript-eslint/eslint-plugin": "^7.18.0",
+    "@typescript-eslint/parser": "^7.18.0",
+    "eslint": "^8.57.1",
+    "fast-check": "^4.9.0",
+    "jest": "^30.4.2",
+    "ts-jest": "^29.4.11",
+    "typescript": "^5.9.3"
+  }
+}

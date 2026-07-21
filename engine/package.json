@@ -1,0 +1,9 @@
+{
+  "name": "@capstone/engine",
+  "version": "0.1.0",
+  "private": true,
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "comment": "FR-SCH-05: dependencies MUST stay empty. CI fails if this changes. An engine that cannot import anything cannot import a clock.",
+  "dependencies": {}
+}

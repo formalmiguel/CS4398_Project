@@ -1,0 +1,12 @@
+# Normalize line endings so a Windows checkout and a macOS/Linux checkout do not
+# produce diffs where every line looks changed. Text is stored LF in the repo and
+# checked out native; the shell script must stay LF or it will not run in CI.
+* text=auto eol=lf
+
+*.sh   text eol=lf
+*.mjs  text eol=lf
+*.cjs  text eol=lf
+
+*.png  binary
+*.pdf  binary
+*.svg  binary

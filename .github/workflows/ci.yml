@@ -1,0 +1,50 @@
+name: CI
+
+# Every gate below FAILS THE BUILD. A gate that is not enforced is not a gate;
+# it is a hope. See CLAUDE.md §4.8 and prompts/02-toolchain-and-dependencies.md.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      # CON-10: the project installs on a clean machine from the lock file alone.
+      # `npm ci` fails if package.json and package-lock.json disagree.
+      - name: Install (clean, from lock)
+        run: npm ci
+
+      # NFR-MNT-04
+      - name: Typecheck
+        run: npm run typecheck
+
+      # NFR-MNT-04
+      - name: Lint
+        run: npm run lint
+
+      # FR-SCH-05 purity guard, manifest level: engine and shared declare zero
+      # runtime dependencies. An engine that cannot import anything cannot
+      # import a clock.
+      #
+      # The import-level half of this guard is the no-restricted-imports rule
+      # scoped to engine/** in .eslintrc.cjs, enforced by the Lint step above.
+      # Both are needed: npm hoists to the root node_modules, so a stray
+      # `import 'mongodb'` inside engine/ resolves at runtime even when
+      # engine/package.json declares nothing.
+      - name: Engine purity guard (FR-SCH-05)
+        run: npm run guard:engine-deps
+
+      # NFR-MNT-01 (Essential): engine coverage >= 90% lines, enforced as a
+      # coverageThreshold in jest.config.cjs.
+      - name: Test + coverage
+        run: npm run test:coverage
