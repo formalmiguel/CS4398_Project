@@ -25,6 +25,24 @@
 
 ---
 
+## ⚠️ **CRITICAL**: Amended 21 July — Ratify These Four Changes Before Running
+
+**MANDATORY**: The contract was reviewed against SRS **v2.5** on 21 Jul and **four changes were made.** They are marked in the code below. **The team ratifies all four before this packet runs.**
+
+| # | Change | Why |
+|---|---|---|
+| 1 | **`Metric` is now a discriminated union** | FR-WER-06 / NFR-ROB-01 require an absent metric and a measured zero to stay distinguishable. The old interface permitted `{ value: 0, isAvailable: false }` and let a rule read `value` without checking the flag — **the exact collapse the requirement forbids, and nothing would fail.** As a union, forgetting to check does not compile. *(This is the same pattern `PlacementResult` already used for FR-SCH-06 — it simply had not been applied here.)* |
+| 2 | **Added `Placement`, `PlacementStatus`, `RescheduleTrigger`** | **The contract had no `Placement` type at all**, yet §3.6's class diagram declares `onTaskMissed(placement: Placement)` and DR-06 requires the trigger to distinguish missed / skipped / displaced. Packets 06–07 need these. **Without them, that agent invents them — which is the precise failure §4.7 exists to prevent.** |
+| 3 | **`Slot.reason` → `Slot.explanation`** | `PlacementResult`'s failure branch already has a `reason` that is an **enum**. Two fields named `reason` — one prose, one union — on types used in the same expression is a bug waiting to be written. |
+| 4 | **`Minute` stays a plain alias; its comment no longer overclaims** | Branding it (`number & { __brand }`) *would* be enforced, but every literal, JSON boundary, Mongo document and test fixture would need a cast. Declined on cost. **The comment previously implied a safety the type did not provide** — that was the actual defect, and it is fixed. |
+
+> **Still open, deliberately not invented here** — decide in the ratification meeting:
+> - **`CompletionRecord`** — DR-01 requires completion history to survive task deletion. Persistence concern or shared type?
+> - ~~**`userId` on `Task` / `Placement`**~~ — **RESOLVED 21 Jul: deferred to implementation, owner Miguel Alvarez (SRS Appendix C, OPEN-12).** The contract carries **no `userId`**, deliberately. Whether a user is keyed by email or an opaque id, and whether ownership rides on the domain types or on the API boundary around them, is a Frontend & Backend Lead decision made when the API is built. **⛔ Any agent that reaches this must STOP and ask Miguel — not choose.**
+> - **Wake 08:00 → bed 02:00 cannot be expressed** (`Interval` requires `end > start`, and UC-01 rejects it). Consistent with the SRS — but §2.3 says the user is *"typically a university student"*, the population most likely to have a post-midnight bedtime. **Keep the limitation or fix it, but decide it.**
+
+---
+
 ## **MANDATORY**: The Contract — `shared/src/contract.ts`
 
 **Type this file exactly as written.**
@@ -54,7 +72,21 @@
 // that structurally true rather than merely intended. Conversion between wall-clock
 // time and Minute happens at the API boundary — never inside the engine.
 
-/** Minutes since local midnight. 0–1439. */
+/**
+ * Minutes since local midnight. 0–1439.
+ *
+ * NOTE: this is a plain alias, NOT a branded type. It does not stop you passing a
+ * priority or a duration where a Minute belongs — every one of those is `number`.
+ * It is a naming convention that makes intent readable, and nothing more.
+ *
+ * The team considered branding it (`number & { __brand: 'Minute' }`), which WOULD be
+ * enforced, and declined on 21 Jul: every literal, JSON boundary, Mongo document and
+ * test fixture would need a cast, and a time/priority mix-up fails the property test
+ * (NFR-COR-01) on the first of its 1,000 cases anyway. Decision logged.
+ *
+ * What DOES enforce FR-SCH-05's purity is that the engine never receives a Date and
+ * has zero dependencies — not this alias.
+ */
 export type Minute = number;
 
 /** A half-open interval [start, end). Invariant: end > start. */
@@ -108,8 +140,14 @@ export interface Slot {
 
   readonly withinPreferredWindow: boolean;
 
-  /** Plain language, for FR-DSH-05. e.g. "4:00 PM — your 2:00 PM slot was taken by CS 401 Lecture." */
-  readonly reason: string;
+  /**
+   * Plain language, for FR-DSH-05. e.g. "4:00 PM — your 2:00 PM slot was taken by CS 401 Lecture."
+   *
+   * Named `explanation`, NOT `reason`, deliberately: `PlacementResult`'s failure branch has a
+   * `reason` field that is an ENUM. Two fields called `reason` — one prose, one union — on types
+   * that appear in the same expression is a bug waiting to be written.
+   */
+  readonly explanation: string;
 }
 
 /** Why nothing could be placed. FR-SCH-06 requires a REASON, never a silent empty list. */
@@ -136,6 +174,48 @@ export type PlacementResult =
       readonly explanation: string;
     };
 
+// ─── Placement (an occurrence on a real day) ─────────────────────────────────
+//
+// A Task is the standing intent ("read 30 minutes, evenings"). A Placement is one
+// occurrence of it on one date. FR-TSK-05: a recurring task expands to one Placement
+// per matching day, each INDEPENDENTLY completable and reschedulable.
+//
+// The ENGINE never sees this type — it is pure and per-day (FR-SCH-05). RescheduleService
+// does (§3.6), and so do the API, analytics, and the dashboard.
+
+/** DR-06: which trigger moved this placement. Absent means it has never been rescheduled. */
+export type RescheduleTrigger =
+  | 'MISSED'      // inferred: window elapsed, not complete, not skipped  (FR-RSC-01)
+  | 'SKIPPED'     // declared by the user, possibly before the window     (FR-RSC-08)
+  | 'DISPLACED';  // a new fixed commitment overlapped it                 (FR-RSC-02)
+
+export type PlacementStatus =
+  | 'PLANNED'
+  | 'COMPLETED'
+  | 'MISSED'
+  | 'SKIPPED'
+  /**
+   * An automatic reschedule that was WITHDRAWN because the user marked the original
+   * occurrence complete (FR-RSC-09). DR-06 requires a cancelled reschedule to stay
+   * distinguishable from one that never happened — so it is marked, never deleted.
+   */
+  | 'CANCELLED';
+
+export interface Placement {
+  readonly id: string;
+  readonly taskId: string;
+  readonly date: IsoDate;
+  readonly start: Minute;
+  readonly end: Minute;
+  readonly status: PlacementStatus;
+
+  /** DR-03: a placement records WHY it is where it is, so FR-DSH-05 reads stored data. */
+  readonly placementReason: string;
+
+  /** Absent if this placement has never been moved. */
+  readonly rescheduleTrigger?: RescheduleTrigger;
+}
+
 // ─── Wearable metrics ────────────────────────────────────────────────────────
 //
 // One entry per metric, keyed by name — NOT a struct with a sleepScore field and an
@@ -146,20 +226,34 @@ export type PlacementResult =
 
 export type MetricOrigin = 'EXPORT' | 'LIVE_API' | 'INJECTED';
 
-export interface Metric {
-  readonly name: string;
-  readonly value: number;
-  readonly unit: string;
-
-  /**
-   * FR-WER-06: an absent metric and a measured zero are DIFFERENT FACTS and must remain
-   * distinguishable at every layer. A rest day with 0 active calories is real data. A watch
-   * left on the nightstand is not. Never collapse one into the other.
-   */
-  readonly isAvailable: boolean;
-
-  readonly origin: MetricOrigin;
-}
+/**
+ * A discriminated union, for the SAME reason PlacementResult is one.
+ *
+ * FR-WER-06 and NFR-ROB-01: an absent metric and a measured zero are DIFFERENT FACTS and must
+ * remain distinguishable at every layer. A rest day with 0 active calories is real data. A watch
+ * left on the nightstand is not.
+ *
+ * A single interface with `value: number` and `isAvailable: boolean` permits
+ * `{ value: 0, isAvailable: false }` and lets a rule read `value` without ever checking the flag
+ * — which is precisely the collapse the requirement forbids, and nothing would fail.
+ *
+ * As a union, `value` DOES NOT EXIST on the unavailable branch. A rule that forgets to check
+ * availability does not compile. That is the difference between a convention and a constraint.
+ */
+export type Metric =
+  | {
+      readonly name: string;
+      readonly unit: string;
+      readonly origin: MetricOrigin;
+      readonly isAvailable: true;
+      readonly value: number;
+    }
+  | {
+      readonly name: string;
+      readonly unit: string;
+      readonly origin: MetricOrigin;
+      readonly isAvailable: false;
+    };
 
 /** ISO 8601 calendar date, `YYYY-MM-DD`. */
 export type IsoDate = string;
