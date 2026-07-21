@@ -1,0 +1,1559 @@
+<div align="center">
+
+# Software Requirements Specification
+
+## Adaptive Habit, Schedule & Wellness System
+
+### An adaptive scheduling engine driven by real wearable health data
+
+<br>
+
+**Version 2.5**
+
+**CS 4398 — Software Engineering Capstone**
+
+**Summer 2026**
+
+<br>
+
+**Prepared by:**
+
+**Patrick Rucker** — *Scheduling Algorithm Lead*
+**Ryan Woosley** — *Data & Wearable Integration Lead*
+**Miguel Alvarez** — *Frontend & Backend Lead*
+
+<br>
+
+**Date:** 21 July 2026
+
+**Standard:** IEEE Std 830-1998, *Recommended Practice for Software Requirements Specifications*
+
+</div>
+
+---
+
+## Revision History
+
+| Version | Date | Author | Description |
+|---|---|---|---|
+| 0.1 | 8 July 2026 | Team | Initial project overview and problem statement. |
+| 1.0 | 12 July 2026 | Team | First full SRS. Requirements made individually verifiable; priorities and verification methods assigned. |
+| 1.1 | 12 July 2026 | Data & Wearable Lead | **Wearable strategy revised.** Official Garmin Health API removed from the critical path after its partner-approval lead time was found incompatible with the course timeline. Replaced with a layered data-source strategy. |
+| 1.2 | 12 July 2026 | Data & Wearable Lead | Active calories added as a second driving metric, so that meal plans are genuinely wearable-driven. Metric set and rule registry made extensible. |
+| 1.3 | 12 July 2026 | Team | Workout and meal libraries specified as local seeded data rather than runtime API calls. |
+| **2.0** | **12 July 2026** | **Team** | **Restructured for submission.** Use cases promoted to formal specifications; UML and wireframe diagrams added; operating environment and hardware/software requirements added; non-functional requirements reorganized around the six quality attributes named in the course directions. |
+| **2.1** | **12 July 2026** | **Team** | **Scope bounded against the timeline.** Added §2.7.1, defining the prioritization strategy and the **Core Demonstrable Capability** — the irreducible set of requirements carrying the System's central claim. Demoted FR-REC-10 (weekly meal plan) and NFR-MNT-02 (whole-system coverage) from Essential to Conditional. **No requirement in the Core was demoted.** |
+| **2.2** | **12 July 2026** | **Team** | **Calendar semantics specified.** Added **FR-CAL-05** (an all-day event shall not be treated as a busy interval — naively doing so would mark the whole schedulable day occupied and the engine could place nothing) and **FR-CAL-06** (recurring events expanded to concrete occurrences before reaching the engine). Sharpened SI-05 to name Google Calendar and record why it is Conditional despite being unblocked. |
+| **2.3** | **12 July 2026** | **Team** | **Engine signature corrected in §3.6 — it could not satisfy its own requirements.** The class diagram declared `findCandidateSlots(busy, task) → Slot[]`. A bare `Slot[]` **cannot express FR-SCH-06's required "explicit empty result *with a reason*"** — an empty array carries no reason and lets a caller ignore the failure silently, which is the exact behavior FR-SCH-06 forbids. It now returns a **`PlacementResult`** discriminated union. Separately, the engine must know the schedulable day to satisfy **FR-SCH-04**, but **FR-SCH-05** denies it a clock or database, so `schedulableDay` is now an explicit **parameter**. *No requirement changed; the design was brought into conformance with requirements it already had.* Found while deriving the implementation contract (`prompts/03-shared-contract-types.md`). |
+| **2.5** | **21 July 2026** | **Team** | **The miss signal was under-specified — a user could not tell the System anything, and the System could not be corrected.** FR-RSC-01 inferred a miss from an elapsed, unmarked window, which is ambiguous between *"missed"* and *"did it and forgot to tap complete"*, and the SRS offered no way to resolve that ambiguity in either direction. Added **FR-RSC-08** (user declares an occurrence **skipped** — a third reschedule trigger, and the only one available *before* the window elapses), **FR-RSC-09** (marking an occurrence complete after an automatic reschedule **cancels** that reschedule — the correction path), and **FR-RSC-10** (what actually observes an elapsed window; FR-RSC-01 stated the condition but never the mechanism, leaving it to whichever module was built first). Added **UC-13**, **FR-DSH-07**, **DR-06**, and **FR-ANL-06** (a declared skip that is never made up counts as **not completed** — the alternative would let a user protect a streak by announcing failures in advance, making it a measure of candor rather than consistency). §1.4.2 updated: **three** reschedule triggers, not two, and **Skipped Task** defined. **All thirteen use cases were re-audited against the change**, which surfaced four that had quietly become incomplete: UC-10's trigger list omitted a skip; UC-11 had no answer for a skipped-and-never-completed habit; UC-07 did not say whether a re-placed workout is still eligible for intensity adjustment (it is — FR-REC-07 clarified); and UC-12, the acceptance-demo backbone, had drifted from the §6 script. *No requirement was demoted, and FR-RSC-01's automatic classification is unchanged — the user's declaration is an **additional** path and a **correction** path, never a precondition. Making it a precondition would have meant the schedule repairs itself only when asked, which is a weaker claim than §2.7.1 makes.* |
+| **2.4** | **12 July 2026** | **Team** | **Ratified at the team meeting of 12 July.** Roles assigned (see cover page and annotated TOC). **Data layer changed from PostgreSQL to MongoDB** (CON-08) — the System's data requirements are storage-model-independent, so §5 is unaffected in substance, but DR-05 is restated in document terms and the ERD is marked as a logical model. **Calendar import (SI-05) declined**; replaced by **calendar export as `.ics`** (SI-06, FR-CAL-07, Conditional) — cheaper, and it preserves the offline acceptance demonstration. CON-07 restated to distinguish *exporting a file to the user* from *writing to a third-party account*. |
+
+---
+
+## Table of Contents
+
+*Annotated to indicate the team member primarily responsible for each section, per the course directions.*
+
+| § | Title | Primary Author |
+|---|---|---|
+| **1** | **Introduction** | |
+| 1.1 | Document Purpose | *Patrick Rucker* |
+| 1.2 | Product Scope | *Patrick Rucker* |
+| 1.3 | Intended Audience | *Patrick Rucker* |
+| 1.4 | Definitions, Acronyms, and Abbreviations | *Patrick Rucker* |
+| 1.5 | References | *Patrick Rucker* |
+| 1.6 | Overview and Document Conventions | *Patrick Rucker* |
+| **2** | **Overall Description** | |
+| 2.1 | Product Perspective | *Ryan Woosley* |
+| 2.2 | Product Functions | *Patrick Rucker* |
+| 2.3 | User Characteristics | *Miguel Alvarez* |
+| 2.4 | End-User Operating Environment | *Miguel Alvarez* |
+| 2.5 | Design and Implementation Constraints | *Patrick Rucker* |
+| 2.6 | Assumptions and Dependencies | *Ryan Woosley* |
+| 2.7 | Apportioning of Requirements | *Patrick Rucker* |
+| 2.7.1 | Prioritization Strategy and Core Demonstrable Capability | *Patrick Rucker* |
+| 2.7.2 | Deferred Beyond This Release | *Patrick Rucker* |
+| **3** | **Functional Requirements** | |
+| 3.1 | Summary and Development Tools | *Patrick Rucker* |
+| 3.2 | Use Case Diagram | *Miguel Alvarez* |
+| 3.3 | Use Case Specifications | *(all)* |
+| 3.4 | Sequence Diagram — Automatic Rescheduling | *Patrick Rucker* |
+| 3.5 | Entity-Relationship Diagram | *Ryan Woosley* |
+| 3.6 | Class Diagram | *Patrick Rucker* |
+| 3.7 | Wireframes | *Miguel Alvarez* |
+| 3.8 | Detailed Functional Requirements | *(all)* |
+| 3.8.1 | Account and Session Management (FR-USR) | *Miguel Alvarez* |
+| 3.8.2 | Task, Habit, and Goal Management (FR-TSK) | *Patrick Rucker* |
+| 3.8.3 | Fixed Commitments and Calendar Data (FR-CAL) | *Miguel Alvarez* |
+| 3.8.4 | Core Scheduling Engine (FR-SCH) | *Patrick Rucker* |
+| 3.8.5 | Automatic Rescheduling — Triggers and Policy (FR-RSC) | *Patrick Rucker* |
+| 3.8.6 | Wearable Data Acquisition (FR-WER) | *Ryan Woosley* |
+| 3.8.7 | Adaptive Recommendation Engine (FR-REC) | *Ryan Woosley* |
+| 3.8.8 | Schedule Dashboard (FR-DSH) | *Miguel Alvarez* |
+| 3.8.9 | Wellness Section (FR-WEL) | *Miguel Alvarez* |
+| 3.8.10 | Analytics and Streaks (FR-ANL) | *Miguel Alvarez* |
+| 3.8.11 | Workout and Meal Libraries (FR-LIB) | *Ryan Woosley* |
+| 3.9 | External Interface Requirements | *Miguel Alvarez* |
+| 3.10 | Hardware and Software Requirements | *Ryan Woosley* |
+| **4** | **Non-Functional Requirements** | |
+| 4.1 | Functional Correctness | *Patrick Rucker* |
+| 4.2 | Reliability | *Patrick Rucker* |
+| 4.3 | Robustness | *Patrick Rucker* |
+| 4.4 | Usability | *Miguel Alvarez* |
+| 4.5 | Maintainability | *Patrick Rucker* |
+| 4.6 | Portability | *Miguel Alvarez* |
+| 4.7 | Performance | *Patrick Rucker* |
+| 4.8 | Security | *Ryan Woosley* |
+| 4.9 | Availability | *Ryan Woosley* |
+| **5** | **Data Requirements** | *Miguel Alvarez* |
+| **6** | **Verification Approach** | *Patrick Rucker* |
+| **A** | **Appendix A — Worked Example of the Scheduling Algorithm** | *Patrick Rucker* |
+| **B** | **Appendix B — Requirements Traceability Matrix** | *Patrick Rucker* |
+| **C** | **Appendix C — Open Issues** | *Patrick Rucker* |
+| **D** | **Appendix D — Approval and Acceptance** | *(all)* |
+| **I** | **Index** | *Patrick Rucker* |
+
+---
+
+# 1. Introduction
+
+## 1.1 Document Purpose
+
+This document specifies the software requirements for the **Adaptive Habit, Schedule & Wellness System** (hereafter "the System"), a web application that maintains a user's daily schedule and adapts both that schedule and the health recommendations within it in response to real physiological data collected from a wearable device.
+
+This SRS is the authoritative statement of *what* the System shall do and the quality attributes it shall exhibit. It does not prescribe *how* those behaviors are to be implemented, except where an implementation choice is itself a binding constraint (see §2.5). Every requirement in §3 and §4 is stated in a verifiable form and carries the method by which the team will demonstrate it has been satisfied.
+
+Per the course directions, this document serves as **the contract between the customer and the development team** concerning what the final product will do and to what standard. Appendix D records acceptance.
+
+## 1.2 Product Scope
+
+The software product to be produced is named **Adaptive Habit, Schedule & Wellness System**.
+
+**What the System will do.** The System treats every commitment in a user's day — a class, a meeting, a personal habit, a workout, or a meal — as a uniformly represented *task* carrying a duration, a priority, a preferred time window, a flexibility flag, and an optional recurrence. It places these tasks into the user's day around their fixed commitments using a single constraint-based scheduling function. When the user's day diverges from the plan — a task is missed, or a new fixed event lands on top of something already scheduled — the System invokes that same function again to repair the schedule automatically, without the user rearranging anything by hand.
+
+The System additionally obtains the user's health metrics from a wearable device: a **sleep score** and an **active-calorie count**. It uses those metrics to generate and adjust recommendations — sleep score sets the recommended workout intensity, and active calories set the daily calorie target the meal plan is built against. Critically, these recommendations are not confined to an advisory panel. A recommended workout is a schedulable task, is placed onto the real calendar, is subject to the same conflict detection as any other task, and is automatically rescheduled by the same engine if it is missed or displaced. The user may replace any recommendation the System places, so that adaptation never overrides the user's authority over their own day.
+
+**What the System will not do.** The System is **not a medical device**. It does not diagnose, treat, or offer clinical advice, and it does not estimate physiological quantities such as basal metabolic rate. It does not perform coaching or messaging between users, does not support multiple wearable platforms in this release, does not write events back to any third-party calendar, and does not replace the user's existing calendar application.
+
+**Objective.** Habit trackers record that a commitment was missed but offer no help recovering from it. Wearable companion apps generate health advice with no awareness of whether the user has time for it. The System closes the gap between these two categories by treating a person's schedule and their physiological state as inputs to one adaptive process, so that a recommendation produced from real biometric data becomes a real, placed, defended commitment on the user's calendar.
+
+## 1.3 Intended Audience
+
+| Audience | What they should read |
+|---|---|
+| **The customer** (course instructor), who will judge whether the delivered product meets its stated requirements | §1, §2, §3.3 (use cases), §6 (verification), Appendix B and D |
+| **The development team**, who will build and verify the System | The entire document. §3.8 and §4 are the binding contract. |
+| **An external evaluator** unfamiliar with the project | §1.2, §2, §3.2–3.7 (diagrams and use cases) give a complete picture without the requirement detail. |
+
+The document assumes a reader who is comfortable with software engineering vocabulary but has **no** prior knowledge of scheduling theory, constraint satisfaction, or exercise physiology. Terms specific to this System are defined in §1.4.
+
+## 1.4 Definitions, Acronyms, and Abbreviations
+
+### 1.4.1 How to Read a Requirement Identifier
+
+Every requirement, constraint, and assumption carries a unique identifier. **The prefix says what kind of statement it is; the number is a counter within that group.** So `FR-SCH-02` reads as *the second functional requirement of the scheduling engine*, and can be looked up directly. Identifiers are stable: once assigned, a number is never reused.
+
+**Functional requirements — what the System shall do.**
+
+| Prefix | Expands to | Covers | § |
+|---|---|---|---|
+| **FR-USR** | Functional Requirement — **User** | Accounts, login, sessions | 3.8.1 |
+| **FR-TSK** | Functional Requirement — **Task** | Creating, editing, completing habits and tasks | 3.8.2 |
+| **FR-CAL** | Functional Requirement — **Calendar** | Fixed commitments as hard constraints | 3.8.3 |
+| **FR-SCH** | Functional Requirement — **Scheduling** | The core engine: finding and ranking time slots | 3.8.4 |
+| **FR-RSC** | Functional Requirement — **Rescheduling** | *When* the engine is re-invoked. **Not a second engine.** | 3.8.5 |
+| **FR-WER** | Functional Requirement — **Wearable** | Obtaining and normalizing health data | 3.8.6 |
+| **FR-REC** | Functional Requirement — **Recommendation** | Turning metrics into workouts and meals | 3.8.7 |
+| **FR-DSH** | Functional Requirement — **Dashboard** | The daily schedule view | 3.8.8 |
+| **FR-WEL** | Functional Requirement — **Wellness** | Metrics, recommendations, meal plan | 3.8.9 |
+| **FR-ANL** | Functional Requirement — **Analytics** | Streaks and completion rates | 3.8.10 |
+| **FR-LIB** | Functional Requirement — **Library** | The workout and meal content libraries | 3.8.11 |
+
+**Non-functional requirements — how well the System shall do it.** All prefixed **NFR**.
+
+| Prefix | Quality attribute | § |
+|---|---|---|
+| **NFR-COR** | **Correctness** — the System computes the right answer | 4.1 |
+| **NFR-REL** | **Reliability** — it keeps doing so, and loses nothing | 4.2 |
+| **NFR-ROB** | **Robustness** — it behaves sanely when the world misbehaves | 4.3 |
+| **NFR-USE** | **Usability** — a person can actually operate it | 4.4 |
+| **NFR-MNT** | **Maintainability** — it can be changed safely | 4.5 |
+| **NFR-PRT** | **Portability** — it runs elsewhere | 4.6 |
+| **NFR-PERF** | **Performance** — it is fast enough | 4.7 |
+| **NFR-SEC** | **Security** — health data is protected | 4.8 |
+| **NFR-AVL** | **Availability** — it is up when needed | 4.9 |
+
+*The first six correspond exactly to the quality attributes named in the course directions: a **functionally correct, reliable, robust, usable, maintainable, portable** software system.*
+
+**Interfaces and context.**
+
+| Prefix | Meaning | § |
+|---|---|---|
+| **UI / HW / SI / CI** | User / Hardware / Software / Communications interface requirements | 3.9 |
+| **UC** | **Use Case** — a narrative specification of the System in use | 3.3 |
+| **CON** | **Constraint** — a limit the team must design within | 2.5 |
+| **ASM** | **Assumption** — believed true and relied upon. **If false, requirements may break.** | 2.6 |
+| **DEP** | **Dependency** — something outside the team's control the project needs | 2.6 |
+| **DR** | **Data Requirement** — data the System must retain | 5 |
+| **FUT** | **Future** — deferred; **not part of the acceptance contract** | 2.7 |
+| **OPEN** | **Open Issue** — an unmade decision, with owner and deadline | Appendix C |
+
+### 1.4.2 Terms
+
+| Term | Definition |
+|---|---|
+| **Task** | The System's uniform representation of any schedulable item — habit, goal, class, meeting, workout, or meal. Carries duration, priority, preferred time window, flexibility, and optional recurrence. |
+| **Fixed Commitment** | A task whose flexibility flag is `FIXED`. It occupies a specific time and the engine may **never** move it. Classes and meetings are typical. |
+| **Flexible Task** | A task whose flexibility flag is `FLEXIBLE`. The engine may place and later move it within its preferred time window. |
+| **Preferred Time Window** | A bounded interval of a day (e.g. 06:00–10:00) within which the user prefers a task to occur. Distinct from the task's duration. |
+| **Priority** | An integer 1 (highest) to 5 (lowest), used to order tasks and decide displacement when two compete for the same time. |
+| **Busy Interval** | A span of a day already occupied by a placed task or fixed commitment. |
+| **Free Interval** | A maximal span of the schedulable day not covered by any busy interval. |
+| **Candidate Slot** | A free interval, or sub-interval, of length ≥ a task's duration satisfying that task's constraints — therefore a legal placement. |
+| **Placement** | The assignment of a specific start time on a specific date to a task. |
+| **Missed Task** | A flexible task occurrence whose scheduled window has fully elapsed without being marked complete and without being declared skipped. **The System infers this; the user is never required to report it.** |
+| **Skipped Task** | A flexible task occurrence the user has **explicitly declared** they will not complete as placed. Distinct from a missed task in two ways: it is *declared* rather than inferred, and it may be declared **before** the window elapses. Both classifications lead to the same reschedule. |
+| **Reschedule Trigger** | An event causing the System to re-invoke the engine for an already-placed task. **Three exist in this release:** a missed task (inferred), a skipped task (declared), and a new fixed commitment that conflicts. |
+| **Schedulable Day** | The portion of a day in which the System may place tasks, bounded by the user's wake and sleep times. |
+| **Daily Metric Set** | The System's normalized, source-independent representation of a user's wearable data for one date: named metrics, each with a value, a unit, and an availability flag. **The only form in which wearable data reaches the recommendation engine.** |
+| **Sleep Score** | A normalized 0–100 measure of sleep quality. Drives recommended workout intensity. |
+| **Active Calories** | Energy expended in activity over a date, in kcal, exclusive of basal metabolic rate. Drives the daily calorie target. |
+| **Baseline Calorie Target** | The user's stated daily calorie need before activity. **Supplied by the user, not estimated by the System.** |
+| **Intensity Tier** | A workout's classification as `LOW`, `MODERATE`, or `HIGH`. |
+| **Recommendation Rule** | A self-contained mapping from metrics to one recommendation decision, declaring the metrics it consumes and its fallback when they are unavailable. Rules are **registered**, so a new metric is added by addition. |
+| **Catalog** | The interface through which the recommendation engine queries the workout and meal libraries. Hides how a library was populated. |
+| **Wearable Data Source** | Any origin of health data: an exported file, a live API, or an injected test value. All are normalized behind one adapter. |
+
+### 1.4.3 Acronyms
+
+| Acronym | Expansion and meaning here |
+|---|---|
+| **SRS** | **Software Requirements Specification** — this document. |
+| **IEEE 830-1998** | The **Institute of Electrical and Electronics Engineers** standard this document follows. |
+| **API** | **Application Programming Interface.** Used in two senses: the System's *own* API (frontend↔backend), and a *third-party* API (a wearable service). |
+| **REST** | **Representational State Transfer** — the style of the System's own web API. |
+| **JSON** | **JavaScript Object Notation** — the data format exchanged between frontend and backend. |
+| **HTTP / HTTPS** | **HyperText Transfer Protocol**, and its encrypted form. All traffic must use HTTPS. |
+| **OAuth 2.0** | **Open Authorization** — a way to be granted access to a user's data on another service without seeing their password there. |
+| **CRUD** | **Create, Read, Update, Delete.** |
+| **UML** | **Unified Modeling Language** — the notation of the diagrams in §3.2–3.6. |
+| **ERD** | **Entity-Relationship Diagram** (§3.5). |
+| **BMR** | **Basal Metabolic Rate** — energy burned at rest. **The System does not estimate it**; it asks the user. |
+| **HRV** | **Heart Rate Variability** — a recovery metric. Deferred (FUT-02). |
+| **kcal** | **Kilocalorie** — the unit ordinarily called a "calorie" in nutrition. |
+| **MVP** | **Minimum Viable Product.** |
+
+### 1.4.4 Priority Levels
+
+Per IEEE 830-1998 §4.3.4:
+
+- **Essential** — the software will **not be acceptable** unless this is met. Failure to deliver an Essential requirement constitutes failure of the project.
+- **Conditional** — enhances the product; the product is still acceptable without it.
+- **Optional** — may or may not be worthwhile; a candidate for removal.
+
+### 1.4.5 Verification Methods
+
+The course directions require that each requirement be written so the team can demonstrate it has been met. Every requirement therefore carries a method, shown beside its priority — so **"(Essential, T)"** means *an Essential requirement, verified by test*.
+
+- **T — Test.** An automated test whose pass/fail outcome is machine-checked.
+- **D — Demonstration.** Operating the System and observing the result.
+- **I — Inspection.** Examining the code, schema, or documentation.
+- **A — Analysis.** Measurement, modeling, or reasoning over collected data.
+
+## 1.5 References
+
+1. IEEE Std 830-1998, *IEEE Recommended Practice for Software Requirements Specifications*. IEEE, 1998.
+2. Wiegers, K. E., "Writing Quality Requirements," *Software Development*, May 1999.
+3. Humphrey, W. S., "The Personal Software Process: Overview, Practice and Results," Software Engineering Institute.
+4. Team internal document — *Project Overview and Technical Explanation* ([project-overview.md](project-overview.md)).
+5. Team internal document — *Project Description* ([Project Description.md](Project%20Description.md)).
+6. Course-supplied SRS directions ([SRS planning.md](SRS%20planning.md)).
+7. Team internal document — *SRS v1.3* ([SRS.md](SRS.md)), superseded by this document.
+
+## 1.6 Overview and Document Conventions
+
+**Document conventions.** This document uses the numbered-outline format prescribed by IEEE 830-1998. The word **shall** denotes a binding requirement; **should** denotes a non-binding goal. Requirements are stated in a verifiable form: no requirement uses vague terms such as *user-friendly*, *fast*, *efficient*, or *as appropriate*, and where a quality is required it is **quantified**. Italicized parenthetical passages *(like this)* record the **rationale** for a requirement — they explain why a decision was made, and are not themselves requirements.
+
+**Structure.** §2 describes the System in general terms and is readable without §3. §3 contains the functional requirements: first the use cases and diagrams that show the System in use, then the detailed numbered requirements that constitute the contract. §4 states the quality attributes. §5 states the data the System must retain. §6 describes how the team will demonstrate that the requirements are met. Appendices supply a worked algorithm example, a traceability matrix, the open issues, and the acceptance record. An Index concludes.
+
+---
+
+# 2. Overall Description
+
+## 2.1 Product Perspective
+
+The System is a new, self-contained web application. It replaces no existing system, but it depends on two external things it does not control: a **source of the user's wearable health data**, and a **source of fixed calendar commitments**.
+
+Internally it separates a **frontend** (a browser dashboard; all user interaction, no scheduling logic), a **backend** (the scheduling engine, the recommendation engine, persistence, and all wearable communication), and a **database** (MongoDB). The frontend reaches the backend only through the backend's REST API.
+
+**The scheduling engine is required to be an isolated module** callable as a pure function of (busy intervals, task) → (candidate placements), with no dependency on the API layer, the database, or the wearable integration. This is a requirement, not a stylistic preference: it is what makes the algorithmic core independently testable, and it underpins the verification approach in §6.
+
+```
+        ┌─────────────────────────────────────┐
+        │   Browser — Dashboard (frontend)    │
+        │  schedule view · wellness · stats   │
+        └──────────────────┬──────────────────┘
+                           │  REST / HTTPS / JSON
+        ┌──────────────────▼──────────────────┐
+        │            Backend Service          │
+        │  ┌───────────────────────────────┐  │
+        │  │ Scheduling Engine (PURE)      │  │
+        │  │ findCandidateSlots(busy,task) │  │
+        │  └───────────────────────────────┘  │
+        │  ┌───────────────────────────────┐  │
+        │  │ Recommendation Engine         │  │
+        │  │  └── registered rules         │  │
+        │  └───────────────────────────────┘  │
+        │  ┌───────────────────────────────┐  │
+        │  │ Catalog (workouts / meals)    │  │
+        │  └───────────────────────────────┘  │
+        │  ┌───────────────────────────────┐  │
+        │  │ Wearable Adapter              │  │
+        │  │  → Daily Metric Set           │  │
+        │  ├───────────────────────────────┤  │
+        │  │ export ingest    (Essential)  │◄─┼── Garmin export file
+        │  │ live API client  (Conditional)│──┼─► data service (external)
+        │  │ metric injection (Essential)  │◄─┼── demo / test
+        │  └───────────────────────────────┘  │
+        └──────────────────┬──────────────────┘
+                           │
+        ┌──────────────────▼──────────────────┐
+        │          Database (MongoDB)         │
+        │  users · tasks · placements ·       │
+        │  completions · metrics · libraries  │
+        └─────────────────────────────────────┘
+```
+
+## 2.2 Product Functions
+
+- **Manage tasks.** Create, view, edit, delete habits, goals, workouts, meals, and one-off tasks with duration, priority, preferred window, flexibility, and recurrence.
+- **Ingest fixed commitments.** Obtain classes and meetings and treat them as immovable constraints.
+- **Place tasks.** One scheduling function determines whether a task's preferred time is free and, if not, returns ranked alternatives.
+- **Repair the schedule automatically.** When a task is missed, when the user declares one skipped, or when a new fixed event conflicts with a placed flexible task, re-invoke that same function and re-place the affected task.
+- **Let the user correct the System.** A miss is *inferred*, so it can be wrong. The user may declare a task skipped ahead of time, and may overturn an automatic reschedule by marking the original occurrence complete.
+- **Obtain wearable metrics.** Retrieve the user's sleep score and active calories; normalize them into a source-independent Daily Metric Set.
+- **Adapt recommendations.** Sleep score sets workout intensity; active calories set the daily calorie target for meals. Offer alternatives; the user may override.
+- **Schedule recommendations.** Recommended workouts and meal windows are placed on the real calendar and participate fully in conflict detection and automatic rescheduling.
+- **Present the day.** A calendar-style dashboard.
+- **Present wellness data.** Metrics, recommendations, and the meal plan, outside the schedule context.
+- **Report consistency.** Completion and streak analytics.
+- **Export the schedule.** Publish the user's schedule as an `.ics` calendar file they may import into an external calendar. *(Conditional — FR-CAL-07.)*
+
+## 2.3 User Characteristics
+
+**The individual user** is an adult, typically a university student, who owns a compatible wearable and wishes to maintain habits against an irregular schedule. Assumed comfortable with consumer web applications and the concept of a calendar; assumed to have **no** knowledge of scheduling theory or health science. *No user should ever need to understand why the engine chose a slot in order to accept it* — the interface must explain placements in plain language (FR-DSH-05).
+
+**The evaluator** (course instructor) uses the same interface, but requires the ability to observe adaptive behavior **on demand**, rather than waiting for real biometric conditions to occur. FR-WER-07 exists specifically to make this possible and is Essential for that reason.
+
+## 2.4 End-User Operating Environment
+
+| Aspect | Requirement |
+|---|---|
+| **Device** | Any desktop or laptop computer. No mobile app is produced in this release. |
+| **Browser** | A current version of Chrome, Firefox, or Edge. |
+| **Screen** | A viewport at least 1280 px wide. Narrower viewports are not supported in this release. |
+| **Network** | An internet connection to reach the hosted application. **The recommendation and scheduling features themselves make no external network calls** (FR-LIB-02). |
+| **Wearable** | A Garmin device, whose data reaches the System as an account export. The device need never be connected to the user's computer. |
+| **Account** | A System account (email and password). No third-party sign-in is required. |
+
+## 2.5 Design and Implementation Constraints
+
+- **CON-01.** Delivered as a **web application** usable in a current desktop browser. No native mobile application.
+- **CON-02.** Exactly **one wearable platform** in this release. Multi-platform support is deferred (§2.7).
+- **CON-03.** The wearable data source must be usable **without a third-party approval process on the critical path.** This excludes two obvious options:
+  - **Apple Watch is excluded.** HealthKit is an on-device, iOS-only framework with no public cloud endpoint. Its data cannot reach a web backend without an iOS companion app, which CON-01 forbids.
+  - **The official Garmin Health API is excluded as a baseline dependency.** It is gated behind acceptance into Garmin's developer program — a partner review the team applies for and cannot schedule. Its lead time is incompatible with CON-06. It may be pursued opportunistically; **no Essential requirement shall depend on it.**
+  - A team member owns a Garmin device, so the **data** is available immediately; only the **official API** is gated. The design must reflect that distinction rather than conflate them (see DEP-02).
+- **CON-04.** The scheduling engine shall be a module with **no dependency** on the HTTP layer, the database, or the wearable client, exercisable by unit tests that build their inputs in memory.
+- **CON-05.** The System shall **not present itself as a source of medical advice.** All health output is a suggestion the user may reject.
+- **CON-06.** *(Timeline — the governing constraint.)* This is a **five-week summer course.** The team reaches its midpoint on **16 July 2026** and presents on **31 July 2026**. Therefore:
+  1. **No Essential requirement may depend on an external party's approval or review.** Anything so gated is Conditional or deferred, regardless of technical merit.
+  2. Conditional and Optional requirements shall not be started until every Essential requirement is complete and verified.
+- **CON-07.** **The System never writes to a third-party calendar and holds no credential for one.** Where the user wishes their schedule to appear in an external calendar, the System **exports an `.ics` file** (FR-CAL-07, SI-06) which the *user* imports themselves. *(The distinction matters: an export is a file the System hands to the user, not an authenticated write into an account the System has been given access to. It requires no OAuth, no token storage, and no network, and it is why this capability adds no security surface — see §4.8.)*
+- **CON-08.** *(Technology.)* The frontend shall be **React with TypeScript**; the backend **TypeScript on Node.js** exposing a REST API; the data layer **MongoDB**. *(Rationale: one language across the whole stack lets all three members read and review the entire codebase, which materially lowers review cost on a three-person team. TypeScript rather than JavaScript because the scheduling engine is interval arithmetic over multi-field records, where a static type system eliminates an entire class of defect the team would otherwise pay for in debugging time. **MongoDB** was chosen over a relational database on 12 July for team familiarity and because a schema-free store removes migration overhead from a nineteen-day project — a real advantage given DR-05, which requires that adding a wearable metric never force a schema change. **The trade accepted in return** is that the analytics of FR-ANL — streaks and completion rates, which group across placements — must be written as aggregations rather than joins, and are the fiddliest queries in the System.)*
+- **CON-09.** Credentials and secrets shall be supplied by environment configuration and **shall never appear in the source repository.**
+- **CON-10.** The System shall be deployable and runnable on a clean machine by a **single documented command sequence**, so an evaluator can run it unaided.
+
+## 2.6 Assumptions and Dependencies
+
+- **ASM-01.** The user's day contains enough free time for their flexible tasks. Where it does not, the System must report the failure honestly (FR-SCH-06) rather than force a placement; it is not required to solve an over-committed day.
+- **ASM-02.** Fixed commitments are known before flexible tasks are placed around them. One added later is handled by the trigger in FR-RSC-02.
+- **ASM-03.** Wearable metrics are available by the time the morning schedule is generated. Where they are not — the watch was not worn, or did not sync — the System must behave deterministically under a documented fallback (FR-REC-06) rather than block. Note that a day's active calories necessarily accrue **as the day passes**, so the calorie target for today is a current figure, not a final one.
+- **ASM-04.** A single user's schedule is the only resource being allocated. There is no contention between users.
+- **ASM-05.** The user's stated dietary and workout preferences are honest. The System is not required to detect a misreported preference.
+- **DEP-01.** Where a live wearable integration is realized (FR-WER-11, Conditional), the System depends on that service's availability. **No Essential requirement depends on this.**
+- **DEP-02.** *(The project's highest-risk dependency.)* The System depends on obtaining the user's real health data. Under CON-06 this must be achievable **without waiting on anyone.** The team therefore adopts a **layered data-source strategy**, in which each layer independently satisfies every Essential requirement and each successive layer is an upgrade, not a prerequisite:
+
+  | Layer | Source | Availability | Requirement |
+  |---|---|---|---|
+  | **1 — Baseline** | Real sleep and activity data **exported** from the team member's Garmin account | **Immediate.** No approval, no credentials, no third party. **Cannot fail on demonstration day.** | FR-WER-08 *(Essential)* |
+  | **2 — Upgrade** | Live authenticated retrieval via a health-data aggregation service with a self-service developer tier | Same-day signup, but terms are outside the team's control and unverified at the time of writing | FR-WER-11 *(Conditional)* |
+  | **3 — Opportunistic** | The official Garmin Health API | Gated behind partner approval; **excluded from the critical path by CON-03** | Not required |
+
+  Layer 1 is the commitment. Layers 2 and 3 shall be attempted only after every Essential requirement is verified. **Exit criterion for Layer 1: one real Garmin record, from the team member's own device, driving a real recommendation decision in the running System, no later than 16 July 2026** (FR-WER-10).
+
+  This is safe because FR-WER-02 normalizes every source into a Daily Metric Set and the recommendation engine consumes only that (FR-WER-05, NFR-PRT-03). **The data source is a swappable adapter behind a normalized interface.** A change of source affects the adapter alone and invalidates nothing in FR-REC, FR-SCH, or FR-RSC.
+- **DEP-03.** The System depends on a team member possessing a physical wearable, so adaptive behavior is verified against real rather than synthetic data. **Satisfied: a team member owns a Garmin device.** This satisfies the *data* dependency, **not** the *API* dependency — conflating them is the error CON-03 exists to prevent.
+- **DEP-04.** The System depends on a source of fixed commitments. If real calendar integration proves out of scope, manually entered commitments satisfy the requirement, since the engine is indifferent to a busy interval's provenance.
+
+## 2.7 Apportioning of Requirements
+
+### 2.7.1 Prioritization Strategy
+
+Under CON-06 the team has nineteen days. **The Essential set in this document is therefore not a wish list — it is a deliberately bounded minimum**, chosen so that it can be delivered and *verified*, not merely attempted. Every requirement was classified by one question: **if this were missing, would the System still demonstrate its central claim?**
+
+That claim is stated once, here, and it is what the project should be judged on:
+
+> **A user's real physiological state changes what appears on their real calendar, and the schedule repairs itself when the day goes wrong.**
+
+The requirements that carry that claim are the **Core Demonstrable Capability** below. They are irreducible: if any one of them is missing, the project has not demonstrated what it set out to demonstrate, regardless of what else was built.
+
+| The core | Requirements |
+|---|---|
+| A task can be created and placed around fixed commitments | FR-TSK-01, FR-SCH-01, FR-SCH-02, FR-CAL-02, FR-CAL-05 |
+| The schedule repairs itself when a task is missed or displaced | FR-RSC-01, FR-RSC-02, FR-RSC-03 |
+| Real wearable data reaches the System | FR-WER-02, FR-WER-08, FR-WER-10 |
+| That data changes the recommendation | FR-REC-01, FR-REC-02, FR-REC-08 |
+| The recommendation lands on the real calendar and is defended there | **FR-REC-04** |
+| The user can see all of it and understand why | FR-DSH-01, FR-DSH-05 |
+| It can be demonstrated on demand | FR-WER-07 |
+
+*FR-REC-04 is bolded because it is the load-bearing requirement of the entire project. It is what makes this a single integrated system rather than a scheduler and a fitness app sharing a login. If everything else shipped and FR-REC-04 did not, the project would have failed at its own thesis.*
+
+**Everything outside that core is classified by its distance from it.** Requirements that enrich the System but whose absence would not undermine the claim are marked **Conditional**, and — per CON-06.2 — **shall not be started until every Essential requirement is complete and verified.** This is the mechanism by which the team manages schedule risk: not by hoping, but by having decided in advance what gets built last and what may honestly go unbuilt.
+
+**Requirements demoted to Conditional for schedule reasons**, recorded here so the decision is explicit rather than discovered late:
+
+| Requirement | Was | Now | Reasoning |
+|---|---|---|---|
+| **FR-REC-10** — weekly meal plan and scheduled meal-prep windows | Essential | **Conditional** | FR-REC-08 already delivers wearable-driven meal recommendations against a daily calorie target, which is the adaptive claim. Weekly *planning* and prep-window scheduling are a second feature riding on top of it, and their absence does not weaken the claim. |
+| **NFR-MNT-02** — 70% line coverage across the whole system | Essential | **Conditional** | Coverage of the frontend is expensive and reveals little. **NFR-MNT-01 (≥ 90% on the scheduling engine) remains Essential** and is the coverage figure that actually matters — the engine is where correctness lives. |
+
+*(No requirement in the Core Demonstrable Capability was demoted, and none will be. That set is the floor.)*
+
+### 2.7.2 Deferred Beyond This Release
+
+Explicitly **deferred** and **not part of the acceptance contract**. Recorded so the product boundary is unambiguous and the architecture does not foreclose them.
+
+| ID | Deferred capability |
+|---|---|
+| FUT-01 | Additional wearable platforms beyond the single initial integration. |
+| FUT-02 | Recommendations driven by metrics beyond sleep score and active calories — stress, Body Battery, resting heart rate, HRV, training readiness. **Deferred in content, not in capability:** FR-WER-04 and FR-REC-11 require such a metric to be an *addition*, not a redesign, and FR-REC-12 exists to prove it. |
+| FUT-03 | Natural-language habit entry. |
+| FUT-04 | Habit dependencies (task B only schedulable after task A completes). |
+| FUT-05 | Historical pattern-based scheduling, learning from actual completion behavior. |
+| FUT-06 | Multi-day and multi-week optimization. The engine places within a single day. |
+| FUT-07 | Native mobile applications and push notifications. |
+
+---
+
+# 3. Functional Requirements
+
+## 3.1 Summary and Development Tools
+
+The System accepts tasks, places them around fixed commitments, repairs the schedule automatically when reality diverges from the plan, and adapts its health recommendations to the user's real physiological state — placing those recommendations onto the same calendar, subject to the same repair logic.
+
+**Tools used in development:**
+
+| Tool | Purpose |
+|---|---|
+| React + TypeScript | Frontend dashboard |
+| Node.js + TypeScript | Backend service and REST API |
+| MongoDB | Persistence |
+| Git / GitHub | Version control and remote repository |
+| Jest (or equivalent) | Unit and integration testing |
+| A property-based testing library | Randomized verification of the engine's core invariant (NFR-COR-01) |
+| ESLint + TypeScript compiler | Linting and static type checking |
+| A coverage reporter | Verifying NFR-MNT-01 and NFR-MNT-02 |
+
+## 3.2 Use Case Diagram
+
+```mermaid
+graph LR
+    U((User))
+    E((Evaluator))
+    W[/"Wearable Data<br/>(Garmin export)"/]
+
+    subgraph System["Adaptive Habit, Schedule & Wellness System"]
+        UC1(["UC-01<br/>Create account"])
+        UC2(["UC-02<br/>Add task that fits"])
+        UC3(["UC-03<br/>Add task that conflicts"])
+        UC4(["UC-04<br/>Complete a task"])
+        UC5(["UC-05<br/>Miss a task →<br/>auto-reschedule"])
+        UC6(["UC-06<br/>New commitment<br/>displaces task"])
+        UC7(["UC-07<br/>Poor sleep changes<br/>the workout"])
+        UC8(["UC-08<br/>Activity changes<br/>the meal plan"])
+        UC9(["UC-09<br/>Metric unavailable"])
+        UC10(["UC-10<br/>Day is full"])
+        UC11(["UC-11<br/>View analytics"])
+        UC12(["UC-12<br/>Inject metric<br/>(demonstration)"])
+        UC13(["UC-13<br/>Skip a task →<br/>reschedule"])
+    end
+
+    U --- UC1
+    U --- UC2
+    U --- UC3
+    U --- UC4
+    U --- UC11
+    U --- UC7
+    U --- UC8
+    U --- UC13
+    E --- UC12
+    W --- UC7
+    W --- UC8
+    W --- UC9
+    UC5 -.->|extends| UC2
+    UC6 -.->|extends| UC2
+    UC13 -.->|extends| UC2
+    UC10 -.->|extends| UC3
+```
+
+<details>
+<summary><b>ASCII fallback</b> (if Mermaid does not render in your export)</summary>
+
+```
+                    ADAPTIVE HABIT, SCHEDULE & WELLNESS SYSTEM
+        ┌──────────────────────────────────────────────────────────────┐
+        │                                                              │
+        │   ( UC-01 Create account )      ( UC-04 Complete a task )    │
+        │   ( UC-02 Add task that fits )  ( UC-11 View analytics )     │
+        │   ( UC-03 Add task, conflict )                               │
+  User ─┤                                                              │
+        │   ( UC-05 Miss task → auto-reschedule )   <<extends UC-02>>  │
+        │   ( UC-06 New commitment displaces task ) <<extends UC-02>>  │
+        │   ( UC-13 Skip task → reschedule )        <<extends UC-02>>  │
+        │   ( UC-10 Day is full )                   <<extends UC-03>>  │
+        │                                                              │
+        │   ( UC-07 Poor sleep changes workout ) ───┐                  │
+        │   ( UC-08 Activity changes meal plan ) ───┼── Wearable Data  │
+        │   ( UC-09 Metric unavailable )         ───┘                  │
+        │                                                              │
+Evaluator ─ ( UC-12 Inject metric for demonstration )                  │
+        │                                                              │
+        └──────────────────────────────────────────────────────────────┘
+```
+</details>
+
+## 3.3 Use Case Specifications
+
+*Each use case names the requirements it exercises, so that Appendix B can trace them.*
+
+### UC-01 — Create Account and Configure Day
+
+| Field | Content |
+|---|---|
+| **Name** | Create Account and Configure Day |
+| **Priority** | Essential |
+| **Trigger** | A new person opens the System. |
+| **Pre-Conditions** | The person has no account. |
+| **Post-Conditions** | An account exists; the user's schedulable day (wake and sleep times) and baseline calorie target are recorded; the user is logged in. |
+| **Basic Path** | 1. User supplies an email address and password.<br>2. System creates the account, storing the password only as a salted hash.<br>3. User sets wake time, sleep time, dietary preferences, workout preferences, and baseline calorie target.<br>4. System stores them and shows an empty schedule. |
+| **Alternate Flows and Exceptions** | • Email already registered → System reports this and does not create a duplicate.<br>• Wake time is not before sleep time → System rejects and states why.<br>• User **declines to set** preferences → System proceeds with defaults; recommendations are unconstrained by preference. *(Wording avoids "skip", which §1.4.2 now defines as a specific action on a task occurrence.)* |
+| **Requirements** | FR-USR-01, FR-USR-02, FR-USR-03, FR-USR-07, FR-REC-05, FR-REC-09 |
+
+### UC-02 — Add a Task That Fits
+
+| Field | Content |
+|---|---|
+| **Name** | Add a Task That Fits |
+| **Priority** | Essential |
+| **Trigger** | User creates a task. |
+| **Pre-Conditions** | User is logged in. The preferred time window contains enough free time. |
+| **Post-Conditions** | The task is placed on the schedule at a time within its preferred window. |
+| **Basic Path** | 1. User enters "Read 30 minutes", priority 3, preferred window 20:00–22:00, flexible.<br>2. System validates the task.<br>3. Engine finds 20:00–20:30 free within the preferred window.<br>4. System places the task there and displays it on the schedule. |
+| **Alternate Flows and Exceptions** | • Preferred window is shorter than the duration → System rejects at entry and states the reason **(this is the most common way a user makes a task unplaceable, so it is caught before scheduling).**<br>• A mandatory field is missing → System states which.<br>• The window is free but lies outside the schedulable day → System reports the task cannot be placed. |
+| **Requirements** | FR-TSK-01, FR-TSK-02, FR-SCH-01, FR-SCH-04, FR-USR-07, UI-02 |
+
+### UC-03 — Add a Task That Conflicts
+
+| Field | Content |
+|---|---|
+| **Name** | Add a Task That Conflicts |
+| **Priority** | Essential |
+| **Trigger** | User creates a task whose preferred window is already occupied. |
+| **Pre-Conditions** | User is logged in. The preferred window has insufficient free time. |
+| **Post-Conditions** | The task is placed at a user-accepted alternative time, or the user is told none exists. |
+| **Basic Path** | 1. User enters "Gym, 60 min", preferred 17:00–18:00. A lab occupies 17:00–19:00.<br>2. Engine finds no sufficient slot in the preferred window.<br>3. Engine searches the rest of the schedulable day and returns **up to three ranked alternatives** — e.g. 19:00, 20:00, 15:30.<br>4. System presents them, ranked by nearness to the preferred window.<br>5. User accepts 19:00; System places the task there. |
+| **Alternate Flows and Exceptions** | • **No valid slot exists anywhere** → the System states this plainly and offers to move the task to the next day. It does **not** silently drop the task and does **not** overlap it onto a commitment. See UC-10.<br>• User declines all alternatives → the task remains unplaced and visible, not deleted. |
+| **Requirements** | FR-SCH-02, FR-SCH-03, FR-SCH-06, FR-DSH-06, NFR-REL-02 |
+
+### UC-04 — Complete a Task
+
+| Field | Content |
+|---|---|
+| **Name** | Complete a Task |
+| **Priority** | Essential |
+| **Trigger** | User finishes a scheduled task. |
+| **Pre-Conditions** | The task occurrence is placed and not yet complete. |
+| **Post-Conditions** | The occurrence is marked complete with a timestamp; streak and completion rate update. |
+| **Basic Path** | 1. User marks the task complete from the schedule view.<br>2. System records the completion timestamp.<br>3. Analytics update. |
+| **Alternate Flows and Exceptions** | • The task was previously auto-rescheduled and then completed → it counts as **completed, not missed.** *(Rescheduling exists to help the user recover; a System that broke a streak for using its own recovery mechanism would defeat its own purpose.)*<br>• **The user did the task but did not mark it complete until after the System had classified it missed and re-placed it** → marking it complete **cancels the pending reschedule** (FR-RSC-09), the later placement is withdrawn, and the System says so. *This is the correction path for a wrong inference, and it exists because a miss is inferred from silence rather than reported.*<br>• A completed task is never subsequently rescheduled. |
+| **Requirements** | FR-TSK-06, FR-DSH-03, FR-ANL-01, FR-ANL-02, FR-ANL-03, FR-RSC-07, FR-RSC-09 |
+
+### UC-05 — A Task Is Missed and Is Automatically Rescheduled
+
+| Field | Content |
+|---|---|
+| **Name** | Missed Task → Automatic Reschedule |
+| **Priority** | Essential |
+| **Trigger** | A flexible task's scheduled window fully elapses without being completed and without being declared skipped. |
+| **Pre-Conditions** | The task is flexible, placed, and incomplete. Time remains in the day. |
+| **Post-Conditions** | The task holds a new valid placement later the same day, and the user has been told why it moved. |
+| **Basic Path** | 1. "Read 30 minutes" was scheduled 20:00–20:30 and was not completed.<br>2. The System evaluates elapsed occurrences (FR-RSC-10) and classifies this one **missed**.<br>3. The System re-invokes **the same engine** with the updated busy set.<br>4. Engine returns 21:15 as the next valid slot.<br>5. System re-places the task and reports: *"Rescheduled to 9:15 PM — this was missed this evening."* |
+| **Alternate Flows and Exceptions** | • **No slot remains in the day** → System says so and offers to move it to tomorrow. It does **not** discard the task.<br>• The task was already completed → it is never rescheduled.<br>• **The user had already declared it skipped** → it was rescheduled at that moment (UC-13) and is not classified missed a second time.<br>• **The classification was wrong — the user did read, and simply did not tap complete** → they mark it complete and the reschedule is cancelled (UC-04, FR-RSC-09). **The System's inference is a proposal the user can overturn, not a verdict.**<br>• The same trigger fires twice → rescheduling is **idempotent**; no duplicate placement results. |
+| **Requirements** | FR-RSC-01, FR-RSC-03, FR-RSC-04, FR-RSC-05, FR-RSC-06, FR-RSC-07, FR-RSC-09, FR-RSC-10, FR-DSH-05 |
+| **Rationale** | *A missed task is the one event the user has the least incentive to report — the person who skipped their 8 PM run does not open the app to say so. **Inference is therefore the only mechanism that fires in the case the feature exists for**, which is why this use case remains automatic and why FR-RSC-01 is in the Core (§2.7.1). UC-13 and FR-RSC-09 exist because an inference can be wrong, not because it should be replaced.* |
+
+### UC-06 — A New Fixed Commitment Displaces a Task
+
+| Field | Content |
+|---|---|
+| **Name** | New Commitment Displaces a Placed Task |
+| **Priority** | Essential |
+| **Trigger** | A fixed commitment is added that overlaps an already-placed flexible task. |
+| **Pre-Conditions** | A flexible task is placed. The new commitment conflicts with it. |
+| **Post-Conditions** | The **fixed commitment is unmoved**; the flexible task holds a new valid placement; the user knows why. |
+| **Basic Path** | 1. Gym is placed 17:00–18:00.<br>2. User adds a **fixed** "Advisor" meeting 17:00–17:45.<br>3. The System does **not** move the advisor meeting — a fixed commitment is immovable by definition.<br>4. It re-invokes the engine with the updated busy set.<br>5. Engine returns 17:45–18:45 as nearest to the preferred window.<br>6. System re-places Gym and reports: *"Moved to 5:45 PM — your 5:00 PM slot was taken by Advisor."* |
+| **Alternate Flows and Exceptions** | • No valid slot remains → as UC-05.<br>• The displaced task is itself a **system-recommended workout** → it is rescheduled identically to a user-created task. *This is the integration point that distinguishes the project.* |
+| **Requirements** | FR-RSC-02, FR-RSC-03, FR-RSC-04, FR-CAL-02, FR-CAL-03, FR-REC-04, FR-DSH-05 |
+
+### UC-07 — Poor Sleep Changes the Day's Workout
+
+| Field | Content |
+|---|---|
+| **Name** | Sleep Score Adapts Workout Intensity |
+| **Priority** | Essential — **this is the System's central claim** |
+| **Trigger** | The day's sleep score becomes available (from export, live API, or injection). |
+| **Pre-Conditions** | A workout is scheduled for today at an intensity tier above what the sleep score warrants. |
+| **Post-Conditions** | A lower-intensity workout is scheduled in its place, on the real calendar, placed by the same engine. The user may swap it. |
+| **Basic Path** | 1. Sleep score for today is **42**.<br>2. The System maps 42 → **LOW** intensity tier.<br>3. Today's schedule holds a HIGH-intensity 3-mile run.<br>4. The System replaces the run with a LOW-tier recovery session drawn from the workout library.<br>5. It places the replacement **using the scheduling engine**, so the new workout is a real, placed, conflict-checked commitment.<br>6. It presents **three** LOW-tier options; its own choice is placed by default.<br>7. The user swaps to yoga; the System re-places the slot with that choice.<br>8. The dashboard states: *"Recovery session — your sleep score was 42 last night."* |
+| **Alternate Flows and Exceptions** | • The workout is **already complete** → intensity is never reduced retroactively.<br>• The workout's window has **already begun** → it is not replaced.<br>• The workout was **missed or declared skipped and re-placed later in the day** → its new window has not begun, so it **remains eligible** for intensity adjustment and is downgraded normally. *(A recovery session is if anything more warranted after a day has already gone wrong.)*<br>• No sleep score is available → see UC-09.<br>• The replacement conflicts with a commitment → the engine finds another slot (UC-03 logic). |
+| **Requirements** | FR-REC-01, FR-REC-02, FR-REC-03, FR-REC-04, FR-REC-07, FR-REC-13, FR-LIB-05, FR-SCH-01, FR-WEL-02 |
+
+### UC-08 — Activity Changes the Meal Plan
+
+| Field | Content |
+|---|---|
+| **Name** | Active Calories Adapt the Daily Calorie Target |
+| **Priority** | Essential |
+| **Trigger** | The day's active-calorie count becomes available or is refreshed. |
+| **Pre-Conditions** | The user has recorded a baseline calorie target. |
+| **Post-Conditions** | The day's calorie target reflects activity, and the meal plan is built against it. |
+| **Basic Path** | 1. The user's Garmin reports **850 active calories** today; their baseline target is **2,000**.<br>2. The System computes a daily calorie target of **2,850 kcal**.<br>3. It generates meal recommendations against that target from the meal library, honoring dietary preferences.<br>4. The wellness view shows the baseline and the activity contribution **separately**, so the wearable's effect on meals is visible rather than implied.<br>5. The reason is stated: *"2,850 kcal today — you burned 850 active calories."* |
+| **Alternate Flows and Exceptions** | • Active calories are **unavailable** → the target falls back to the baseline and is labeled as made without current data (UC-09).<br>• Calories accrue **during** the day → the target is recomputed on refresh and presented as a current, not final, figure.<br>• **No meal satisfies the target and the dietary preferences** → the catalog relaxes constraints in a documented order, but **never** relaxes a dietary preference. |
+| **Requirements** | FR-REC-08, FR-REC-09, FR-REC-13, FR-LIB-06, FR-LIB-07, FR-LIB-08, FR-WEL-03. *(FR-REC-10 — weekly planning and meal-prep windows — is **Conditional** and is not required for this use case: the basic path above depends only on the daily calorie target, which is Essential.)* |
+
+### UC-09 — A Metric Is Unavailable
+
+| Field | Content |
+|---|---|
+| **Name** | Metric Unavailable — Graceful Fallback |
+| **Priority** | Essential |
+| **Trigger** | The System needs a metric for a date and no value exists. |
+| **Pre-Conditions** | The watch was not worn, did not sync, or a data source failed. |
+| **Post-Conditions** | Recommendations are still produced, under documented defaults, and are labeled as made without current data. |
+| **Basic Path** | 1. No sleep score exists for today.<br>2. The System recommends at the **MODERATE** tier by documented default.<br>3. It labels the recommendation as generated without current data.<br>4. The wellness view shows the metric as unavailable — **never as a zero.** |
+| **Alternate Flows and Exceptions** | • **The watch was worn overnight but not during the day**: a sleep score exists, active calories do not. The workout recommendation uses the **real** sleep score; only the meal plan falls back. **One missing metric does not degrade the other** — availability is tracked per metric, not per date.<br>• A live source is unreachable → retried, then surfaced as stale data. **The scheduling core continues to work regardless.** |
+| **Requirements** | FR-WER-06, FR-REC-06, FR-WEL-05, NFR-ROB-01, NFR-ROB-04, NFR-REL-03, DR-02 |
+
+### UC-10 — The Day Is Genuinely Full
+
+| Field | Content |
+|---|---|
+| **Name** | Task Cannot Be Placed |
+| **Priority** | Essential |
+| **Trigger** | A task is added, missed, **declared skipped**, or displaced, and no valid slot exists anywhere in the schedulable day. |
+| **Pre-Conditions** | The day has no free interval long enough for the task within its constraints. |
+| **Post-Conditions** | **The task still exists**, the user knows it could not be placed and why, and is offered the next day. |
+| **Basic Path** | 1. User adds a 2-hour task to a day with no 2-hour gap.<br>2. The engine returns an **explicit empty result with a reason**.<br>3. The System tells the user the task could not be placed and why.<br>4. It offers to move the task to the next day. |
+| **Alternate Flows and Exceptions** | • The System **never** silently drops the task (NFR-REL-02).<br>• The System **never** places it in violation of its constraints or on top of a fixed commitment.<br>• The task remains visible and retrievable in an unplaced state. |
+| **Requirements** | FR-SCH-06, FR-RSC-05, FR-RSC-08, NFR-REL-02, NFR-ROB-03, NFR-USE-03 |
+
+### UC-11 — View Analytics
+
+| Field | Content |
+|---|---|
+| **Name** | View Streaks and Completion Rates |
+| **Priority** | Essential |
+| **Trigger** | User opens the analytics view. |
+| **Pre-Conditions** | The user has completion history. |
+| **Post-Conditions** | Current streak and completion rate are displayed per habit. |
+| **Basic Path** | 1. User opens the analytics view.<br>2. System displays, per recurring habit, the consecutive-day streak and the completion rate over the selected period. |
+| **Alternate Flows and Exceptions** | • A habit was rescheduled and then completed → counts as **completed**. This holds whether the reschedule was triggered by a miss or by the user declaring it skipped — **the trigger does not affect the record; only the outcome does.**<br>• A habit was **declared skipped and never completed that day** → counts as **not completed**, exactly as a missed one does. *Declaring a skip is a statement about the schedule, not a pardon from the record.* (FR-ANL-06)<br>• A habit was deleted → its historical completion records are **preserved**, so past analytics remain correct. |
+| **Requirements** | FR-ANL-01, FR-ANL-02, FR-ANL-03, FR-ANL-04, FR-ANL-06, FR-TSK-07, DR-01 |
+
+### UC-12 — Inject a Metric for Demonstration
+
+| Field | Content |
+|---|---|
+| **Name** | Metric Injection (Evaluator) |
+| **Priority** | Essential — **this is what makes the System demonstrable on schedule** |
+| **Trigger** | An evaluator wishes to observe adaptive behavior on demand. |
+| **Pre-Conditions** | The System is running. |
+| **Post-Conditions** | The specified metric value is in effect for the specified date, and the System's adaptive behavior follows from it. |
+| **Basic Path** | 1. The evaluator injects a sleep score of 40 and 850 active calories for today.<br>2. The System behaves exactly as in UC-07 and UC-08: the run becomes a recovery session, placed on the real calendar; the calorie target rises to 2,850.<br>3. A fixed commitment is then dropped on top of the recovery session, and it is automatically re-placed (UC-06).<br>4. The evaluator **declares the re-placed session skipped**, and it moves again — the same engine, a different trigger (UC-13).<br>5. The evaluator then **marks it complete**, and the System **withdraws its own reschedule** (FR-RSC-09), demonstrating that its classification is a proposal the user can overturn. |
+| **Alternate Flows and Exceptions** | • An injected value is **recorded as injected**, and is distinguishable in the data from a measured one — so that the claim in FR-WER-10 (that *real* device data drove a real decision) remains checkable rather than merely asserted. |
+| **Requirements** | FR-WER-07, DR-04, and — through it — FR-REC-01, FR-REC-02, FR-REC-08, FR-SCH-01, FR-RSC-02, FR-RSC-08, FR-RSC-09 |
+| **Rationale** | *The team cannot schedule a bad night's sleep for the morning of 31 July. Without this, the System's central claim would be undemonstrable on demand. **This use case requires no network, no device, and no third party**, and it is therefore the backbone of the acceptance demonstration (§6).* |
+
+### UC-13 — The User Declares a Task Skipped
+
+| Field | Content |
+|---|---|
+| **Name** | User-Declared Skip → Reschedule |
+| **Priority** | Essential |
+| **Trigger** | The user knows they will not complete an occurrence as placed, and says so. |
+| **Pre-Conditions** | The occurrence is flexible, placed, and not complete. **Its window may not yet have elapsed** — this is the distinguishing condition, and it is why this is not simply an early UC-05. |
+| **Post-Conditions** | The occurrence is recorded **skipped**; the task holds a new valid placement, or the user has been told none exists and offered the next day. |
+| **Basic Path** | 1. "Gym" is placed 17:00–18:00. At 15:00 the user is told to stay late at work.<br>2. From the schedule view the user declares the occurrence **skipped** (FR-DSH-07).<br>3. The System records the skip and re-invokes **the same engine** with the updated busy set — no new placement logic (FR-RSC-03).<br>4. Engine returns 20:00–21:00.<br>5. System re-places Gym and reports: *"Moved to 8:00 PM — you skipped the 5:00 PM session."* |
+| **Alternate Flows and Exceptions** | • **No slot remains in the day** → System says so and offers tomorrow; the task is not discarded (FR-RSC-05).<br>• **The user skips the re-placed occurrence too** → it is rescheduled again, subject to FR-RSC-06's termination bound. The System does not loop indefinitely.<br>• The occurrence is already complete → the skip is rejected; a completed task is never rescheduled (FR-RSC-07).<br>• The occurrence is a **fixed commitment** → skipping is not offered. A commitment is immovable by definition (FR-RSC-02), so there is nothing for the engine to re-place. |
+| **Requirements** | FR-RSC-03, FR-RSC-04, FR-RSC-05, FR-RSC-06, FR-RSC-07, FR-RSC-08, FR-DSH-05, FR-DSH-07 |
+| **Rationale** | *This is the only reschedule trigger available **before** the window elapses, and it is the one the user controls. It costs almost nothing — the same service method the automatic path calls — and it converts the most common real-world case ("I already know I can't make this") from a silent miss an hour later into a deliberate, explained move now.* |
+
+## 3.4 Sequence Diagram — Automatic Rescheduling
+
+*The flow when a new fixed commitment displaces an already-placed flexible task (UC-06). Note that the **same** engine is called that placed the task originally — there is no second algorithm.*
+
+```mermaid
+sequenceDiagram
+    actor User
+    participant UI as Dashboard
+    participant API as Backend API
+    participant DB as Database
+    participant ENG as Scheduling Engine (pure)
+
+    User->>UI: Add fixed commitment 17:00–17:45
+    UI->>API: POST /commitments
+    API->>DB: Insert fixed commitment
+    API->>DB: Find placed flexible tasks that overlap
+    DB-->>API: Gym (17:00–18:00, FLEXIBLE)
+
+    note over API,ENG: Conflict detected. The fixed commitment is NOT moved.
+
+    API->>DB: Read all busy intervals for the day
+    DB-->>API: Busy set (incl. new commitment)
+    API->>ENG: findCandidateSlots(busySet, gymTask)
+    note right of ENG: Pure function.<br/>No DB. No clock.<br/>No side effects.
+    ENG-->>API: [17:45–18:45, 16:00–17:00, 20:00–21:00]
+
+    API->>DB: Update Gym placement → 17:45
+    API->>DB: Record reason = "displaced by Advisor"
+    API-->>UI: Updated schedule + reason
+    UI-->>User: "Moved to 5:45 PM — your 5:00 PM slot was taken by Advisor."
+```
+
+## 3.5 Entity-Relationship Diagram
+
+```mermaid
+erDiagram
+    USER ||--o{ TASK : "creates"
+    USER ||--o{ WEARABLE_METRIC : "has"
+    USER ||--|| PREFERENCE : "has"
+    USER ||--o{ WEARABLE_CONNECTION : "may have"
+    TASK ||--o{ PLACEMENT : "occurs as"
+    PLACEMENT ||--o| COMPLETION_RECORD : "may have"
+    WORKOUT_LIBRARY_ITEM ||--o{ TASK : "may source"
+    MEAL_LIBRARY_ITEM ||--o{ TASK : "may source"
+
+    USER {
+        int id PK
+        string email UK
+        string password_hash
+        time wake_time
+        time sleep_time
+    }
+    TASK {
+        int id PK
+        int user_id FK
+        string title
+        enum type
+        int duration_minutes
+        int priority
+        time window_start
+        time window_end
+        enum flexibility
+        string recurrence_rule
+        enum intensity_tier
+        enum source
+    }
+    PLACEMENT {
+        int id PK
+        int task_id FK
+        date on_date
+        time start_time
+        time end_time
+        enum status
+        string placement_reason
+        enum reschedule_trigger
+    }
+    COMPLETION_RECORD {
+        int id PK
+        int placement_id FK
+        timestamp completed_at
+    }
+    WEARABLE_METRIC {
+        int id PK
+        int user_id FK
+        date on_date
+        string metric_name
+        float value
+        string unit
+        bool is_available
+        enum origin
+    }
+    PREFERENCE {
+        int user_id FK
+        string dietary_flags
+        string workout_prefs
+        int baseline_calorie_target
+    }
+    WEARABLE_CONNECTION {
+        int user_id FK
+        string source_type
+        string access_token_enc
+        string refresh_token_enc
+    }
+    WORKOUT_LIBRARY_ITEM {
+        int id PK
+        string name
+        enum intensity_tier
+        int typical_duration
+        string equipment
+        string target_area
+    }
+    MEAL_LIBRARY_ITEM {
+        int id PK
+        string name
+        enum meal_type
+        int calories
+        string dietary_flags
+    }
+```
+
+> **This is a logical data model, not a physical schema.** The System persists to **MongoDB** (CON-08), so each entity below is a *collection* of documents and the `PK`/`FK` markers denote identity and reference rather than enforced relational keys. Referential integrity is therefore the application's responsibility, not the database's — see DR-01, which requires completion history to survive deletion of the task that produced it.
+>
+> **Note the shape of `WEARABLE_METRIC`: one document per metric per date, not one field per metric.** This is what makes FR-WER-04 true — introducing a new metric (stress, HRV) is an *insert*, not a redesign. A document carrying `sleep_score` and `active_calories` as named fields would satisfy this release and quietly make every future metric a change to every reader of that document.
+
+## 3.6 Class Diagram
+
+*The backend's core domain. Note that `SchedulingEngine` depends on nothing — that isolation is required by CON-04 and is what makes it testable.*
+
+```mermaid
+classDiagram
+    class SchedulingEngine {
+        <<pure>>
+        +findCandidateSlots(busy: Interval[], task: Task, schedulableDay: Interval) PlacementResult
+        -mergeBusyIntervals(busy: Interval[]) Interval[]
+        -freeIntervals(busy: Interval[], day: Interval) Interval[]
+        -rankSlots(slots: Slot[], task: Task) Slot[]
+    }
+
+    class PlacementResult {
+        <<union>>
+        +placed: bool
+        +slots: Slot[]
+        +reason: NoSlotReason
+        +explanation: string
+    }
+
+    class RescheduleService {
+        -engine: SchedulingEngine
+        -repo: TaskRepository
+        +onTaskMissed(placement: Placement) void
+        +onUserSkipped(placement: Placement) void
+        +onCommitmentAdded(commitment: Task) void
+        +onCompletionRecorded(placement: Placement) void
+        +sweepElapsed(userId, date) void
+    }
+
+    class RecommendationEngine {
+        -rules: RecommendationRule[]
+        -catalog: Catalog
+        +recommend(metrics: DailyMetricSet) Recommendation[]
+        +register(rule: RecommendationRule) void
+    }
+
+    class RecommendationRule {
+        <<interface>>
+        +requiredMetrics() string[]
+        +fallback() Decision
+        +apply(metrics: DailyMetricSet) Decision
+    }
+
+    class SleepToIntensityRule {
+        +apply(metrics) IntensityTier
+    }
+    class CaloriesToTargetRule {
+        +apply(metrics) CalorieTarget
+    }
+
+    class WearableAdapter {
+        <<interface>>
+        +fetch(userId, date) DailyMetricSet
+    }
+    class GarminExportAdapter
+    class LiveApiAdapter
+    class InjectionAdapter
+
+    class Catalog {
+        <<interface>>
+        +findWorkouts(tier, prefs, n) Workout[]
+        +findMeals(calorieTarget, prefs) Meal[]
+    }
+
+    class DailyMetricSet {
+        +date: Date
+        +get(name: string) Metric
+        +isAvailable(name: string) bool
+    }
+
+    class Task {
+        +id, title, type
+        +durationMinutes: int
+        +priority: int
+        +preferredWindow: Interval
+        +flexibility: FIXED|FLEXIBLE
+    }
+
+    RescheduleService --> SchedulingEngine : re-invokes
+    RecommendationEngine --> RecommendationRule : evaluates
+    RecommendationEngine --> Catalog : draws from
+    RecommendationEngine --> SchedulingEngine : places via
+    RecommendationRule <|.. SleepToIntensityRule
+    RecommendationRule <|.. CaloriesToTargetRule
+    WearableAdapter <|.. GarminExportAdapter
+    WearableAdapter <|.. LiveApiAdapter
+    WearableAdapter <|.. InjectionAdapter
+    WearableAdapter --> DailyMetricSet : produces
+    RecommendationEngine --> DailyMetricSet : consumes
+    SchedulingEngine ..> Task : places
+    SchedulingEngine ..> PlacementResult : returns
+```
+
+> **Two things about the engine's signature are load-bearing, and both are consequences of requirements rather than matters of taste.**
+>
+> **It returns a `PlacementResult`, not a bare `Slot[]`.** FR-SCH-06 requires that where no valid slot exists the engine return *"an explicit empty result **with a reason**"* and **not silently drop the task**. An empty array carries no reason — it is indistinguishable from "I found nothing" and "I wasn't asked." Returning a bare list of slots would make FR-SCH-06 **unsatisfiable at the type level**, and would leave the caller free to ignore the failure by iterating an empty array. The discriminated union forces the caller to handle it.
+>
+> **`schedulableDay` is a parameter, not something the engine looks up.** FR-SCH-04 requires that no placement fall outside the schedulable day, so the engine must know where the day begins and ends — but FR-SCH-05 forbids it a clock or a database, and the day's bounds come from the user's wake and sleep times (§3.5, `USER.wake_time` / `sleep_time`). The only way to satisfy both is for the caller to **tell** the engine. This is what keeps the purity of FR-SCH-05 structural rather than merely intended.
+
+## 3.7 Wireframes
+
+### 3.7.1 Schedule Dashboard (UI-01, FR-DSH)
+
+```
+┌──────────────────────────────────────────────────────────────────────────┐
+│  Adaptive Scheduler        [ Schedule ] [ Wellness ] [ Analytics ]  (P) │
+├──────────────────────────────────────────────────────────────────────────┤
+│  ◄  Monday, 13 July 2026  ►                            [ + Add Task ]    │
+├──────────────────────────────────────────────────────────────────────────┤
+│                                                                          │
+│  07:00 ┌────────────────────────────────────────────────────────┐        │
+│        │                    (free)                              │        │
+│  09:00 ├════════════════════════════════════════════════════════┤        │
+│        ║ CS 401 Lecture                          [FIXED]        ║        │
+│  10:15 ├════════════════════════════════════════════════════════┤        │
+│        │                    (free)                              │        │
+│  12:00 ├────────────────────────────────────────────────────────┤        │
+│        │ Lunch                           ○ complete   ⤼ skip    │        │
+│  12:30 ├────────────────────────────────────────────────────────┤        │
+│        │                    (free)                              │        │
+│  14:00 ├════════════════════════════════════════════════════════┤        │
+│        ║ Lab                                     [FIXED]        ║        │
+│  16:00 ├────────────────────────────────────────────────────────┤        │
+│        │ ✦ Recovery Session (yoga)       ○ complete   ⤼ skip    │        │
+│        │   ⓘ Recovery session — your sleep score was 42.        │        │
+│        │   [ swap ▾ ]                                           │        │
+│  17:00 ├────────────────────────────────────────────────────────┤        │
+│        │ ↻ Gym                           ○ complete   ⤼ skip    │        │
+│        │   ⓘ Moved to 5:45 PM — 5:00 PM taken by Advisor.       │        │
+│  18:45 ├────────────────────────────────────────────────────────┤        │
+│        │                    (free)                              │        │
+│  23:00 └────────────────────────────────────────────────────────┘        │
+│                                                                          │
+│  Legend:  ═ fixed commitment   ─ flexible task                           │
+│           ✦ system recommendation   ↻ automatically rescheduled          │
+└──────────────────────────────────────────────────────────────────────────┘
+```
+
+*Every automatic action carries a plain-language reason (ⓘ). Per NFR-USE-02, a user must never find a task in a place they did not put it with no explanation of how it got there.*
+
+*Each occurrence carries **two** actions, not one: **○ complete** and **⤼ skip** (FR-DSH-07). The skip is what lets a user say "I already know I can't make this" **before** the window elapses (FR-RSC-08). On a task the System has moved on its own — ↻ Gym above — marking it **complete** is also the correction: it overturns the reschedule and withdraws the later placement (FR-RSC-09). **The correction lives on the moved task itself, beside the reason it was moved**, because that is the moment the user is looking at an inference the System may have got wrong.*
+
+### 3.7.2 Wellness Section (UI-03, FR-WEL)
+
+```
+┌──────────────────────────────────────────────────────────────────────────┐
+│  Adaptive Scheduler        [ Schedule ] [ Wellness ] [ Analytics ]  (P)  │
+├──────────────────────────────────────────────────────────────────────────┤
+│  TODAY'S METRICS                            measured 13 Jul, from Garmin │
+│                                                                          │
+│    Sleep Score          42 / 100    ▓▓▓▓░░░░░░   ← drives workout        │
+│    Active Calories     850 kcal     ▓▓▓▓▓▓▓░░░   ← drives meal target    │
+│                                                                          │
+│  ┌── LAST 7 DAYS ────────────────────────────────────────────────────┐   │
+│  │ Sleep    78  81  65  70  55  49  42     ╲___                      │   │
+│  │ Calories 320 610 450 890 700 520 850                              │   │
+│  └───────────────────────────────────────────────────────────────────┘   │
+├──────────────────────────────────────────────────────────────────────────┤
+│  TODAY'S WORKOUT                                        Tier: LOW        │
+│  ⓘ Recovery session — your sleep score was 42 last night.               │
+│                                                                          │
+│   ◄  [ Yoga Flow  ]  [ Stretch & Mobility ]  [ Easy Walk ]  ►           │
+│         ● selected           ○                     ○                     │
+├──────────────────────────────────────────────────────────────────────────┤
+│  TODAY'S MEAL PLAN                          Target: 2,850 kcal          │
+│  ⓘ 2,850 kcal today — baseline 2,000 + 850 active calories.             │
+│                                                                          │
+│    Breakfast   Oatmeal & berries            520 kcal   [vegetarian]      │
+│    Lunch       Chicken rice bowl            780 kcal                     │
+│    Dinner      Salmon, potatoes, greens     950 kcal                     │
+│    Snacks      Greek yogurt, almonds        600 kcal                     │
+│                                        ─────────────                     │
+│                                          2,850 kcal                      │
+└──────────────────────────────────────────────────────────────────────────┘
+```
+
+*Baseline and activity contribution are shown **separately** (FR-WEL-03), so the wearable's effect on the meal plan is visible rather than implied.*
+
+### 3.7.3 Analytics View (UI-04, FR-ANL)
+
+```
+┌──────────────────────────────────────────────────────────────────────────┐
+│  Adaptive Scheduler        [ Schedule ] [ Wellness ] [ Analytics ]  (P)  │
+├──────────────────────────────────────────────────────────────────────────┤
+│  HABIT CONSISTENCY                              Period: [ Last 30 days ▾]│
+│                                                                          │
+│   Habit                  Streak      Completion Rate                     │
+│   ─────────────────────────────────────────────────────────────────      │
+│   Read 30 minutes         12 days    ▓▓▓▓▓▓▓▓░░  83%   (25/30)           │
+│   Gym                      4 days    ▓▓▓▓▓▓░░░░  60%   (12/20)           │
+│   Meal prep                7 days    ▓▓▓▓▓▓▓▓▓░  90%   ( 9/10)           │
+│                                                                          │
+│  ┌── COMPLETION TREND ───────────────────────────────────────────────┐   │
+│  │  100% ┤          ╭─╮      ╭──╮                                    │   │
+│  │   75% ┤    ╭─────╯ ╰──────╯  ╰───╮                                │   │
+│  │   50% ┤ ╭──╯                     ╰──                              │   │
+│  │    0% ┼──────────────────────────────────                         │   │
+│  │       Week 1   Week 2   Week 3   Week 4                           │   │
+│  └───────────────────────────────────────────────────────────────────┘   │
+│                                                                          │
+│  ⓘ Tasks that were automatically rescheduled and then completed count    │
+│    as completed. Recovering from a missed task does not break a streak.  │
+└──────────────────────────────────────────────────────────────────────────┘
+```
+
+## 3.8 Detailed Functional Requirements
+
+### 3.8.1 Account and Session Management (FR-USR)
+
+- **FR-USR-01.** *(Essential, T)* The System shall allow a person to create an account with a unique email address and a password.
+- **FR-USR-02.** *(Essential, T)* The System shall authenticate a user by email and password and establish a session.
+- **FR-USR-03.** *(Essential, T)* The System shall store passwords **only as salted cryptographic hashes**. Verified by inspecting the stored record: the plaintext shall not be recoverable.
+- **FR-USR-04.** *(Essential, T)* The System shall deny any request for a user's tasks, metrics, recommendations, or history unless the request carries a valid session **for that same user**. A request authenticated as user A for user B's data shall be rejected.
+- **FR-USR-05.** *(Conditional, D)* Where a live data source is used (FR-WER-11), the System shall allow a user to connect their wearable account via that service's OAuth flow.
+- **FR-USR-06.** *(Conditional, D)* Where a live data source is used, the System shall allow a user to disconnect it, ceasing metric retrieval and deleting stored tokens. *(The right to **erase** health data already collected is Essential and specified separately at NFR-SEC-06, which does not depend on FR-WER-11.)*
+- **FR-USR-07.** *(Essential, T)* The System shall allow a user to define their **schedulable day** (wake and sleep times) and shall never place a task outside those bounds.
+
+### 3.8.2 Task, Habit, and Goal Management (FR-TSK)
+
+- **FR-TSK-01.** *(Essential, T)* The System shall allow a user to create a task with these attributes:
+
+  | Attribute | Type | Mandatory | Constraint |
+  |---|---|---|---|
+  | Title | text | yes | 1–100 characters |
+  | Type | enum | yes | Habit, Goal, Class, Meeting, Workout, Meal, Other |
+  | Duration | integer minutes | yes | 5 ≤ duration ≤ 480 |
+  | Priority | integer | yes | 1 (highest) – 5 (lowest) |
+  | Preferred time window | start/end time | yes | end > start; window length ≥ duration |
+  | Flexibility | enum | yes | FIXED or FLEXIBLE |
+  | Recurrence | enum + days | no | none, daily, or specific weekdays |
+  | Intensity tier | enum | workouts only | LOW, MODERATE, HIGH |
+
+- **FR-TSK-02.** *(Essential, T)* The System shall **reject** a task whose preferred window is shorter than its duration, stating that reason. *(This is the most common way a user makes a task unplaceable. Catching it at entry rather than at scheduling time is why this is Essential.)*
+- **FR-TSK-03.** *(Essential, T)* The System shall allow a user to read, update, and delete any task they created.
+- **FR-TSK-04.** *(Essential, T)* When a user changes a task's duration or preferred window, the System shall re-evaluate its placement and re-place it if the current placement is no longer valid.
+- **FR-TSK-05.** *(Essential, T)* The System shall expand a recurring task into one placement per matching day, each **independently completable and independently reschedulable**.
+- **FR-TSK-06.** *(Essential, T)* The System shall allow a user to mark an occurrence complete, recording the timestamp.
+- **FR-TSK-07.** *(Essential, T)* Deleting a recurring task shall delete its **future** occurrences and **preserve its historical completion records**, so analytics over past behavior remain correct.
+
+### 3.8.3 Fixed Commitments and Calendar Data (FR-CAL)
+
+- **FR-CAL-01.** *(Essential, T)* The System shall accept fixed commitments, each with a title, date, start time, and end time.
+- **FR-CAL-02.** *(Essential, T)* The engine shall treat every fixed commitment as a **hard constraint**: no placement shall overlap one by even one minute.
+- **FR-CAL-03.** *(Essential, T)* The System shall **never** move, alter, or delete a fixed commitment to resolve a conflict. A fixed commitment is immovable by definition; only flexible tasks move.
+- **FR-CAL-04.** *(Conditional, D)* Where an external calendar source is realized (SI-05), the System shall refresh fixed commitments at least once per day.
+- **FR-CAL-05.** *(Essential, T)* An **all-day event shall not be treated as a busy interval.** A commitment that occupies no specific span of the day — a birthday, a holiday, a deadline marker — shall be ignored by the scheduling engine. *(This is a requirement, not an implementation detail, and it is Essential even though the calendar import that surfaces such events is Conditional. **Naively treating an all-day event as busy would mark the entire schedulable day occupied, and the engine would be unable to place anything at all.** A single "Mom's Birthday" entry would silently destroy the user's schedule. Verification: a test that adds an all-day event and asserts the day's free intervals are unchanged.)*
+- **FR-CAL-06.** *(Conditional, T)* Where an external calendar source is realized, the System shall **expand recurring events into individual dated occurrences** before they reach the engine. The engine shall never receive a recurrence rule — only concrete busy intervals. *(Most calendar APIs will perform this expansion on request. Implementing recurrence-rule parsing by hand is out of scope and is not a good use of this project's remaining time. **Not applicable while SI-05 is unpursued**, but retained because the constraint on the engine — it never sees a recurrence rule — holds regardless of where commitments come from.)*
+- **FR-CAL-07.** *(Conditional, D)* The System shall **export the user's schedule for a selected date range as an iCalendar (`.ics`) file** (SI-06), containing each placed task as an event with its title, date, start time, and end time. Verification: export a day's schedule, import the file into a real calendar application, and confirm the events appear at the correct times. *(This is what makes the System's output usable outside the System. **It is not a substitute for calendar import** — it supplies the scheduler with nothing — and it is Conditional because the Core Demonstrable Capability of §2.7.1 does not depend on it.)*
+
+### 3.8.4 Core Scheduling Engine (FR-SCH)
+
+> **There is exactly one scheduling engine in this System.**
+>
+> This group (FR-SCH) and the next (FR-RSC) are **not two engines.** FR-SCH specifies a single function — *given a day's busy intervals and a task, return the valid slots*. FR-RSC specifies **when that same function is called again**, and what happens around the call. Rescheduling is not a second algorithm; it is the identical function re-invoked with an updated view of the day. FR-RSC-03 makes this binding and is verified by inspection.
+>
+> **Why they are written separately.** The engine is required to be a **pure function** (FR-SCH-05): no clock, no database, no side effects. But deciding a task was *missed* requires the current time; re-placing it requires reading the database; telling the user requires a side effect. Folding those into the engine would destroy its purity — and its purity is exactly what allows it to be property-tested over a thousand randomized days with no database and no browser (NFR-COR-01), and held to 90% coverage (NFR-MNT-01).
+>
+> The split is **not** *scheduler vs. rescheduler*. It is **the decision** (pure, exhaustively tested) versus **the policy that decides when to re-decide** (stateful, integration-tested).
+
+- **FR-SCH-01.** *(Essential, T)* Given busy intervals and a task, the engine shall determine whether the task's preferred window contains a free interval of length ≥ its duration, and if so return a placement within that window.
+- **FR-SCH-02.** *(Essential, T)* If the preferred window contains no sufficient free interval, the engine shall search the remainder of the schedulable day and return **up to three ranked candidate slots**.
+- **FR-SCH-03.** *(Essential, T)* The engine shall rank candidates by, in order: (a) proximity of start time to the preferred window; (b) the task's priority relative to neighbors; (c) earlier start time as final tiebreaker. **Ranking shall be deterministic**: identical inputs always produce identical output ordering.
+- **FR-SCH-04.** *(Essential, T)* No placement shall overlap any busy interval, and none shall fall outside the schedulable day.
+- **FR-SCH-05.** *(Essential, T)* The engine shall be a **pure function**: called twice with identical inputs it returns identical outputs; it performs no database write, no HTTP call, and no mutation of its arguments.
+- **FR-SCH-06.** *(Essential, T)* Where no valid slot exists, the engine shall return an **explicit empty result with a reason**, and the System shall tell the user the task could not be placed and why. It shall **not** silently drop the task, and shall **not** place it in violation of its constraints.
+- **FR-SCH-07.** *(Conditional, T)* Where a candidate slot is occupied by a placed flexible task of strictly **lower** priority, the engine may propose displacing it to make room. Any displacement shall itself be a valid placement from this same engine; **the displaced task shall never be dropped.** *(Conditional because a correct, useful System exists without it, and it introduces cascade risk — see FR-SCH-08.)*
+- **FR-SCH-08.** *(Conditional, T)* Where FR-SCH-07 is implemented, displacement **shall not cascade**: one placement operation displaces at most one task, and a displaced task shall not itself displace another. Verified by a test constructing a descending-priority chain and showing termination.
+- **FR-SCH-09.** *(Essential, T)* The engine shall correctly handle these boundary cases. **Each row is a required test case.**
+
+  | Case | Required behavior |
+  |---|---|
+  | Day entirely empty | Task placed at the start of its preferred window |
+  | Day entirely full | Empty result with reason (FR-SCH-06) |
+  | Free interval **exactly equals** duration | Placed; the slot is valid |
+  | Free interval **one minute short** | Rejected; engine continues searching |
+  | Duration equals the whole schedulable day | Placed only if the day is empty |
+  | Two busy intervals **adjacent, no gap** | Treated as one; no zero-length slot returned |
+  | Busy intervals **overlap each other** | Merged; no placement produced in the overlap |
+  | Preferred window entirely outside the schedulable day | Empty result with reason |
+
+### 3.8.5 Automatic Rescheduling — Triggers and Policy (FR-RSC)
+
+*This group adds **no new placement logic.** It specifies the events that cause the engine of 3.8.4 to be re-invoked, and the behavior required around that call.*
+
+- **FR-RSC-01.** *(Essential, T)* When a flexible task's window has fully elapsed and it is neither complete nor declared skipped, the System shall classify it **missed** and automatically invoke the engine to place it in the next valid slot remaining that day. *(This classification is **inferred from the absence of a completion**, because the user cannot be relied upon to report a miss — the person who skipped their 8 PM run is the least likely person to open the application and say so. The inference is therefore correct as a default and **wrong in one specific case**: the user did the task and did not mark it. **FR-RSC-09 is the remedy for that case**, and the two requirements shall be read together. Applies to **flexible** tasks only: a fixed commitment is immovable by definition (FR-RSC-02), so there is nothing to re-place and no missed classification is made.)*
+- **FR-RSC-02.** *(Essential, T)* When a new fixed commitment overlaps an already-placed flexible task, the System shall automatically invoke the engine to re-place that task, and shall **not** move the commitment.
+- **FR-RSC-03.** *(Essential, I)* Automatic rescheduling shall use **the identical engine** of FR-SCH — not a second, parallel implementation. Verified by inspection: **exactly one function in the codebase produces placements**, and both the manual and automatic paths call it.
+- **FR-RSC-04.** *(Essential, D)* When the System reschedules automatically, it shall notify the user in the schedule view, stating the task, its new time, and the trigger.
+- **FR-RSC-05.** *(Essential, T)* Where a missed or displaced task cannot be re-placed in the remainder of the day, the System shall say so and offer to move it to the next day. **It shall not silently discard the task.**
+- **FR-RSC-06.** *(Essential, T)* Automatic rescheduling shall be **idempotent and terminating**: the same trigger processed twice shall not produce two placements, and one trigger shall not cause an unbounded chain of reschedules. Verified by firing a trigger repeatedly and asserting a stable final schedule.
+- **FR-RSC-07.** *(Essential, T)* A task the user has marked complete shall **never** be rescheduled.
+- **FR-RSC-08.** *(Essential, T)* The System shall allow a user to declare a placed, incomplete, flexible occurrence **skipped**, and shall thereupon classify it skipped and invoke the engine exactly as FR-RSC-01 does for a missed task. **The declaration shall be accepted before the occurrence's window has elapsed**, not only after. *(This is the third reschedule trigger and the only one available in advance. It is not a substitute for FR-RSC-01: a user who forgets the task will also forget to declare it, so the automatic path must remain. It is offered only for flexible occurrences — a fixed commitment cannot be re-placed.)*
+- **FR-RSC-09.** *(Essential, T)* Where an occurrence was automatically rescheduled under FR-RSC-01 and the user subsequently marks **the original occurrence** complete, the System shall **cancel the reschedule**, withdraw the later placement, free the interval it held, record the occurrence as completed, and state that it has done so. *(The classification in FR-RSC-01 is an inference from silence and can be wrong in exactly one direction — the task was done and not marked. **Without this requirement that error is permanent and uncorrectable**, and the user is left with a phantom task on their evening. This is what makes the automatic classification a proposal rather than a verdict. See FR-ANL-03: the occurrence counts as completed.)*
+- **FR-RSC-10.** *(Essential, T)* The System shall evaluate FR-RSC-01 against every placed, incomplete, flexible occurrence whose window has elapsed **at each point a user's schedule for that date is retrieved**. A background scheduler or timer is **permitted but not required**. *(FR-RSC-01 states the condition for a miss but not what observes it. **An unstated mechanism is decided by whichever module is implemented first**, which is how a requirement acquires an accidental design. Evaluation on retrieval is sufficient because FR-RSC-04 requires the user to be told what moved and why — a reschedule nobody has been shown yet has no observable behavior to be late for. Verification: with the clock advanced past a placed occurrence's window, retrieving the schedule yields the occurrence re-placed and the reason recorded, with no background process running.)*
+
+### 3.8.6 Wearable Data Acquisition (FR-WER)
+
+*Structured so every Essential requirement is satisfiable on day one with no external dependency (CON-06), leaving a live API as a clean, non-blocking upgrade. See DEP-02.*
+
+- **FR-WER-01.** *(Essential, T)* The System shall obtain the user's health data for a date from a **wearable data source**, and shall be **indifferent to which source supplied it**.
+- **FR-WER-02.** *(Essential, T)* The System shall normalize data from any source into a **Daily Metric Set**: named metrics, each with a value, unit, and availability flag. This is the **only** representation of wearable data any downstream component sees.
+- **FR-WER-03.** *(Essential, T)* The Daily Metric Set shall contain, in this release, the following metrics. **This is the complete set of wearable metrics driving recommendations.** It is deliberately minimal — one metric per decision — and the extensibility required by FR-WER-04 and FR-REC-11 is what makes that minimalism safe rather than limiting.
+
+  | Metric | Unit / range | Derivation | Drives |
+  |---|---|---|---|
+  | **Sleep score** | 0–100 | Used directly where the source publishes one; otherwise derived from component sleep metrics (duration, deep-sleep fraction, interruptions) by a documented, deterministic formula | Workout intensity (FR-REC-01) |
+  | **Active calories** | kcal, ≥ 0 | Energy expended in activity for the date, exclusive of BMR | Daily calorie target (FR-REC-08) |
+
+- **FR-WER-04.** *(Essential, I)* The Daily Metric Set shall be **extensible by addition**: introducing a new metric shall require adding it to the set and registering a rule that consumes it (FR-REC-11), and shall require **no change** to the scheduling engine, the task model, the persistence layer's structure, the dashboard, or any existing rule.
+- **FR-WER-05.** *(Essential, I)* All data sources shall sit behind a **single adapter interface** whose output is the Daily Metric Set. No component downstream — in particular the recommendation engine — shall reference a source-specific field, file format, or API response shape. *(This is what makes the layered strategy of DEP-02 safe: it is why a late change of data source cannot threaten delivery.)*
+- **FR-WER-06.** *(Essential, T)* **Each metric shall carry its own availability flag.** Where a source supplies no value for a metric on a date, that metric is recorded unavailable. The System shall **not** record a fabricated, zero, or default value that could be mistaken for a real measurement, and **the absence of one metric shall not render the others unavailable.** *(An active-calorie count of 0 — a genuine rest day — and an absent count are different facts. Per-metric granularity matters because a watch worn overnight but not by day yields a real sleep score and no calorie count, and the System must still recommend a workout.)*
+- **FR-WER-07.** *(Essential, D)* The System shall provide a means of **injecting a specified value for any metric on a specified date**, for demonstrating and testing adaptive behavior without requiring the operator to actually sleep poorly or run a marathon. *(See UC-12. This depends on no network, no device, and no third party, and it is what makes the System's central claim demonstrable on 31 July.)*
+- **FR-WER-08.** *(Essential, D)* The System shall ingest **real health data exported from the user's wearable account** — the baseline source of DEP-02, Layer 1. Verified by loading real, dated records from the team member's own Garmin device.
+- **FR-WER-09.** *(Essential, T)* Ingestion shall be **idempotent**: ingesting the same export twice shall not duplicate metric records; re-ingesting a date shall update rather than duplicate.
+- **FR-WER-10.** *(Essential, D)* The System shall make **at least one real metric value, obtained from a real device**, drive a real recommendation decision. *(Stated separately from FR-WER-07 and FR-WER-08 so that neither the injection path nor the mere fact of ingestion can be mistaken for satisfying it. **This is what separates the project from one built on synthetic data.** Exit date: the project midpoint.)*
+- **FR-WER-11.** *(Conditional, D)* The System shall retrieve health data by a **live authenticated call**, without manual export. Where realized it shall additionally: refresh metrics at least daily (11a); obtain access under OAuth 2.0 or documented equivalent, never handling the user's wearable password (11b); and refresh an expired token using a stored refresh token without re-authorization (11c). *(Conditional purely because its availability rests with a third party — CON-06.1. It is an upgrade, and a prerequisite for nothing.)*
+
+### 3.8.7 Adaptive Recommendation Engine (FR-REC)
+
+- **FR-REC-01.** *(Essential, T)* The System shall map sleep score to recommended **intensity tier**:
+
+  | Sleep score | Intensity tier |
+  |---|---|
+  | 0 – 49 | LOW |
+  | 50 – 74 | MODERATE |
+  | 75 – 100 | HIGH |
+
+  *Verification: inject a score at each boundary (49, 50, 74, 75) per FR-WER-07 and assert the tier.*
+
+- **FR-REC-02.** *(Essential, D)* Where a workout is scheduled at a tier **above** what the day's sleep score warrants, the System shall automatically replace it with one at the warranted tier and **place the replacement using the scheduling engine.** *This is the behavior the project exists to demonstrate: a low sleep score causes a scheduled long run to become a recovery session, which then appears on the user's actual calendar.*
+- **FR-REC-03.** *(Essential, D)* The System shall **not silently override the user.** For any workout slot it shall offer **three** options at the warranted tier, drawn from the library (FR-LIB-05); its own choice is placed by default, and the user may select either other and have the slot re-placed.
+- **FR-REC-04.** *(Essential, T)* A recommended workout or meal shall be created as a **task** (FR-TSK-01) and placed by the **engine** (FR-SCH). It shall be subject to conflict detection and automatic rescheduling **identically to a user-created task.** Verified by adding a conflicting commitment over a recommended workout and asserting it is re-placed by FR-RSC-02.
+- **FR-REC-05.** *(Essential, T)* The System shall allow a user to record dietary and workout preferences and shall **never** recommend anything violating one. **This is a hard constraint that does not relax under any circumstance**, including when no compliant item is found (FR-LIB-08). Verified by recording each restriction in turn and asserting no recommendation, across the full calorie range, violates it.
+- **FR-REC-06.** *(Essential, T)* Where a metric a rule needs is unavailable, that rule shall fall back to a **documented default**, and the recommendation shall be labeled as made without current data. **No rule shall fail, block, or leave a slot empty for want of a metric.** Defaults: sleep score unavailable → **MODERATE**; active calories unavailable → the **baseline calorie target**.
+- **FR-REC-07.** *(Essential, T)* The System shall not reduce the intensity of a workout already marked complete, and shall not replace one whose window has already begun. A workout that was missed or declared skipped and **re-placed into a window that has not yet begun remains eligible** for adjustment. *(The exclusions are about not rewriting the past and not moving something underway. A re-placed workout is neither.)*
+- **FR-REC-08.** *(Essential, T)* The System shall compute a **daily calorie target** as the baseline target plus the active calories recorded for that date, and generate meal recommendations against it. Because calories accrue during the day (ASM-03), the target for today shall be recomputed on refresh and presented as a **current, not final** figure. *(The meal-side counterpart of FR-REC-01. This is what makes "wearable-driven meal plans" literally true: 850 active calories yields a materially different plan from a rest day.)*
+
+  *Verification: inject an active-calorie value and assert the target moves by exactly that amount; inject unavailable and assert fallback to baseline.*
+
+- **FR-REC-09.** *(Essential, D)* The System shall allow the user to record a **baseline calorie target**, used as the floor for FR-REC-08 and the fallback for FR-REC-06. *(The System does not estimate BMR. **It asks.** Estimating would require height, weight, age, and sex, introduce a formula the team would have to defend, and add nothing the project is graded on — see CON-05.)*
+- **FR-REC-10.** *(Conditional, D)* The System shall generate a **weekly** meal plan from the meal library, consistent with dietary preferences and daily calorie targets, and place any meal-prep windows onto the schedule as tasks. *(Demoted from Essential for schedule reasons — see §2.7.1. FR-REC-08 already delivers wearable-driven meal recommendations against a daily calorie target, which is the adaptive claim; weekly planning and prep-window scheduling ride on top of it. **The System's thesis survives the absence of this requirement.**)*
+- **FR-REC-11.** *(Essential, I)* Each mapping from metrics to a recommendation shall be an **independent, registered rule** declaring the metrics it consumes, the decision it produces, and its fallback. The engine shall evaluate registered rules **without knowledge of any rule's content.** Consequently **adding a metric shall be two additions and no modifications**: add it to the metric set, register a rule that consumes it. Verified by inspection: no existing rule, and no code in the scheduler, task model, or dashboard, requires editing to introduce a new one.
+- **FR-REC-12.** *(Conditional, D)* The team shall **demonstrate** FR-REC-11 by introducing one additional metric and rule from FUT-02 — e.g. a stress or Body Battery score — and reporting the change as a diff. *(An architecture is only extensible if someone has extended it; a design never exercised is a hypothesis. Expected diff: two files, no existing rule. **If it turns out larger, that is a finding worth reporting honestly in the presentation.**)*
+- **FR-REC-13.** *(Essential, D)* Every recommendation shall be accompanied by **the reason it was made, naming the metric and value** — e.g. *"Recovery session — your sleep score was 42 last night"*, or *"2,850 kcal today — you burned 850 active calories."* Where made under a fallback, the reason shall say so.
+
+### 3.8.8 Schedule Dashboard (FR-DSH)
+
+- **FR-DSH-01.** *(Essential, D)* Display the schedule for a selected day in a calendar-style layout.
+- **FR-DSH-02.** *(Essential, D)* Allow navigation to the previous and next day.
+- **FR-DSH-03.** *(Essential, D)* Allow marking any occurrence complete directly from the schedule view.
+- **FR-DSH-04.** *(Essential, D)* Visually distinguish fixed commitments from flexible tasks, and system-generated recommendations from user-created tasks.
+- **FR-DSH-05.** *(Essential, D)* Where the System placed or moved a task, **state the reason in plain language** — e.g. *"Moved to 4:00 PM — your 2:00 PM slot was taken by CS 401 Lecture."* Verified by demonstration: **an evaluator with no knowledge of the algorithm shall be able to read why a task is where it is.**
+- **FR-DSH-06.** *(Essential, D)* Where a task's preferred slot is unavailable, present the ranked alternatives from FR-SCH-02 and allow the user to accept one.
+- **FR-DSH-07.** *(Essential, D)* Allow the user, directly from the schedule view, to **declare an occurrence skipped** (FR-RSC-08), and — where the System has automatically rescheduled an occurrence — to **overturn that reschedule by marking the original complete** (FR-RSC-09). The correction shall be reachable **from the reschedule notice itself** (FR-RSC-04), not from a separate screen. *(The user is told "this was missed this evening" at the moment the System may have got it wrong. Requiring them to navigate elsewhere to say otherwise is how a correctable inference becomes an uncorrected one.)*
+
+### 3.8.9 Wellness Section (FR-WEL)
+
+- **FR-WEL-01.** *(Essential, D)* Display **every metric in the Daily Metric Set** for the current date, each with value, unit, and measurement date. The view shall render whatever the set contains **rather than a hard-coded list**, so a metric added under FR-WER-04 appears without changing this view.
+- **FR-WEL-02.** *(Essential, D)* Display today's recommended workout, its intensity tier, and the two alternatives from FR-REC-03.
+- **FR-WEL-03.** *(Essential, D)* Display the current meal plan **and the daily calorie target it was built against**, showing the baseline and the activity contribution **separately**, so the effect of wearable data on meals is visible rather than implied.
+- **FR-WEL-04.** *(Essential, D)* Display sleep score and active calories over at least the previous seven days.
+- **FR-WEL-05.** *(Essential, D)* Where a metric is not from the current day, or is unavailable, **say so and state the date of the value shown.** Never present an old measurement as current, nor an absent one as zero.
+
+### 3.8.10 Analytics and Streaks (FR-ANL)
+
+- **FR-ANL-01.** *(Essential, T)* Compute, per recurring habit, the count of consecutive completed days ending at the most recent day — its **streak**.
+- **FR-ANL-02.** *(Essential, T)* Compute, per habit over a selected period, its **completion rate**: occurrences completed ÷ occurrences scheduled.
+- **FR-ANL-03.** *(Essential, T)* A task automatically rescheduled and **then completed** shall count as **completed, not missed**. *(Rescheduling exists to help the user recover. A System that broke the user's streak for using its own recovery mechanism would defeat its own purpose.)*
+- **FR-ANL-04.** *(Essential, D)* Display each habit's current streak and completion rate.
+- **FR-ANL-05.** *(Conditional, D)* Display completion trend over time as a chart.
+- **FR-ANL-06.** *(Essential, T)* An occurrence the user declared **skipped** (FR-RSC-08) and did not subsequently complete shall count as **not completed**, identically to a missed one. The System shall provide **no means of excluding an occurrence from its own completion rate.** *(FR-ANL-03 already credits a rescheduled-then-completed occurrence, and that applies to a skip as readily as to a miss — **the trigger is irrelevant to the record; only the outcome matters.** This requirement settles the other half: a skip that is never made up is a day the habit did not happen. The alternative — treating a declared skip as excused — would let a user protect a streak by announcing failures in advance, which makes the streak a measure of candor rather than consistency and quietly destroys the meaning of FR-ANL-02.)*
+
+### 3.8.11 Workout and Meal Libraries (FR-LIB)
+
+*§3.8.7 decides **what kind** of workout or meal is warranted. It does not decide **which one** — it draws from the libraries specified here.*
+
+*The governing decision: the libraries are **local, seeded reference data — not runtime API calls.** Workouts and recipes are static; a push-up is the same push-up in July as in January, so there is no freshness argument for fetching one over a network. Calling an external service at recommendation time would reintroduce exactly the dependencies CON-06 exists to eliminate — rate limits, API keys, network failure during the presentation — in exchange for nothing.*
+
+- **FR-LIB-01.** *(Essential, I)* Each library shall sit behind a **catalog interface** accepting constraints and returning matching items. The recommendation engine shall query only through it and shall not know how a library was populated. *(The same seam as FR-WER-05, applied to content: it is what allows an external API to be adopted later, under FR-LIB-09, without touching a single rule.)*
+- **FR-LIB-02.** *(Essential, I)* **No component of the recommendation path shall make an external network call.** Recommendation generation shall depend on nothing beyond the System's own database. Verified by inspection **and by demonstrating every Essential FR-REC requirement with all outbound network access disabled.** *(This is what makes 31 July immune to a rate limit, an expired key, or a conference-room network.)*
+- **FR-LIB-03.** *(Essential, D)* The **workout library** shall be populated by a **one-time seeding process** from a freely licensed exercise dataset. Each workout shall carry: a name, an intensity tier, a typical duration, required equipment, and target muscle groups or activity type.
+- **FR-LIB-04.** *(Essential, T)* The mapping from the source dataset's fields to the System's **intensity tier** shall be documented and deterministic:
+
+  | Intensity tier | Source characteristics |
+  |---|---|
+  | **LOW** | Stretching, mobility, recovery; and beginner-level strength or cardio |
+  | **MODERATE** | Intermediate-level strength and cardio |
+  | **HIGH** | Plyometric or high-intensity work; and any expert-level activity |
+
+  *Verification: assert every seeded workout resolves to exactly one tier, and that a representative item of each source category resolves to the expected tier.*
+
+- **FR-LIB-05.** *(Essential, T)* The workout library shall contain **at least five workouts in each intensity tier** satisfying the default preference set, so FR-REC-03 can always offer three distinct options. *(A rule that promises three choices and a library that can supply two is a defect the System would only discover in front of the class. This makes the shortfall a failing test instead.)*
+- **FR-LIB-06.** *(Essential, D)* The **meal library** shall be populated by a one-time seeding process. Each meal shall carry: a name, a meal type, a **calorie count**, and dietary flags. *(The calorie count is not optional metadata — **it is the field FR-REC-08 targets.** A meal source that does not supply calories cannot be used, however rich otherwise: it would leave the System with a target and no way to meet it.)*
+- **FR-LIB-07.** *(Essential, T)* The meal library shall be large enough, and its calorie counts distributed widely enough, that a day's plan can be assembled within **±10%** of any target FR-REC-08 can produce, for **every** dietary preference combination offered. Verified by a test sweeping the target range against each preference set.
+- **FR-LIB-08.** *(Essential, T)* Where **no item satisfies the full constraint set**, the catalog shall relax constraints in a **documented, fixed order** and report which it relaxed. It shall **never** return an item violating a **dietary preference or an intensity ceiling** — these are hard constraints. Where relaxation cannot produce a candidate, the System shall say so plainly. *(Recommending a meal that violates a user's stated allergy is the single worst thing this System could do. **That constraint does not relax, at any point, for any reason.**)*
+- **FR-LIB-09.** *(Conditional, D)* The System shall populate either library from an **external content API** behind the catalog interface. *(An upgrade in content variety, not capability — and worth exactly zero marks if it costs a working demonstration. Not attempted until every Essential requirement is verified.)*
+- **FR-LIB-10.** *(Essential, I)* Any dataset seeded from shall be **licensed for the use made of it**, with license and attribution recorded in the repository. **Where a source's terms restrict storage or redistribution of its data, that source shall not be seeded from.** *(Several otherwise attractive recipe APIs restrict long-term storage on free tiers. **Read the terms before importing, not after.**)*
+
+## 3.9 External Interface Requirements
+
+### 3.9.1 User Interfaces (UI)
+
+- **UI-01.** *(Essential, D)* A **schedule view** displaying one day as a vertical time axis, each placed task a block whose position and height correspond to its start time and duration. *(Wireframe: §3.7.1)*
+- **UI-02.** *(Essential, D)* A **task entry form** capturing every attribute of FR-TSK-01, rejecting submission if a mandatory attribute is missing and stating which.
+- **UI-03.** *(Essential, D)* A **wellness view** showing metrics, today's recommended workout, and the meal plan, reachable from the main navigation in **one action** from the schedule. *(Wireframe: §3.7.2)*
+- **UI-04.** *(Essential, D)* An **analytics view** showing completion rate and streak per habit. *(Wireframe: §3.7.3)*
+- **UI-05.** *(Essential, D)* Every schedule-changing action shall produce a visible change **without requiring a manual page reload.**
+- **UI-06.** *(Conditional, D)* The schedule view shall be legible and operable at a viewport width of **1280 px and above**.
+- **UI-07.** *(Essential, D)* Tasks the System moved shall be **visually distinguished** from tasks the user placed, with the reason stated in plain language.
+
+### 3.9.2 Hardware Interfaces (HW)
+
+- **HW-01.** *(Essential, I)* The System shall **not communicate directly with any wearable device** and shall not require one attached to the machine running it. Device data arrives as an export (FR-WER-08) or, where realized, from a cloud API (FR-WER-11). The System therefore has **no direct hardware interface** and imposes no requirement on the user's machine beyond a browser.
+
+### 3.9.3 Software Interfaces (SI)
+
+- **SI-01.** *(Essential, D)* Interface with a **wearable data source** supplying, at minimum, the user's sleep and active-calorie data for a date. Under CON-06 the source required for **acceptance** is the export path of FR-WER-08.
+- **SI-02.** *(Conditional, D)* Where a live web API is used, obtain access via **OAuth 2.0** or its documented equivalent, and **never store, transmit, or request the user's wearable-platform password.** *(Conditional only because the interface it governs is Conditional. **If a live API is used at all, this is binding without exception** — the team shall not substitute password-based access for a delegated-authorization flow.)*
+- **SI-03.** *(Essential, I)* Persist all application state to a **database** (MongoDB, per CON-08). *(The System's requirements are indifferent to the storage model: §5 states **what data must be retained**, not how it is stored. What matters is DR-01 through DR-05, and in particular **DR-05 — adding a metric must never require a schema change**, which a document store satisfies naturally.)*
+- **SI-04.** *(Essential, D)* The backend shall expose a **REST API over HTTPS**, accepting and returning JSON. The frontend shall consume it **exclusively** — no direct database access, no direct third-party calls.
+- **SI-05.** *(Not pursued in this release — recorded for completeness.)* Importing fixed commitments *from* an external calendar over its API (e.g. Google Calendar via OAuth 2.0) was analysed on 12 July and **deliberately not adopted.** **Manual entry satisfies FR-CAL-01** (DEP-04), and the team elected instead to build calendar *export* (SI-06), which is materially cheaper and carries no network dependency.
+
+  *The analysis is preserved because the reasoning is not obvious: Google Calendar was **not blocked** the way the Garmin Health API was — Google issues credentials self-service with no partner review. The reason it was declined is cost against a nineteen-day timeline, not availability. If a future release wants real calendar import, **this is an open door, not a closed one.***
+
+- **SI-06.** *(Conditional, D)* The System shall **export the user's schedule as an iCalendar (`.ics`) file** conforming to RFC 5545, which the user may import into any calendar application, including Google Calendar. *(This is **export**, the opposite direction from SI-05: it publishes the System's schedule outward and supplies the scheduler with nothing. It therefore does not satisfy FR-CAL-01 and does not reduce the need for manual entry of fixed commitments. **It is text generation — no OAuth, no API, no network** — and so preserves the offline property of the acceptance demonstration (§6, FR-LIB-02). Chosen by the team on 12 July over calendar import as the cheaper way to connect the System to a real calendar.)*
+
+### 3.9.4 Communications Interfaces (CI)
+
+- **CI-01.** *(Essential, I)* All communication — browser↔backend, and backend↔any external source — shall use **HTTPS**. No application data shall traverse an unencrypted channel.
+- **CI-02.** *(Conditional, D)* Where a live source is used, the System shall tolerate it being unreachable: retry, then log and surface a **stale-data indication** in the wellness view, with **no unhandled error reaching the user**. See NFR-ROB-04, which is Essential and holds regardless.
+
+## 3.10 Hardware and Software Requirements
+
+### 3.10.1 For the End User
+
+| | Requirement |
+|---|---|
+| **Hardware** | Any computer capable of running a modern browser. An internet connection. **No wearable device need be connected to the computer.** |
+| **Software** | A current version of Chrome, Firefox, or Edge. Nothing to install. |
+
+### 3.10.2 For the Developer
+
+| | Requirement |
+|---|---|
+| **Hardware** | A Windows, macOS, or Linux machine with at least 8 GB RAM. **At least one team member must possess a Garmin device** (DEP-03). |
+| **Software** | Node.js (LTS), MongoDB, Git, a modern editor, and a browser. |
+| **Languages / frameworks** | TypeScript, React, Node.js, SQL. |
+| **Accounts** | A GitHub account. A Garmin Connect account (for the export path). **No third-party API key is required to satisfy any Essential requirement** — this is a deliberate property of the design, see DEP-02. |
+
+---
+
+# 4. Non-Functional Requirements
+
+*Organized around the six quality attributes named in the course directions — **functionally correct, reliable, robust, usable, maintainable, portable** — followed by performance, security, and availability.*
+
+## 4.1 Functional Correctness
+
+- **NFR-COR-01.** *(Essential, T)* **The engine shall never produce a placement that overlaps a busy interval.** This is the System's central correctness invariant. Verification: a **property-based test** that generates randomized days and tasks, invokes the engine, and asserts non-overlap over **no fewer than 1,000 generated cases.** *(Enumerated examples verify the cases we thought of. Property-based testing verifies the ones we did not — and this is the one defect the System cannot be allowed to ship.)*
+- **NFR-COR-02.** *(Essential, T)* The engine shall be **deterministic**: identical inputs shall always produce identical outputs, including the ordering of ranked alternatives (FR-SCH-03, FR-SCH-05).
+- **NFR-COR-03.** *(Essential, T)* Every boundary case in FR-SCH-09 shall pass as an explicit test.
+- **NFR-COR-04.** *(Essential, T)* The sleep-to-intensity mapping (FR-REC-01) and the calorie-target computation (FR-REC-08) shall be correct **at their boundaries**, verified by injecting values at each threshold.
+
+## 4.2 Reliability
+
+- **NFR-REL-01.** *(Essential, T)* **The System shall never lose a task.** A task missed, displaced, or unplaceable shall be surfaced to the user (FR-SCH-06, FR-RSC-05) and remain retrievable. Verification: a test asserting the **count of tasks is conserved** across a sequence of conflicts and reschedules.
+- **NFR-REL-02.** *(Essential, T)* Rescheduling shall be **idempotent and terminating** (FR-RSC-06). A trigger fired repeatedly shall converge on a stable schedule.
+- **NFR-REL-03.** *(Essential, D)* **The unavailability of any wearable data shall not prevent** a user from viewing their schedule, creating a task, completing a task, or having a task rescheduled. Verification: disable the wearable integration **entirely** and demonstrate that every FR-SCH and FR-RSC requirement still passes. *(The scheduling core **is** the System; the wearable is an input to it. A System that cannot schedule without a watch has inverted its own architecture.)*
+- **NFR-REL-04.** *(Essential, T)* Completion history shall survive deletion of the task that generated it (FR-TSK-07), so historical analytics remain correct.
+
+## 4.3 Robustness
+
+*Robustness is the System's behavior when the world misbehaves: bad input, missing data, a failed external source, an impossible request. Every case below is **specified**, not left to chance — an unspecified failure mode is a defect waiting to be discovered by the person grading it.*
+
+- **NFR-ROB-01.** *(Essential, T)* **Missing data shall never be silently substituted.** An absent metric and a measured zero shall remain distinguishable at every layer (FR-WER-06, DR-02), and a rule lacking its metric shall fall back to a **documented default** and say so (FR-REC-06).
+- **NFR-ROB-02.** *(Essential, T)* The System shall **validate every input at the API boundary** and reject malformed input with a descriptive error, **never an unhandled exception**.
+- **NFR-ROB-03.** *(Essential, T)* An **impossible request shall be reported, not forced.** Where no valid slot exists, the System shall say so and preserve the task — it shall never overlap a commitment, exceed the schedulable day, or silently drop the task to make the problem go away (FR-SCH-06, UC-10).
+- **NFR-ROB-04.** *(Essential, D)* **An external failure shall degrade one feature, not the System.** Where a live data source errors or times out, the failure shall be retried, then surfaced as stale data in the wellness view — while scheduling, task management, and rescheduling continue to work normally.
+- **NFR-ROB-05.** *(Essential, T)* The System shall tolerate a **partial** wearable record: one metric present and another absent shall degrade only the recommendation that depends on the absent one (UC-09).
+- **NFR-ROB-06.** *(Essential, D)* The System shall **recover from a backend restart** with no loss of persisted user data.
+- **NFR-ROB-07.** *(Essential, T)* Re-ingesting the same wearable export shall not corrupt or duplicate data (FR-WER-09).
+
+## 4.4 Usability
+
+- **NFR-USE-01.** *(Essential, D)* A first-time user shall create a task and see it placed **within 3 minutes** of first opening the System, **without instruction.** Verification: observe **no fewer than three people outside the team** attempt this, timed.
+- **NFR-USE-02.** *(Essential, D)* **Every automatic action the System takes shall be explained in plain language, naming the trigger** (FR-DSH-05, FR-REC-13). *A user shall never find a task in a place they did not put it with no explanation of how it got there.*
+- **NFR-USE-03.** *(Essential, D)* Every error a user can cause shall produce a message stating **what went wrong and what to do about it.** **No raw stack trace, HTTP status code, or internal identifier shall ever be displayed to the user.**
+- **NFR-USE-04.** *(Essential, D)* The user shall be able to **override any recommendation** the System makes (FR-REC-03). Adaptation shall never remove the user's authority over their own day.
+
+## 4.5 Maintainability
+
+- **NFR-MNT-01.** *(Essential, A)* The scheduling engine module shall have **≥ 90% line coverage** from unit tests. *(The engine is the System's core claim to technical depth and its highest-risk component; it is held to a higher standard than the rest of the codebase.)*
+- **NFR-MNT-02.** *(Conditional, A)* The System as a whole shall have **≥ 70% line coverage.** *(Demoted from Essential for schedule reasons — see §2.7.1. Frontend coverage is expensive and reveals little. **NFR-MNT-01 remains Essential**: the engine is where correctness lives, and 90% coverage there is the figure worth quoting.)*
+- **NFR-MNT-03.** *(Essential, I)* **There shall be exactly one implementation of placement logic in the codebase** (FR-RSC-03).
+- **NFR-MNT-04.** *(Essential, I)* The System shall pass a **linter and a type check with zero errors** as a precondition of any merge.
+- **NFR-MNT-05.** *(Essential, I)* The public API shall be **documented** — every endpoint, its parameters, its response shape.
+- **NFR-MNT-06.** *(Essential, I)* **Adding a wearable metric shall be an addition, not a modification** (FR-WER-04, FR-REC-11, DR-05). Verified by inspection, and exercised by FR-REC-12.
+
+## 4.6 Portability
+
+- **NFR-PRT-01.** *(Essential, D)* The frontend shall function in current **Chrome, Firefox, and Edge**.
+- **NFR-PRT-02.** *(Essential, D)* The backend shall run on **Windows, macOS, and Linux** — the team develops across all three.
+- **NFR-PRT-03.** *(Essential, I)* The wearable integration shall be isolated behind the adapter of FR-WER-05, such that **changing or adding a data source requires implementing that interface and no change to the recommendation engine.** Verified by inspection: the engine references only the Daily Metric Set, **never a source-specific field.**
+- **NFR-PRT-04.** *(Essential, I)* The System shall be extensible in its **metrics** as well as its **sources** — two distinct seams, one at the boundary of *where data comes from*, one at *what decisions it drives*. **Both are required; neither substitutes for the other.** *(Together they are what allow this release to ship two metrics honestly rather than five badly.)*
+- **NFR-PRT-05.** *(Essential, I)* The System shall be deployable and runnable on a clean machine by a **single documented command sequence** (CON-10).
+
+## 4.7 Performance
+
+- **NFR-PERF-01.** *(Essential, A)* The engine shall return a placement decision for a day of up to **50 busy intervals in under 200 ms**, at the 95th percentile over 100 consecutive invocations on development hardware.
+- **NFR-PERF-02.** *(Essential, A)* Any API request not calling an external source shall complete in **under 500 ms** at the 95th percentile under 10 concurrent users.
+- **NFR-PERF-03.** *(Essential, A)* The schedule view shall render a full day **in under 2 seconds** from navigation on a broadband connection.
+- **NFR-PERF-04.** *(Conditional, A)* The System shall support **20 concurrent users** without violating NFR-PERF-02. *(This bound reflects the demonstration context, not a production deployment; it is stated so it is testable rather than aspirational.)*
+- **NFR-PERF-05.** *(Conditional, A)* Where a live source is used, metric retrieval shall complete **within 10 seconds** or time out and be handled under CI-02.
+
+## 4.8 Security
+
+- **NFR-SEC-01.** *(Essential, T)* All application data in transit shall be **encrypted** (CI-01).
+- **NFR-SEC-02.** *(Essential, I)* Passwords shall be stored **only as salted hashes** (FR-USR-03).
+- **NFR-SEC-03.** *(Essential, T)* **A user shall be able to access only their own data** (FR-USR-04). Verification: an automated test attempting **cross-user access on every data-bearing endpoint** and asserting rejection.
+- **NFR-SEC-04.** *(Essential, I)* Any credential granting access to a wearable account shall be **encrypted at rest and never transmitted to the frontend.** Where no live source is used, the System holds **no such credential at all**, and this is satisfied vacuously and verifiably.
+- **NFR-SEC-05.** *(Essential, T)* The System shall be free of **injection vulnerabilities**. Verification: inspection confirming all queries are parameterized, plus a test submitting injection payloads to every text input and asserting they are stored and returned as **literal text**.
+- **NFR-SEC-06.** *(Essential, D)* A user shall be able to **delete their account and all associated health data.** *(Wearable metrics are health data about a real person. The ability to revoke and erase them is not optional.)*
+
+## 4.9 Availability
+
+- **NFR-AVL-01.** *(Conditional, D)* The System shall be reachable and functional for the duration of any scheduled demonstration or evaluation.
+- **NFR-AVL-02.** *(Essential, D)* The System shall recover from a backend restart **without loss of persisted user data** (see NFR-ROB-06).
+
+---
+
+# 5. Data Requirements
+
+The System shall persist the following. *This states the data the System must retain, not a database schema. See the ERD at §3.5.*
+
+| Entity | Retained attributes | Notes |
+|---|---|---|
+| **User** | id, email, password hash, wake time, sleep time, created date | FR-USR |
+| **Preference** | user id, dietary flags, workout preferences, **baseline calorie target** | FR-REC-05, FR-REC-09 |
+| **Wearable Connection** | user id, source type, encrypted access token, encrypted refresh token, expiry, status | **Only where a live source is used** (FR-WER-11) |
+| **Task** | id, user id, title, type, duration, priority, preferred window, flexibility, recurrence, intensity tier, **source (user-created / system-recommended)** | FR-TSK-01 |
+| **Placement** | id, task id, date, start, end, status, **placement reason**, **reschedule trigger (missed / skipped / displaced)** | One row per occurrence per day. Trigger values are constrained by DR-06 |
+| **Completion Record** | placement id, completed timestamp | **Retained after task deletion** (FR-TSK-07) |
+| **Wearable Metric** | user id, date, **metric name**, value, unit, availability flag, **origin (export / live / injected)**, raw payload | **One document per metric per date, not one field per metric** |
+| **Workout Library Item** | id, name, intensity tier, typical duration, equipment, target area, source | Seeded once, not fetched at runtime |
+| **Meal Library Item** | id, name, meal type, **calorie count**, dietary flags, source | The calorie count is what FR-REC-08 targets |
+
+- **DR-01.** *(Essential, I)* Completion history shall be retained even when the task that generated it is deleted.
+- **DR-02.** *(Essential, I)* A metric record shall distinguish **"no data available" from a measured zero** — per metric, not per date.
+- **DR-03.** *(Essential, I)* A placement shall **record why it is where it is**, so FR-DSH-05 is satisfied from stored data rather than reconstructed.
+- **DR-04.** *(Essential, I)* A metric record shall record its **origin**, and an **injected value shall be distinguishable from a measured one.** *(Without this the System cannot demonstrate FR-WER-10 — that real device data, not a convenient injection, drove a real decision — and the project's central claim becomes unfalsifiable.)*
+- **DR-05.** *(Essential, I)* Metrics shall be stored such that introducing a new metric requires **no change to the stored shape and no change to any existing reader** — one document per metric per date. *(Storing `sleep_score` and `active_calories` as named fields on a single daily document would satisfy this release and quietly make FUT-02 a change to every consumer of that document. The document-per-metric shape makes it an insert. **MongoDB makes this easy but does not make it automatic** — a schema-free store still permits the wrong shape, and this requirement is what forbids it.)*
+- **DR-06.** *(Essential, I)* A placement's reschedule trigger shall distinguish **missed** (inferred by the System), **skipped** (declared by the user), and **displaced** (a conflicting commitment); and a reschedule cancelled under FR-RSC-09 shall remain distinguishable from one that never occurred. *(Without the first distinction the System cannot state the reason FR-DSH-05 requires — "this was missed this evening" and "you skipped the 5:00 PM session" are different sentences, and only the stored trigger knows which is true. Without the second, FR-RSC-06's idempotency cannot be checked against stored state, and a cancelled reschedule could be re-applied by the next evaluation under FR-RSC-10.)*
+
+---
+
+# 6. Verification Approach
+
+The course directions require that every requirement be written so the team can demonstrate it has been met. This section states how.
+
+**The engine is verified by test, not demonstration.** Because FR-SCH-05 requires the engine to be pure and CON-04 requires it isolated from every other layer, its entire specification — FR-SCH-01 through FR-SCH-09, plus NFR-COR-01 — is verifiable by unit tests that build a day in memory, call the engine, and assert over its output. **No database, no browser, no wearable device.** The boundary table in FR-SCH-09 is written as a test matrix so it can be transcribed directly into the suite. NFR-COR-01 uses **property-based testing over randomized inputs** rather than enumerated examples, because the invariant it protects — *no placement ever overlaps a busy interval* — is the one defect the System cannot ship.
+
+**Adaptive behavior is verified by demonstration, made possible by FR-WER-07.** The System's central claim — that the user's physiological state changes what appears on their calendar — cannot be shown on demand if it depends on the demonstrator having actually slept badly on the morning of the presentation. **The acceptance demonstration is a single unbroken sequence:**
+
+> Inject a sleep score of **40** and **850** active calories for today. Observe the scheduled high-intensity run replaced by a recovery session, and the day's calorie target rise from 2,000 to 2,850. Observe the recovery session placed onto the **real calendar by the same engine that places everything else**. Then drop a fixed commitment on top of it, and observe it **automatically re-placed**, with the reason stated to the user in plain language. **Then declare the re-placed session skipped, and observe it move again — the same engine, a different trigger. Finally, mark it complete and observe the System withdraw its own reschedule.**
+
+That sequence exercises FR-WER-07, FR-REC-01, FR-REC-02, FR-REC-03, FR-REC-04, FR-REC-08, FR-REC-13, FR-SCH-01, FR-SCH-02, FR-RSC-02, FR-RSC-08, FR-RSC-09, FR-DSH-05, and FR-DSH-07 **together**. *(The last two steps are worth the thirty seconds they cost: they show the same engine serving a **user-initiated** trigger as well as an automatic one, which is what FR-RSC-03 claims and is otherwise only verifiable by reading the code. They also show the System being **overruled by its user** — the one behavior an evaluator is most likely to probe by asking "what if it's wrong?")* It requires **no network, no device, and no third party** — and therefore **cannot fail on presentation day for a reason outside the team's control**, which under CON-06 is the property that matters most.
+
+**Reality is verified against a real device, separately and in advance.** Injection makes the demonstration robust, but on its own would prove nothing about real data — an injected score is a number the team chose. **FR-WER-10 therefore requires, separately, that a real metric from the team member's own Garmin drive a real recommendation**, and DR-04 requires the System to record each value's origin so the claim is *checkable* rather than asserted. This is verified at the midpoint (16 July), well before the presentation. **FR-WER-10 proves the System is real; FR-WER-07 makes it demonstrable on schedule.** Neither substitutes for the other.
+
+**Extensibility is verified by exercising it, not asserting it.** The System ships two metrics behind an architecture claiming a third can be added by addition alone. **That claim is worth nothing until someone tries it** — which is why FR-REC-12 requires the team to actually add one deferred metric and report the diff. A design whose extensibility has never been exercised is a hypothesis, and the honest thing to do with a hypothesis is test it, including reporting the result if the diff is larger than predicted.
+
+**The whole demonstration runs offline.** This is a deliberate property of the document, imposed by CON-06 and implemented by three decisions: the layered data-source strategy (DEP-02), the local seeded libraries (FR-LIB-02), and the metric-injection path (FR-WER-07). **Every Essential requirement is verified by a unit test, an inspection, a measurement, or a demonstration the team can perform unaided** — and FR-LIB-02 requires the team to *prove* the offline claim rather than assume it.
+
+**Requirements are traced.** Appendix B maps every requirement group to the artifact that demonstrates it. **A requirement with no verifying artifact is not complete, regardless of whether the code exists.**
+
+---
+
+# Appendix A — Worked Example of the Scheduling Algorithm
+
+Given a schedulable day of 07:00–23:00 and these busy intervals:
+
+```
+09:00–10:15  CS 401 Lecture      (FIXED)
+12:00–12:30  Lunch               (FLEXIBLE, priority 2, placed)
+14:00–16:00  Lab                 (FIXED)
+19:00–20:00  Team Meeting        (FIXED)
+```
+
+the free intervals are:
+
+```
+07:00–09:00 (120 min)   10:15–12:00 (105 min)   12:30–14:00 (90 min)
+16:00–19:00 (180 min)   20:00–23:00 (180 min)
+```
+
+**Placing "Gym — 60 min, priority 2, preferred 17:00–18:00, FLEXIBLE".** The preferred window lies inside the free interval 16:00–19:00 and is exactly 60 minutes — equal to the duration. A slot exists. The engine returns **17:00–18:00**. *(FR-SCH-01, and the exact-fit case of FR-SCH-09.)*
+
+**Now the user adds a fixed commitment, "Advisor, 17:00–17:45."** It overlaps the placed Gym task.
+
+Per FR-CAL-03 the advisor meeting **does not move**. Per FR-RSC-02 the engine re-runs with the updated busy set. The preferred window 17:00–18:00 now contains only 17:45–18:00 (15 min) — insufficient. The engine searches the remainder of the day and ranks candidates by proximity to the preferred window:
+
+```
+1.  17:45–18:45   (starts  45 min after preferred start)   ← selected
+2.  16:00–17:00   (starts  60 min before preferred start)
+3.  20:00–21:00   (starts 180 min after preferred start)
+```
+
+The engine returns 17:45–18:45. The System re-places Gym there, and the dashboard reports:
+
+> *"Moved to 5:45 PM — your 5:00 PM slot was taken by Advisor."*
+
+*(FR-SCH-02, FR-SCH-03, FR-RSC-02, FR-RSC-04, FR-DSH-05.)*
+
+**Note what did not happen.** The engine was not asked to "reschedule." It was asked the same question it is always asked — *where does this task fit?* — with a different set of busy intervals. That is the entire mechanism.
+
+---
+
+# Appendix B — Requirements Traceability Matrix
+
+| Requirement group | Verified by | Artifact |
+|---|---|---|
+| FR-USR | Test | Auth and authorization test suite |
+| FR-TSK | Test | Task CRUD and validation suite |
+| FR-CAL | Test + Demo | Engine unit tests (fixed-commitment constraint cases); **all-day-event test asserting the day's free intervals are unchanged** (FR-CAL-05); `.ics` export imported into a real calendar application and events confirmed at the correct times (FR-CAL-07, Conditional) |
+| FR-SCH | Test | Engine unit suite + property-based test (NFR-COR-01) |
+| FR-RSC | Test + Demo | Trigger suite covering **all three triggers** — missed (FR-RSC-01), skipped (FR-RSC-08), displaced (FR-RSC-02); **cancellation test** asserting a late completion withdraws the automatic placement and frees its interval (FR-RSC-09); **elapsed-evaluation test** with the clock advanced and no background process running (FR-RSC-10); UC-05, UC-06, UC-13 |
+| FR-WER (Essential) | Demo + Test + Inspection | Real Garmin export driving a real decision (FR-WER-08, FR-WER-10); adapter and metric-set extensibility by inspection (FR-WER-04, FR-WER-05); injection path (FR-WER-07, UC-12) |
+| FR-WER-11 (Conditional) | Demo | Live retrieval, if realized. **Not required for acceptance.** |
+| FR-REC | Test + Demo | Tier-mapping and calorie-target boundary tests; UC-07, UC-08, UC-09 |
+| FR-REC-11 / FR-REC-12 | Inspection + Demo | Rule registry inspected; extensibility proven by adding one deferred metric and reporting the diff |
+| FR-LIB | Test + Inspection | Tier-mapping (FR-LIB-04); tier coverage (FR-LIB-05); calorie sweep across every preference set (FR-LIB-07); dietary constraint never violated (FR-REC-05, FR-LIB-08); **recommendation path demonstrated with outbound network disabled** (FR-LIB-02); licenses recorded (FR-LIB-10) |
+| FR-DSH, FR-WEL | Demo | Acceptance demonstration walkthrough (§6) |
+| FR-ANL | Test | Streak and completion-rate suite, including **a skipped-and-never-completed occurrence counting as not completed** and a skipped-then-rescheduled-then-completed one counting as completed (FR-ANL-03, FR-ANL-06) |
+| NFR-COR | Test | Property-based test, ≥1,000 cases; boundary matrix FR-SCH-09 |
+| NFR-REL | Test + Demo | Task-conservation test; wearable disabled, scheduling still passes |
+| NFR-ROB | Test + Demo | Malformed input; missing metric; partial record; external failure; restart |
+| NFR-USE | Demo | Timed observation, 3 non-team participants |
+| NFR-MNT | Analysis | Coverage report; single-placement-function inspection |
+| NFR-PRT | Demo + Inspection | Three browsers; three operating systems; adapter inspection |
+| NFR-PERF | Analysis | Timing harness over 100 invocations |
+| NFR-SEC | Test + Inspection | Cross-user access tests; parameterized-query and repository inspection |
+
+---
+
+# Appendix C — Open Issues
+
+*Given CON-06, every date is a calendar date rather than an iteration number.*
+
+| ID | Issue | Owner | Resolve by |
+|---|---|---|---|
+| **OPEN-01** | **Baseline wearable data path not yet built.** Extract a real export from the team member's Garmin account, **confirm it carries both a sleep score and an active-calorie count**, and define the ingestion format. This is the **only** wearable work on the critical path; it needs no approval, no credentials, no third party. **It should be the first wearable task started, and it is small.** | Data & Wearable Lead | **16 July 2026** |
+| **OPEN-02** | The derivation formula for the sleep score, where the export carries no single published score. Depends on the field set found in OPEN-01. | Data & Wearable Lead | 16 July 2026 |
+| **OPEN-03** | ~~Source of fixed commitments.~~ **CLOSED, 12 July.** Fixed commitments are entered **manually** (FR-CAL-01). Calendar *import* (SI-05) was analysed and declined on cost. The team instead adopted calendar **export** as `.ics` (SI-06, FR-CAL-07, Conditional). **Note the consequence:** export supplies the scheduler with nothing, so manual entry remains the only source of fixed commitments, and the "external API + OAuth" dimension of the project's technical scope — lost when the Garmin API left the critical path — is **not** restored by it. | Miguel Alvarez | — | ✅ **Closed** |
+| **OPEN-04** | Select the exercise dataset and **confirm its license** (FR-LIB-10); write the tier mapping (FR-LIB-04); author the meal library with calorie counts and dietary flags (FR-LIB-06). **Meals without calorie values cannot be used** — FR-REC-08 would have nothing to target. | Data & Wearable Lead | 20 July 2026 |
+| **OPEN-05** | Whether a live data source (FR-WER-11) is attempted **at all**. **Do not open this question until every Essential requirement is verified.** If Essential work is complete before 27 July, evaluate self-service options then; otherwise close it unattempted, **having lost nothing**. | Data & Wearable Lead | 27 July 2026 |
+| **OPEN-06** | Whether priority-based displacement (FR-SCH-07, FR-SCH-08) is in scope. Currently Conditional — and **the single most seductive way to spend a week you do not have.** Decide only after every Essential requirement is verified. | Scheduling Lead | 27 July 2026 |
+| **OPEN-07** | ~~Garmin Developer Program application.~~ **Closed as excluded.** Approval lead time is incompatible with CON-06 and it is required by no Essential requirement. Recorded so the decision is documented rather than revisited. | — | **Closed** |
+
+---
+
+# Appendix D — Approval and Acceptance
+
+Per the course directions, this SRS constitutes **the contract between the customer and the development team** concerning what the final product will do and its required quality attributes.
+
+By signing, the development team affirms that the requirements herein are complete, consistent, and — critically — **verifiable**: for every requirement, the team has identified how it will demonstrate that the requirement has been met.
+
+**Development Team**
+
+| Name | Role | Signature | Date |
+|---|---|---|---|
+| Patrick Rucker | Scheduling Algorithm Lead | | |
+| Ryan Woosley | Data & Wearable Integration Lead | | |
+| Miguel Alvarez | Frontend & Backend Lead | | |
+
+**Acceptance criteria.** The delivered product is accepted when **every requirement marked Essential** in §3 and §4 has been demonstrated by its stated verification method, as traced in Appendix B. **Requirements marked Conditional or Optional are not conditions of acceptance** — they enrich the product but their absence does not constitute failure (§1.4.4, §2.7.1).
+
+The **Core Demonstrable Capability** identified in §2.7.1 is the irreducible floor of that set. It is what the project claims to have built, and it is what the team asks to be judged on.
+
+---
+
+# Index
+
+**A** — Acceptance, Appendix D; Active calories, 1.4.2, FR-WER-03, FR-REC-08; Adapter (wearable), FR-WER-05, NFR-PRT-03; **All-day events (ignored), FR-CAL-05**; Analytics, 3.8.10, FR-ANL; Apportioning of requirements, 2.7; Assumptions, 2.6; Availability, 4.9
+
+**B** — Baseline calorie target, 1.4.2, FR-REC-09; Boundary cases (scheduling), FR-SCH-09; Busy interval, 1.4.2
+
+**C** — Calendar data, 3.8.3, FR-CAL; Candidate slot, 1.4.2, FR-SCH-02; Catalog interface, 1.4.2, FR-LIB-01; Class diagram, 3.6; Completion rate, FR-ANL-02; Conditional requirements (definition), 1.4.4; Conflict detection, FR-CAL-02, FR-RSC-02; Constraints, 2.5; **Core Demonstrable Capability, 2.7.1**; **Correction of an automatic reschedule, FR-RSC-09, FR-DSH-07, UC-04**; Correctness, 4.1
+
+**D** — Daily Metric Set, 1.4.2, FR-WER-02; Dashboard, 3.8.8, FR-DSH; Data requirements, 5; Definitions, 1.4; Dependencies, 2.6; Displacement (priority-based), FR-SCH-07, OPEN-06; Document conventions, 1.6
+
+**E** — End-user operating environment, 2.4; Engine (scheduling), 3.8.4, FR-SCH; Entity-relationship diagram, 3.5; **Export (`.ics` calendar), SI-06, FR-CAL-07, CON-07**; Extensibility (metrics), FR-WER-04, FR-REC-11, FR-REC-12, NFR-MNT-06
+
+**F** — Fixed commitment, 1.4.2, FR-CAL; Flexibility flag, 1.4.2, FR-TSK-01; Free interval, 1.4.2; Functional requirements, 3
+
+**G** — Garmin, CON-03, DEP-02, DEP-03, OPEN-01, OPEN-07; Google Calendar, SI-05 *(declined)*, SI-06, FR-CAL-07
+
+**H** — Habit management, 3.8.2, FR-TSK; Hardware requirements, 3.10
+
+**I** — Idempotence, FR-RSC-06, FR-WER-09, NFR-ROB-07; Injection (metric), FR-WER-07, UC-12; Intended audience, 1.3; Intensity tier, 1.4.2, FR-REC-01, FR-LIB-04; Isolation (engine), CON-04, FR-SCH-05
+
+**L** — Libraries (workout and meal), 3.8.11, FR-LIB; Licensing of seeded data, FR-LIB-10
+
+**M** — Maintainability, 4.5; Meal library, 1.4.2, FR-LIB-06; Meal plan, FR-REC-08, FR-REC-10, FR-WEL-03; Medical advice (excluded), CON-05, FR-REC-09; Metrics (complete set), FR-WER-03; Missed task *(inferred, not user-reported)*, 1.4.2, FR-RSC-01, FR-RSC-10, UC-05; **MongoDB, CON-08, SI-03, DR-05**
+
+**N** — No-data behavior, FR-WER-06, FR-REC-06, NFR-ROB-01, UC-09
+
+**O** — OAuth 2.0, 1.4.3, SI-02, FR-WER-11; Offline demonstration, FR-LIB-02, §6; Open issues, Appendix C; Operating environment, 2.4
+
+**P** — Performance, 4.7; Placement, 1.4.2; Portability, 4.6; Preferred time window, 1.4.2; Prioritization strategy, 2.7.1; Priority (requirements), 1.4.4; Priority (tasks), 1.4.2; Product functions, 2.2; Purity (of engine), FR-SCH-05, NFR-COR-02; Purpose, 1.1
+
+**R** — Ranking of slots, FR-SCH-03; Recommendation engine, 3.8.7, FR-REC; Recommendation rule, 1.4.2, FR-REC-11; References, 1.5; Reliability, 4.2; Rescheduling, 3.8.5, FR-RSC; Revision history, front matter; Robustness, 4.3
+
+**S** — Schedulable day, 1.4.2, FR-USR-07; Scheduling engine, 3.8.4; Scope, 1.2; Security, 4.8; Sequence diagram, 3.4; **Skipped task (user-declared), 1.4.2, FR-RSC-08, FR-DSH-07, FR-ANL-06, UC-13**; Sleep score, 1.4.2, FR-WER-03, FR-REC-01; Streak, 1.4.2, FR-ANL-01, FR-ANL-06
+
+**T** — Task, 1.4.2; Task attributes, FR-TSK-01; Timeline constraint, CON-06; Traceability, Appendix B
+
+**U** — Usability, 4.4; Use case diagram, 3.2; Use cases, 3.3; User characteristics, 2.3; User interfaces, 3.9.1
+
+**V** — Verification approach, 6; Verification methods, 1.4.5
+
+**W** — Wearable data acquisition, 3.8.6, FR-WER; Wearable data source, 1.4.2, DEP-02; Wellness section, 3.8.9, FR-WEL; Wireframes, 3.7; Workout library, 1.4.2, FR-LIB-03; Workout recommendation, FR-REC-01, FR-REC-03

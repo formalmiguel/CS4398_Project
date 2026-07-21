@@ -1,0 +1,65 @@
+# ---------------------------------------------------------------------------
+# Generated output — disposable, reproducible, and never committed (CLAUDE.md §8.4)
+# ---------------------------------------------------------------------------
+node_modules/
+build/
+dist/
+coverage/
+*.tsbuildinfo
+
+# The SRS PDF is built from docs/SRS-v2.md by docs/build-pdf.sh.
+# The Markdown is the source of truth; the PDF is a 1.6 MB artifact of it.
+*.pdf
+
+# ---------------------------------------------------------------------------
+# A real person's health data — NEVER commit this. (CLAUDE.md §8.4)
+# The Garmin export is a teammate's actual sleep and activity record.
+# Test fixtures are DERIVED from it, hand-written, and committed;
+# the export itself is not.
+# ---------------------------------------------------------------------------
+*.fit
+garmin-export/
+data/raw/
+**/garmin_*.csv
+**/garmin_*.json
+
+# ---------------------------------------------------------------------------
+# Secrets
+# ---------------------------------------------------------------------------
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# ---------------------------------------------------------------------------
+# AI agent configuration — SHARED vs PERSONAL
+#
+# CLAUDE.md is deliberately NOT ignored. It is the team's shared rulebook and
+# is loaded automatically by every session, so a rule added by one person
+# reaches everyone else's agent on their next `git pull`. A rule that lives in
+# three separate local copies is not a rule.
+#
+# Same for .claude/settings.json — hooks and permissions that must apply to
+# everyone belong in version control. Only the *.local.json overrides, which
+# hold one person's machine-specific choices, stay out.
+# ---------------------------------------------------------------------------
+.claude/settings.local.json
+.claude/*.local.json
+
+# ---------------------------------------------------------------------------
+# Editor and OS noise
+# ---------------------------------------------------------------------------
+.DS_Store
+Thumbs.db
+*.swp
+.idea/
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+
+# ---------------------------------------------------------------------------
+# Syncthing conflict files — this repo lives outside the synced tree, but if a
+# copy ever ends up inside one, these must not be committed.
+# ---------------------------------------------------------------------------
+*.sync-conflict-*
