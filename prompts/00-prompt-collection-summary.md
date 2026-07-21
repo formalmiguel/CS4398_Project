@@ -42,7 +42,7 @@ Each prompt follows the required formatting techniques with **Sandwich Method**,
 | 09 | `09-recommendation-rules-tests-RED.md` | 🔴 RED | ⬜ Not yet written |
 | 10 | `10-recommendation-rules-GREEN.md` | 🟢 GREEN | ⬜ Not yet written |
 | 11 | `11-catalog-and-seeded-libraries.md` | 🔴/🟢 | ⬜ Not yet written |
-| 12 | `12-backend-api.md` | 🔴/🟢 | ⬜ Not yet written |
+| 12 | `12-backend-api.md` | 🔴/🟢 | ⬜ Not yet written — **⛔ must carry the OPEN-12 escalation, below** |
 | 13 | `13-frontend-schedule-dashboard.md` | BUILD | ⬜ Not yet written |
 | 14 | `14-frontend-wellness-view.md` | BUILD | ⬜ Not yet written |
 | 15 | `15-frontend-analytics-view.md` | BUILD | ⬜ Not yet written |
@@ -71,6 +71,27 @@ Each prompt follows the required formatting techniques with **Sandwich Method**,
 | 15 | FR-ANL-01…06, UI-04 | §3.8.10 |
 | 16 | FR-RSC-03, FR-LIB-02, FR-SCH-05, FR-REC-11 *(all **(I)** requirements)* | §3.8.5, §3.8.11 |
 | 17 | §6 verification approach, Appendix D acceptance | §6 |
+
+---
+
+---
+
+### ⛔ **CRITICAL**: OPEN-12 — Ask Before Choosing a User Identifier
+
+**MANDATORY**: **`shared/src/contract.ts` carries no `userId` field, and that is deliberate.**
+
+FR-USR-04 requires every request to be scoped to its own user, and FR-ANL, FR-TSK, FR-WER and the dashboard all need to know whose data they are reading. But the SRS **deliberately does not say**:
+
+- whether a user is keyed by **email address**, an **opaque internal id**, or something else, and
+- whether ownership rides on the **domain types** (`Task`, `Placement`, `Metric`) or is applied at the **API boundary** around them.
+
+**CRITICAL**: This is **deferred, not overlooked** — it is a **Frontend & Backend Lead decision (Miguel Alvarez)**, correctly made when the API and its persistence are built.
+
+> **⛔ ANY agent working on packet 12, on persistence, or on any query that filters by user MUST STOP AND ASK MIGUEL. Do not choose a scheme and propagate it.**
+>
+> **MANDATORY**: The identifier reaches every collection, every query, and every frontend fetch. It is **expensive to reverse and invisible once made** — nothing fails, the code simply hardens around a decision nobody took. *(SRS Appendix C, OPEN-12; note under FR-USR-04.)*
+
+**Whoever authors packet 12 must copy this escalation into it.** A note that lives only here does not reach the session that needs it.
 
 ---
 
