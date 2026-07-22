@@ -94,11 +94,11 @@ Each prompt follows the required formatting techniques with **Sandwich Method**,
 | 02 | NFR-MNT-01, NFR-MNT-04, NFR-COR-01 *(tooling only)* | §4.5 |
 | 03 | §3.6 class diagram; `CLAUDE.md` §4.7 | §3.6 |
 | 04–05 | FR-SCH-01…06, FR-SCH-09, NFR-COR-01…03, NFR-PERF-01 | §3.8.4, §4.1 |
-| 06–07 | FR-RSC-01…10, **FR-SCH-10** | §3.8.5, §3.8.4 |
+| 06–07 | FR-RSC-01…10, **FR-SCH-10**, **FR-TSK-04** *(the re-placement mechanism only — OPEN-18)* | §3.8.5, §3.8.4, §3.8.2 |
 | 08 | FR-WER-01…10, DR-02, DR-04, DR-05, NFR-ROB-01 | §3.8.6, §5 |
 | 09–10 | FR-REC-01…07, FR-REC-11, FR-REC-13, **FR-REC-04** | §3.8.7 |
 | 11 | FR-LIB-01…08, FR-LIB-10 | §3.8.11 |
-| 12 | FR-USR, FR-TSK, FR-CAL, NFR-SEC, NFR-PERF-02 | §3.8.1–3.8.3 |
+| 12 | FR-USR, FR-TSK *(**except FR-TSK-04's mechanism**, which is 06–07 — packet 12 **calls** `onTaskEdited`)*, FR-CAL, NFR-SEC, NFR-PERF-02, **the task-creation placement path incl. FR-SCH-10 ordering (OPEN-17)** | §3.8.1–3.8.3 |
 | 13 | FR-DSH-01…07, UI-01, UI-05, UI-07 | §3.8.8, §3.9.1 |
 | 14 | FR-WEL-01…05, UI-03 | §3.8.9 |
 | 15 | FR-ANL-01…06, UI-04 | §3.8.10 |
