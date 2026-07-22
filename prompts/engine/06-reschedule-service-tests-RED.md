@@ -70,6 +70,14 @@ You are an expert TypeScript engineer writing a test suite. **CRITICAL**: You ar
 
 > *This group adds **no new placement logic.** It specifies the events that cause the engine of 3.8.4 to be re-invoked, and the behavior required around that call.*
 
+> **What the System passes to the engine, and which interval "elapsed" reads — added v2.17. These govern every trigger in this group.**
+>
+> **1. The busy set is `PLANNED` and `COMPLETED` occurrences only.** A `MISSED`, `SKIPPED` or `CANCELLED` occurrence **is not going to happen**, so it must not hold the day against a task that still could. *This is what satisfies FR-RSC-09's "free the interval it held" **by construction**: a withdrawn reschedule marked `CANCELLED` drops out of the busy set, and no cleanup code exists or is needed.*
+>
+> **2. The occurrence being re-placed is never in the busy set for its own re-placement**, for all four triggers. *Since v2.16 a displaced row **stays `PLANNED`**, so a service reading "every `PLANNED` placement" would route the task around itself.*
+>
+> **3. ⚠️ "Fully elapsed" in FR-RSC-01 means the OCCURRENCE's own interval — `placement.end` — not the task's preferred window.** The requirement says *"a flexible task's **window** has fully elapsed"* and the word does double duty: **the substitution rule (v2.14) reads `preferredWindow.end`, the miss condition reads the placed occurrence's end.** *Read the preferred window for the miss condition and **the System churns forever** — a 21:15 successor of a task whose window closed at 20:30 is elapsed the instant it is created, and FR-RSC-06's termination argument silently stops holding.*
+
 - **FR-RSC-01.** *(Essential, T)* When a flexible task's window has fully elapsed and it is neither complete nor declared skipped, the System shall classify it **missed** and automatically invoke the engine to place it in the next valid slot remaining that day. *(This classification is **inferred from the absence of a completion**, because the user cannot be relied upon to report a miss — the person who skipped their 8 PM run is the least likely person to open the application and say so. The inference is therefore correct as a default and **wrong in one specific case**: the user did the task and did not mark it. **FR-RSC-09 is the remedy for that case**, and the two requirements shall be read together. Applies to **flexible** tasks only: a fixed commitment is immovable by definition (FR-RSC-02), so there is nothing to re-place and no missed classification is made.)*
 
   > **Which candidate the automatic path takes, added v2.12 (closing OPEN-16(1)). This rule governs all three triggers.** The System places the occurrence in the engine's **rank-1 candidate** — the first element of the returned `slots`. **The service does not choose among the candidates.** FR-SCH-03 has already ranked them, and a service applying its own criterion to that list is where the second placement function FR-RSC-03 forbids would begin.
