@@ -2,7 +2,7 @@
 
 > **Read this first.** It exists so a new AI session — or a new teammate — can get up to speed without re-deriving decisions that are already made. If you are an AI assistant, this file is loaded automatically; **read the "Decisions Already Made" section before proposing anything**, because several obvious-seeming suggestions have already been considered and rejected for reasons that still hold.
 
-**Last updated:** 21 July 2026 *(**§0.1 added — never let generated code enter a prompt; warn the teammate who asks.** §8 added — git and commit conventions. §4.10 — missed tasks are inferred and the inference is correctable; SRS → v2.5. §4.11 — prompt-pack format. **The documents moved into the repo — §3.** §9 "Current Status" is otherwise still dated 12 July and has NOT been verified against reality since; treat it with suspicion.)*
+**Last updated:** 22 July 2026 *(**§9 rewritten and now verified against the repo** — packets 01–03 committed, no implementation exists yet, and the build order is by **dependency, not date**. **Per-day deadlines abandoned 22 Jul; 31 July is the only hard date.** Earlier: §0.1 — never let generated code enter a prompt. §8 — git and commit conventions. §4.10 — missed tasks are inferred and the inference is correctable. §4.11 — prompt-pack format. §3 — the documents moved into the repo.)*
 
 ---
 
@@ -325,8 +325,8 @@ rejected and the scan continues to the next one, rather than
 returning a partial fit or silently dropping the task
 (FR-SCH-06, FR-SCH-09).
 
-Ranking tiebreak resolves on priority ascending (1 = highest,
-contract §2) then earliest start, per FR-SCH-03.
+Ranking resolves on proximity to the preferred window, then
+earliest start, per FR-SCH-03.
 
 Tests unchanged since a1b2c3d.
 
@@ -349,24 +349,31 @@ Owner: Patrick Rucker
 
 ---
 
-## 9. Current Status (12 July 2026)
+## 9. Current Status (22 July 2026 — implementation started)
 
-**Done:** Project scoped. **SRS v2.5** complete and internally consistent — cover page, annotated TOC, formal use cases, UML diagrams, wireframes, ~84 verifiable requirements, traceability matrix, sign-off page. Scope bounded against the timeline (§2.7.1). Calendar semantics specified (FR-CAL-05/06). Engine signature corrected in §3.6 (it could not satisfy FR-SCH-06 or FR-SCH-04 as originally drawn).
+**Documents:** **SRS v2.6** complete and internally consistent — cover page, annotated TOC, formal use cases, UML diagrams, wireframes, ~84 verifiable requirements, traceability matrix, sign-off page. Development method written down (`docs/AGENTIC-TDD-WORKFLOW.md`). Roles assigned. Contract amended against SRS v2.5 before first use.
 
-**Development method chosen and written down:** `docs/AGENTIC-TDD-WORKFLOW.md` + the first three work packets in `prompts/`. **No code exists yet.**
+**Code — this is the honest picture.** Committed: packets **01–02** (workspace scaffold, toolchain, CI gates) and **03** (`shared/src/contract.ts`, the domain contract). **That is all.** `engine/src/`, `server/src/` and `web/src/` **do not exist.** The next thing that runs is packet **04**.
 
-**Repo (21 Jul):** exists at **`github.com/formalmiguel/CS4398_Project`**, cloned locally, **still empty on the remote** — the documents above are staged in the working tree but **nothing has been committed or pushed.** The next commit after the documentary base is packet **01**.
+**⚠️ Two things a new session must not be misled by:**
+- **The 12 Jul dated schedule in `docs/TEAM-MEETING.md` is SUPERSEDED and marked as such.** It had the engine property-tested by 15 Jul and the FR-WER-10 midpoint gate cleared on the 16th; neither happened. **The team abandoned per-day deadlines on 22 Jul and now sequences work by dependency.** **31 July (presentation) is unchanged and is the only hard date.**
+- **OPEN-01 — nobody has yet looked at a real Garmin export.** It was due 16 Jul. Until it is done, the sleep-score formula (OPEN-02) and the meal library's calorie assumptions are **guesses**, and it blocks Ryan's entire chain (packets 08 → 09 → 10).
 
-**Immediate next actions:**
+### The build order — by dependency, not by date
 
-| # | Action | Why it's urgent |
-|---|---|---|
-| 1 | **Pull a real Garmin export and look at the actual fields** (OPEN-01) | On the critical path. Until it's done, the sleep-score formula and the meal library's calorie assumptions are guesses. **It is small work.** Due 16 Jul. |
-| 2 | Assign the three roles | Blocks the SRS's annotated TOC and signature page. |
-| 3 | Ratify the scope cuts as a team | The point of writing them down is that nobody is surprised on 29 July. |
-| 4 | **Ratify the contract** (`prompts/foundation/03-shared-contract-types.md`), then run **01 → 02 → 03 → 04 (RED) → human gate → 05 (GREEN)** | The engine is the grade, and it is the **only** module blocked by nothing — pure, no DB, no clock, no network, no framework. **Everything else is written against its contract**, including FR-REC-04. Build it first, and shake out the agentic loop on the one module the SRS specifies at test-case granularity. |
+**Authoritative copy: `docs/TEAM-MEETING.md` → "THE BUILD ORDER".** Summarised here because this is the file that loads automatically.
 
-**Suggested build order:** engine + tests (12–15 Jul) → **real Garmin metric driving a real decision by the 16 Jul midpoint** ← go/no-go gate → backend API + rules + libraries (17–21 Jul) → frontend (start against a *mocked* API on 17 Jul, do not wait for the backend) → integration + at least three full demo rehearsals (28–30 Jul).
+| Owner | Queue, in order |
+|---|---|
+| **Patrick** | 04 RED → **human gate** → freeze → 05 GREEN → author 06 → gate → 07 GREEN → **16 (the (I) guards)** → 17 + FR-REC-04 wiring + rehearsals |
+| **Ryan** | **OPEN-01 (blocks everything below)** → 08 adapter + Daily Metric Set → 09 RED → gate → **10 GREEN ← FR-WER-10 clears here** → OPEN-04 → 11 libraries |
+| **Miguel** | 12 backend (**answers OPEN-12 in flight**) → 13 dashboard → 14/15 unless Ryan takes them |
+
+**Cross-person blocks — the only ones:** every RED gate needs **a second human**; packet **16** waits on **07 and 10**; **FR-REC-04** needs **05 + 10 + 12**; packet **17** waits on everything.
+
+**Each owner authors their own packet immediately before running it** (§4.11). Authoring is the first half of the work item, not batchable overhead.
+
+**⚠️ Open and unresolved: OPEN-09, the workload rebalance.** Ryan's queue empties after packet 11; Miguel has the backend plus three views alone. The original fix (*Patrick takes the backend*) is dead — 06/07/16/17 fill his queue. **Revised proposal: Ryan takes views 14 and 15.** Not yet agreed by Ryan and Miguel.
 
 ---
 

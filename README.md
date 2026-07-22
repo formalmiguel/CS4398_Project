@@ -26,9 +26,11 @@ Separately, the System reads the user's Garmin data — sleep score and active c
 
 ## Status
 
-**Specification complete. No code yet.**
+**Specification complete. Implementation started 22 July 2026.**
 
-The SRS is at **v2.5** — ~84 numbered verifiable requirements, formal use cases, UML diagrams, wireframes, a traceability matrix, and a sign-off page. The development method is written down and the first five work packets are ready to run.
+The SRS is at **v2.6** — ~84 numbered verifiable requirements, formal use cases, UML diagrams, wireframes, a traceability matrix, and a sign-off page. The development method is written down and the first five work packets are ready to run.
+
+**Built so far:** the workspace scaffold and CI gates (packets 01–02) and the frozen domain contract, `shared/src/contract.ts` (packet 03). **No implementation code exists yet** — packet 04 is next. Work is sequenced by dependency, not by date: see **THE BUILD ORDER** at the top of `docs/TEAM-MEETING.md`.
 
 ---
 

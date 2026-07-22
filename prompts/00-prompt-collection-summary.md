@@ -4,7 +4,7 @@
 
 ### **MANDATORY**: 17 Sequential Prompts
 
-This prompt pack contains **17 detailed prompts** designed to guide an AI coding agent through the complete implementation of the Adaptive Habit, Schedule & Wellness System specified in `docs/SRS-v2.md` (v2.5, ~84 verifiable requirements).
+This prompt pack contains **17 detailed prompts** designed to guide an AI coding agent through the complete implementation of the Adaptive Habit, Schedule & Wellness System specified in `docs/SRS-v2.md` (v2.6, ~84 verifiable requirements).
 
 Each prompt follows the required formatting techniques with **Sandwich Method**, **Attention Anchoring**, **Visual Emphasis**, **Clear Delimiters**, and **Selective Context**.
 
@@ -80,7 +80,7 @@ Each prompt follows the required formatting techniques with **Sandwich Method**,
 | 02 | NFR-MNT-01, NFR-MNT-04, NFR-COR-01 *(tooling only)* | §4.5 |
 | 03 | §3.6 class diagram; `CLAUDE.md` §4.7 | §3.6 |
 | 04–05 | FR-SCH-01…06, FR-SCH-09, NFR-COR-01…03, NFR-PERF-01 | §3.8.4, §4.1 |
-| 06–07 | FR-RSC-01…10 | §3.8.5 |
+| 06–07 | FR-RSC-01…10, **FR-SCH-10** | §3.8.5, §3.8.4 |
 | 08 | FR-WER-01…10, DR-02, DR-04, DR-05, NFR-ROB-01 | §3.8.6, §5 |
 | 09–10 | FR-REC-01…07, FR-REC-11, FR-REC-13, **FR-REC-04** | §3.8.7 |
 | 11 | FR-LIB-01…08, FR-LIB-10 | §3.8.11 |

@@ -31,7 +31,9 @@ You are an expert TypeScript engineer writing a test suite. **CRITICAL**: You ar
 
 - **FR-SCH-01.** *(Essential, T)* Given busy intervals and a task, the engine shall determine whether the task's preferred window contains a free interval of length ≥ its duration, and if so return a placement within that window.
 - **FR-SCH-02.** *(Essential, T)* If the preferred window contains no sufficient free interval, the engine shall search the remainder of the schedulable day and return **up to three ranked candidate slots**.
-- **FR-SCH-03.** *(Essential, T)* The engine shall rank candidates by, in order: (a) proximity of start time to the preferred window; (b) the task's priority relative to neighbors; (c) earlier start time as final tiebreaker. **Ranking shall be deterministic**: identical inputs always produce identical output ordering.
+- **FR-SCH-03.** *(Essential, T)* The engine shall rank candidates by, in order: (a) proximity of start time to the preferred window; (b) earlier start time as final tiebreaker. **Ranking shall be deterministic**: identical inputs always produce identical output ordering.
+
+  > *Quoted at SRS **v2.7**. A former criterion (b), "the task's priority relative to neighbors", was removed on 22 Jul: `Interval` carries no priority, so the engine cannot evaluate it. **This packet's first run is what found that** — it escalated instead of inventing a tiebreak. See `docs/P04-RED-REPORT.md`, E1.*
 - **FR-SCH-04.** *(Essential, T)* No placement shall overlap any busy interval, and none shall fall outside the schedulable day.
 - **FR-SCH-05.** *(Essential, T)* The engine shall be a **pure function**: called twice with identical inputs it returns identical outputs; it performs no database write, no HTTP call, and no mutation of its arguments.
 - **FR-SCH-06.** *(Essential, T)* Where no valid slot exists, the engine shall return an **explicit empty result with a reason**, and the System shall tell the user the task could not be placed and why. It shall **not** silently drop the task, and shall **not** place it in violation of its constraints.

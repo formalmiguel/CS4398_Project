@@ -4,7 +4,7 @@
 
 This directory contains **18 prompts** (a summary plus 17 sequential packets) designed to guide an AI coding agent through the complete implementation of a web application that combines an **adaptive scheduling engine** with **real wearable health data**.
 
-The System demonstrates a **pure-function scheduling core** with **observer-free, side-effect-free placement logic**, a **registry-based recommendation engine**, and an **adapter-isolated wearable data layer**, built against a formal SRS of ~84 verifiable requirements (`docs/SRS-v2.md`, v2.5).
+The System demonstrates a **pure-function scheduling core** with **observer-free, side-effect-free placement logic**, a **registry-based recommendation engine**, and an **adapter-isolated wearable data layer**, built against a formal SRS of ~84 verifiable requirements (`docs/SRS-v2.md`, v2.6).
 
 ---
 
