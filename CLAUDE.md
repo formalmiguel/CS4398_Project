@@ -2,7 +2,7 @@
 
 > **Read this first.** It exists so a new AI session — or a new teammate — can get up to speed without re-deriving decisions that are already made. If you are an AI assistant, this file is loaded automatically; **read the "Decisions Already Made" section before proposing anything**, because several obvious-seeming suggestions have already been considered and rejected for reasons that still hold.
 
-**Last updated:** 22 July 2026 *(**§9 rewritten and now verified against the repo** — packets 01–03 committed, no implementation exists yet, and the build order is by **dependency, not date**. **Per-day deadlines abandoned 22 Jul; 31 July is the only hard date.** Earlier: §0.1 — never let generated code enter a prompt. §8 — git and commit conventions. §4.10 — missed tasks are inferred and the inference is correctable. §4.11 — prompt-pack format. §3 — the documents moved into the repo.)*
+**Last updated:** 22 July 2026 *(**§9 refreshed against the repo** — packets **01–05** are committed: the engine exists, its 30 tests are frozen at `ac06e70`, and **packet 06 is authored and next to run**. SRS is at **v2.13** — four gaps found while authoring packet 06 were **all closed before it runs**: `Task.createdAt` gives FR-SCH-10's tiebreak a field to read (OPEN-15); an automatic reschedule takes the engine's **rank-1** candidate; an unplaceable task is the **absence of a placement** with an actionable next-day offer; and FR-RSC-06's idempotency is a property of the **occurrence's state**, not a trigger log (OPEN-16, all parts). The build order is by **dependency, not date**. **Per-day deadlines abandoned 22 Jul; 31 July is the only hard date.** Earlier: §0.1 — never let generated code enter a prompt. §8 — git and commit conventions. §4.10 — missed tasks are inferred and the inference is correctable. §4.11 — prompt-pack format. §3 — the documents moved into the repo.)*
 
 ---
 
@@ -112,7 +112,7 @@ A web application that combines an **adaptive scheduling engine** with **real we
 | **`docs/build-pdf.sh`** | **Builds the submission PDF.** Run `./build-pdf.sh` **from inside `docs/`** → `docs/build/SRS-v2-CS4398.pdf` (65pp). Pre-renders the four Mermaid diagrams to SVG, inlines them, prints via the installed Chrome. **Everything under `build/` is generated, gitignored, and disposable — never edit it.** *(Mermaid diagrams are code blocks; most Markdown→PDF exporters emit the raw code rather than the picture, which is worse than no diagram at all. This script exists so that cannot happen. It needs Node.js and Chrome on the machine — both are checked at startup.)* |
 | **`docs/AGENTIC-TDD-WORKFLOW.md`** | **How the code actually gets written.** The RED/GREEN agent split, the contract rule, the executable guards. **Read §1 before running any agent** — it is the three ways this method fails silently. |
 | **`docs/TEAM-MEETING.md`** | Agenda, open questions, and the running decision log. §0 requires decisions to be written here **as they are made**. |
-| **`prompts/`** | **The work packets.** One packet ≈ one agent session ≈ one reviewable diff ≈ one human owner. **Numbered `01`…`17` and delivered in exact numerical order**, and **grouped into folders by owner** so nobody has to ask whose packet a file is. `00-prompt-collection-summary.md` is the index, `README-prompts.md` the phase map, `_TEMPLATE.md` for new ones. **Packets `06`–`17` are enumerated with their requirement IDs but not yet authored** *(deliberately — §4.11)*.<br><br>`foundation/` **01–03** *(Patrick)* · `engine/` **04–07** *(Patrick)* · `wearable/` **08–11** *(Ryan)* · `backend/` **12** *(Miguel)* · `frontend/` **13–15** *(Miguel)* · `verification/` **16–17** *(Patrick)*<br><br>⚠️ **The numbers are the delivery order and the folders are the ownership** — they are two different axes and both matter. **The `Human owner` field inside each packet is authoritative**; the folder is a convenience, and if the two ever disagree, the packet wins. |
+| **`prompts/`** | **The work packets.** One packet ≈ one agent session ≈ one reviewable diff ≈ one human owner. **Numbered `01`…`17` and delivered in exact numerical order**, and **grouped into folders by owner** so nobody has to ask whose packet a file is. `00-prompt-collection-summary.md` is the index, `README-prompts.md` the phase map, `_TEMPLATE.md` for new ones. **Packets `07`–`17` are enumerated with their requirement IDs but not yet authored** *(deliberately — §4.11)*.<br><br>`foundation/` **01–03** *(Patrick)* · `engine/` **04–07** *(Patrick)* · `wearable/` **08–11** *(Ryan)* · `backend/` **12** *(Miguel)* · `frontend/` **13–15** *(Miguel)* · `verification/` **16–17** *(Patrick)*<br><br>⚠️ **The numbers are the delivery order and the folders are the ownership** — they are two different axes and both matter. **The `Human owner` field inside each packet is authoritative**; the folder is a convenience, and if the two ever disagree, the packet wins. |
 
 ### 3.1 What deliberately did NOT come into the repo
 
@@ -172,6 +172,8 @@ The team **declined** calendar *import* (SI-05 — reading Google Calendar over 
 
 Rejected: letting each module's agent define the types it needs. Three agents produce three locally-reasonable, mutually incompatible `Task` types, each passing its own tests, and day-5 integration becomes a rewrite. **Agents make this worse rather than better, because they generate plausible types faster than a human notices they disagree.**
 
+**`Task.createdAt` is not a counter-example** *(added 22 Jul, SRS v2.11)*: it is an ISO instant read by `RescheduleService` to break FR-SCH-10's priority tie, and **the engine never reads it.** Purity forbids the engine *consulting* a clock — not the caller *passing* it data, which is what `schedulableDay` already does.
+
 Fixed conventions inside it: **time is `Minute`** (integer, minutes since local midnight — the engine never sees a `Date`, which is what makes FR-SCH-05's purity structural); **priority is 1–5, 1 = highest**; **`engine/` has an empty `dependencies` block, permanently** (an engine that can't import anything can't import a clock).
 
 ### 4.8 Inspection-only requirements become executable CI guards
@@ -205,7 +207,7 @@ The professor supplied an example prompt pack (an MVC calculator, 15 prompts). *
 
 > **Delete `engine/src/`, re-run prompt 05, and the suite still passes. That is the claim this structure makes, and it is demonstrable in front of a room.**
 
-**Prompts `06`–`17` are enumerated with scope, phase, and requirement IDs — but not yet authored.** A prompt written weeks before its module is designed encodes guesses, and an agent implements a guess as faithfully as a requirement.
+**Prompts `07`–`17` are enumerated with scope, phase, and requirement IDs — but not yet authored.** *(`06` was authored on 22 Jul immediately before its run, which is the pattern §9 requires: authoring is the first half of the work item.)* A prompt written weeks before its module is designed encodes guesses, and an agent implements a guess as faithfully as a requirement.
 
 > **A prompt that does not exist is visibly missing. A prompt written from speculation is invisibly wrong.**
 
@@ -351,9 +353,9 @@ Owner: Patrick Rucker
 
 ## 9. Current Status (22 July 2026 — implementation started)
 
-**Documents:** **SRS v2.6** complete and internally consistent — cover page, annotated TOC, formal use cases, UML diagrams, wireframes, ~84 verifiable requirements, traceability matrix, sign-off page. Development method written down (`docs/AGENTIC-TDD-WORKFLOW.md`). Roles assigned. Contract amended against SRS v2.5 before first use.
+**Documents:** **SRS v2.13** complete and internally consistent — cover page, annotated TOC, formal use cases, UML diagrams, wireframes, ~84 verifiable requirements, traceability matrix, sign-off page. Development method written down (`docs/AGENTIC-TDD-WORKFLOW.md`). Roles assigned. Contract amended against SRS v2.5 before first use.
 
-**Code — this is the honest picture.** Committed: packets **01–02** (workspace scaffold, toolchain, CI gates) and **03** (`shared/src/contract.ts`, the domain contract). **That is all.** `engine/src/`, `server/src/` and `web/src/` **do not exist.** The next thing that runs is packet **04**.
+**Code — this is the honest picture.** Committed: packets **01–02** (workspace scaffold, toolchain, CI gates), **03** (`shared/src/contract.ts`, the domain contract), **04 RED** (30 engine tests, **frozen at `ac06e70` and registered in `scripts/frozen-tests.json`**, escalations in `docs/P04-RED-REPORT.md`), and **05 GREEN** (`engine/src/index.ts` — `findCandidateSlots`, all 30 green). **That is all.** `server/src/` and `web/src/` are **still empty.** Packet **06** was authored on 22 Jul and is the next thing that runs.
 
 **⚠️ Two things a new session must not be misled by:**
 - **The 12 Jul dated schedule in `docs/TEAM-MEETING.md` is SUPERSEDED and marked as such.** It had the engine property-tested by 15 Jul and the FR-WER-10 midpoint gate cleared on the 16th; neither happened. **The team abandoned per-day deadlines on 22 Jul and now sequences work by dependency.** **31 July (presentation) is unchanged and is the only hard date.**
