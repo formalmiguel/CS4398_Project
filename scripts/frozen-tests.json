@@ -23,6 +23,14 @@
       "frozenOn": "2026-07-22",
       "owner": "Patrick Rucker",
       "tests": 30
+    },
+    {
+      "packet": "06",
+      "path": "server/test/reschedule",
+      "sha": "8b24320",
+      "frozenOn": "2026-07-22",
+      "owner": "Patrick Rucker",
+      "tests": 154
     }
   ]
 }
