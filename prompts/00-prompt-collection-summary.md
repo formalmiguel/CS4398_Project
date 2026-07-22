@@ -70,7 +70,7 @@ Each prompt follows the required formatting techniques with **Sandwich Method**,
 | 04 | `engine/04-engine-tests-RED.md` | 🔴 RED | ✅ Written |
 | 05 | `engine/05-engine-implementation-GREEN.md` | 🟢 GREEN | ✅ Written |
 | 06 | `engine/06-reschedule-service-tests-RED.md` | 🔴 RED | ✅ Written *(22 Jul, immediately before its run)* |
-| 07 | `engine/07-reschedule-service-GREEN.md` | 🟢 GREEN | ⬜ Not yet written |
+| 07 | `engine/07-reschedule-service-GREEN.md` | 🟢 GREEN | ✅ Written *(22 Jul, before the implementation existed)* |
 | 08 | `wearable/08-wearable-adapter-and-metric-set.md` | 🔴/🟢 | ⬜ Not yet written |
 | 09 | `wearable/09-recommendation-rules-tests-RED.md` | 🔴 RED | ⬜ Not yet written |
 | 10 | `wearable/10-recommendation-rules-GREEN.md` | 🟢 GREEN | ⬜ Not yet written |
@@ -82,7 +82,7 @@ Each prompt follows the required formatting techniques with **Sandwich Method**,
 | 16 | `verification/16-inspection-requirement-guards.md` | GUARD | ⬜ Not yet written |
 | 17 | `verification/17-complete-implementation-guide.md` | INTEGRATION | ⬜ Not yet written |
 
-> **CRITICAL**: Prompts **07–17** are **enumerated but not yet authored.** Their scope, phase, and requirement IDs are fixed below and derived from the SRS; their detailed text is written when the packet is run. **This is deliberate.** A prompt authored weeks before its module is designed encodes guesses, and an agent will implement a guess as faithfully as a requirement. **A prompt that does not exist is visibly missing; a prompt written from speculation is invisibly wrong.**
+> **CRITICAL**: Prompts **08–17** are **enumerated but not yet authored.** Their scope, phase, and requirement IDs are fixed below and derived from the SRS; their detailed text is written when the packet is run. **This is deliberate.** A prompt authored weeks before its module is designed encodes guesses, and an agent will implement a guess as faithfully as a requirement. **A prompt that does not exist is visibly missing; a prompt written from speculation is invisibly wrong.**
 
 ---
 
