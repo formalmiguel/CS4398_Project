@@ -70,7 +70,7 @@ Each prompt follows the required formatting techniques with **Sandwich Method**,
 | 04 | `engine/04-engine-tests-RED.md` | 🔴 RED | ✅ Written |
 | 05 | `engine/05-engine-implementation-GREEN.md` | 🟢 GREEN | ✅ Written |
 | 06 | `engine/06-reschedule-service-tests-RED.md` | 🔴 RED | ✅ Written *(22 Jul, immediately before its run)* |
-| 07 | `engine/07-reschedule-service-GREEN.md` | 🟢 GREEN | ⬜ Not yet written |
+| 07 | `engine/07-reschedule-service-GREEN.md` | 🟢 GREEN | ✅ Written *(22 Jul, before the implementation existed)* |
 | 08 | `wearable/08-wearable-adapter-and-metric-set.md` | 🔴/🟢 | ⬜ Not yet written |
 | 09 | `wearable/09-recommendation-rules-tests-RED.md` | 🔴 RED | ⬜ Not yet written |
 | 10 | `wearable/10-recommendation-rules-GREEN.md` | 🟢 GREEN | ⬜ Not yet written |
@@ -82,7 +82,7 @@ Each prompt follows the required formatting techniques with **Sandwich Method**,
 | 16 | `verification/16-inspection-requirement-guards.md` | GUARD | ⬜ Not yet written |
 | 17 | `verification/17-complete-implementation-guide.md` | INTEGRATION | ⬜ Not yet written |
 
-> **CRITICAL**: Prompts **07–17** are **enumerated but not yet authored.** Their scope, phase, and requirement IDs are fixed below and derived from the SRS; their detailed text is written when the packet is run. **This is deliberate.** A prompt authored weeks before its module is designed encodes guesses, and an agent will implement a guess as faithfully as a requirement. **A prompt that does not exist is visibly missing; a prompt written from speculation is invisibly wrong.**
+> **CRITICAL**: Prompts **08–17** are **enumerated but not yet authored.** Their scope, phase, and requirement IDs are fixed below and derived from the SRS; their detailed text is written when the packet is run. **This is deliberate.** A prompt authored weeks before its module is designed encodes guesses, and an agent will implement a guess as faithfully as a requirement. **A prompt that does not exist is visibly missing; a prompt written from speculation is invisibly wrong.**
 
 ---
 
@@ -94,11 +94,11 @@ Each prompt follows the required formatting techniques with **Sandwich Method**,
 | 02 | NFR-MNT-01, NFR-MNT-04, NFR-COR-01 *(tooling only)* | §4.5 |
 | 03 | §3.6 class diagram; `CLAUDE.md` §4.7 | §3.6 |
 | 04–05 | FR-SCH-01…06, FR-SCH-09, NFR-COR-01…03, NFR-PERF-01 | §3.8.4, §4.1 |
-| 06–07 | FR-RSC-01…10, **FR-SCH-10** | §3.8.5, §3.8.4 |
+| 06–07 | FR-RSC-01…10, **FR-SCH-10**, **FR-TSK-04** *(the re-placement mechanism only — OPEN-18)* | §3.8.5, §3.8.4, §3.8.2 |
 | 08 | FR-WER-01…10, DR-02, DR-04, DR-05, NFR-ROB-01 | §3.8.6, §5 |
 | 09–10 | FR-REC-01…07, FR-REC-11, FR-REC-13, **FR-REC-04** | §3.8.7 |
 | 11 | FR-LIB-01…08, FR-LIB-10 | §3.8.11 |
-| 12 | FR-USR, FR-TSK, FR-CAL, NFR-SEC, NFR-PERF-02 | §3.8.1–3.8.3 |
+| 12 | FR-USR, FR-TSK *(**except FR-TSK-04's mechanism**, which is 06–07 — packet 12 **calls** `onTaskEdited`)*, FR-CAL, NFR-SEC, NFR-PERF-02, **the task-creation placement path incl. FR-SCH-10 ordering (OPEN-17)** | §3.8.1–3.8.3 |
 | 13 | FR-DSH-01…07, UI-01, UI-05, UI-07 | §3.8.8, §3.9.1 |
 | 14 | FR-WEL-01…05, UI-03 | §3.8.9 |
 | 15 | FR-ANL-01…06, UI-04 | §3.8.10 |

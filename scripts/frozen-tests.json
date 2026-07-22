@@ -23,6 +23,15 @@
       "frozenOn": "2026-07-22",
       "owner": "Patrick Rucker",
       "tests": 30
+    },
+    {
+      "packet": "06",
+      "path": "server/test/reschedule",
+      "sha": "c30e784",
+      "frozenOn": "2026-07-22",
+      "refrozenFrom": "8b24320 - one defective fixture corrected in c30e784, a RED-style commit. See TEAM-MEETING.md, 22 Jul.",
+      "owner": "Patrick Rucker",
+      "tests": 154
     }
   ]
 }

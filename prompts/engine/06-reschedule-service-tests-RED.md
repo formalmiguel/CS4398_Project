@@ -9,7 +9,7 @@ You are an expert TypeScript engineer writing a test suite. **CRITICAL**: You ar
 | **Phase** | 🔴 **RED — tests only.** You will write **no implementation.** |
 | **Human owner** | **Patrick Rucker** — Scheduling Algorithm Lead |
 | **Depends on** | 03 (contract), 04 (frozen engine suite), **05 (the engine — merged and green)** |
-| **Spec** | `docs/SRS-v2.md` §3.8.5 (FR-RSC), §3.8.4 (**FR-SCH-10**), §3.6 (class diagram), §5 (DR-03, DR-06), §6 |
+| **Spec** | `docs/SRS-v2.md` §3.8.5 (FR-RSC), §3.8.4 (**FR-SCH-10**), §3.8.2 (**FR-TSK-04**), §3.6 (class diagram), §5 (DR-03, DR-06), §6 |
 
 ---
 
@@ -70,6 +70,14 @@ You are an expert TypeScript engineer writing a test suite. **CRITICAL**: You ar
 
 > *This group adds **no new placement logic.** It specifies the events that cause the engine of 3.8.4 to be re-invoked, and the behavior required around that call.*
 
+> **What the System passes to the engine, and which interval "elapsed" reads — added v2.17. These govern every trigger in this group.**
+>
+> **1. The busy set is `PLANNED` and `COMPLETED` occurrences only.** A `MISSED`, `SKIPPED` or `CANCELLED` occurrence **is not going to happen**, so it must not hold the day against a task that still could. *This is what satisfies FR-RSC-09's "free the interval it held" **by construction**: a withdrawn reschedule marked `CANCELLED` drops out of the busy set, and no cleanup code exists or is needed.*
+>
+> **2. The occurrence being re-placed is never in the busy set for its own re-placement**, for all four triggers. *Since v2.16 a displaced row **stays `PLANNED`**, so a service reading "every `PLANNED` placement" would route the task around itself.*
+>
+> **3. ⚠️ "Fully elapsed" in FR-RSC-01 means the OCCURRENCE's own interval — `placement.end` — not the task's preferred window.** The requirement says *"a flexible task's **window** has fully elapsed"* and the word does double duty: **the substitution rule (v2.14) reads `preferredWindow.end`, the miss condition reads the placed occurrence's end.** *Read the preferred window for the miss condition and **the System churns forever** — a 21:15 successor of a task whose window closed at 20:30 is elapsed the instant it is created, and FR-RSC-06's termination argument silently stops holding.*
+
 - **FR-RSC-01.** *(Essential, T)* When a flexible task's window has fully elapsed and it is neither complete nor declared skipped, the System shall classify it **missed** and automatically invoke the engine to place it in the next valid slot remaining that day. *(This classification is **inferred from the absence of a completion**, because the user cannot be relied upon to report a miss — the person who skipped their 8 PM run is the least likely person to open the application and say so. The inference is therefore correct as a default and **wrong in one specific case**: the user did the task and did not mark it. **FR-RSC-09 is the remedy for that case**, and the two requirements shall be read together. Applies to **flexible** tasks only: a fixed commitment is immovable by definition (FR-RSC-02), so there is nothing to re-place and no missed classification is made.)*
 
   > **Which candidate the automatic path takes, added v2.12 (closing OPEN-16(1)). This rule governs all three triggers.** The System places the occurrence in the engine's **rank-1 candidate** — the first element of the returned `slots`. **The service does not choose among the candidates.** FR-SCH-03 has already ranked them, and a service applying its own criterion to that list is where the second placement function FR-RSC-03 forbids would begin.
@@ -77,12 +85,26 @@ You are an expert TypeScript engineer writing a test suite. **CRITICAL**: You ar
   > **"Remaining that day" is expressed by what the service passes in, not by a rule the engine applies**: the `schedulableDay` handed to the engine begins at the current time, so every candidate returned already lies in the remainder of the day. *The service shapes the day; the engine ranks within it. This is the same division as `schedulableDay` itself (FR-SCH-05) — the engine is told, it does not ask.*
   >
   > *For a **missed** task the two readings of "next" coincide: the preferred window has already elapsed, so FR-SCH-03's proximity criterion makes rank 1 the earliest remaining slot — which is exactly UC-05's 21:15. **They diverge only for a skip declared in advance (FR-RSC-08) or a displacement (FR-RSC-02)**, where the preferred window is still ahead. There, rank 1 places the task as near the user's stated preference as the day allows, and a literal "earliest remaining" would instead move a 17:00 gym session skipped at 15:00 to 15:30 — sooner, and further from what the user asked for.*
+
+  > **When the preferred window has already elapsed — added v2.14, closing E1 from packet 06's RED run.** ⚠️ **Read with the note above, which is incomplete without it.** A missed task's preferred window lies **entirely in the past** by definition, and the day handed to the engine begins at `now` — at which point **FR-SCH-09's last boundary row obliges the engine to return an empty result**: *"preferred window entirely outside the schedulable day → empty result with reason."* **Taken literally, no missed task could ever be re-placed, UC-05's 21:15 would be unreachable, and §2.7.1's *"the schedule repairs itself"* would be false for the Core's own trigger.**
+  >
+  > **The resolution belongs to the caller, not the engine.** Where an occurrence's preferred window has **fully elapsed**, the System invokes the engine with a **derived task whose preferred window is the remainder of the day**. **The stored task is unchanged** — tomorrow's occurrence uses the user's real window again. Where the window has only **partly** elapsed it is passed **as it stands**, and the engine handles the surviving part normally; there is no substitution.
+  >
+  > *Why the caller: **the engine cannot tell the two cases apart.** "The user asked for 2 AM" and "the caller narrowed the day past the user's window" arrive as the identical input. A rule that needs information only the caller holds has to live in the caller — the same argument that made `schedulableDay` a parameter rather than something the engine works out (FR-SCH-05). Changing the engine instead would re-open the 30 tests frozen at `ac06e70` to repair a defect the engine does not have.*
+  >
+  > **Two consequences that must not be lost.** ⚠️ Every candidate returned by a substituted call is "within the preferred window" as far as the engine can see, so **`Slot.withinPreferredWindow` says nothing about the user's stated preference on such a call** and must not be presented as though it does (FR-DSH-05). And where **`now` is at or past the end of the schedulable day** there is no remainder to ask about and no valid `Interval` to pass: the System **does not call the engine** and reports the occurrence unplaceable with reason **`DAY_FULL`**. *That is the one case in which the reason shown to the user does not originate in the engine, and it is written down here so that it stays the only one.*
 - **FR-RSC-02.** *(Essential, T)* When a new fixed commitment overlaps an already-placed flexible task, the System shall automatically invoke the engine to re-place that task, and shall **not** move the commitment.
+
+  > **What displacement does to the stored occurrence — added v2.14, closing E10.** A displaced occurrence is **moved in place**: the same `Placement` row's start and end change, its status **stays `PLANNED`**, and its `rescheduleTrigger` records **`DISPLACED`** (DR-06). **No successor placement is created, and nothing is marked missed or skipped** — because nothing happened at the old time. The day was rearranged before the fact. *This is what §3.4's sequence diagram has always shown: **"Update Gym placement → 17:45."***
+  >
+  > *The contrast with FR-RSC-01 and FR-RSC-08 is deliberate and is the reason the shapes differ. There, the occurrence **elapsed** or was **declared skipped** — facts about the user's day that FR-ANL must still be able to read — so the original is kept as `MISSED` or `SKIPPED` and a **successor** is created. **A displacement leaves no such fact behind**, and inventing a `DISPLACED` status to record it would be recording that nothing happened.*
 - **FR-RSC-03.** *(Essential, **I**)* Automatic rescheduling shall use **the identical engine** of FR-SCH — not a second, parallel implementation. Verified by inspection: **exactly one function in the codebase produces placements**, and both the manual and automatic paths call it.
 - **FR-RSC-04.** *(Essential, **D**)* When the System reschedules automatically, it shall notify the user in the schedule view, stating the task, its new time, and the trigger.
-- **FR-RSC-05.** *(Essential, T)* Where a missed or displaced task cannot be re-placed in the remainder of the day, the System shall say so and offer to move it to the next day. **It shall not silently discard the task.**
+- **FR-RSC-05.** *(Essential, T)* Where a missed, **skipped**, or displaced task cannot be re-placed in the remainder of the day, the System shall say so and offer to move it to the next day. **It shall not silently discard the task.**
 
-  > **How "unplaced" is represented, and what the offer produces — added v2.13 (closing OPEN-16(2)).** **Unplaced is the ABSENCE of a placement, not a stored state.** The task remains listed for the date with **no `PLANNED` placement**; where it was missed, its original placement remains `MISSED` (UC-06: *"the task remains visible and retrievable in an unplaced state"*). **No `UNPLACED` status is added to `PlacementStatus`** — a stored flag can drift out of step with the schedule, an absence cannot, and a `Placement` that is not placed anywhere would still have to carry a `start` and an `end` that mean nothing (§3.6, DR-03).
+  > ***"Skipped" was added at v2.14 (closing E3): the requirement previously read "missed or displaced" while **FR-RSC-08, UC-10 and UC-13 all give a skipped occurrence the same offer.** A skip is a reschedule trigger like the other two — FR-RSC-08 invokes the engine "exactly as FR-RSC-01 does" — so an unplaceable skipped task was already covered everywhere except in the sentence that governs it.*
+
+  > **How "unplaced" is represented, and what the offer produces — added v2.13 (closing OPEN-16(2)).** **Unplaced is the ABSENCE of a placement, not a stored state.** The task remains listed for the date with **no `PLANNED` placement**; where it was missed, its original placement remains `MISSED` (**UC-10**: *"the task remains visible and retrievable in an unplaced state"*). **No `UNPLACED` status is added to `PlacementStatus`** — a stored flag can drift out of step with the schedule, an absence cannot, and a `Placement` that is not placed anywhere would still have to carry a `start` and an `end` that mean nothing (§3.6, DR-03).
   >
   > The reason shown to the user is the engine's own `NoSlotReason` and explanation (FR-SCH-06), **recomputed when the schedule is retrieved rather than stored.** *The engine is pure and answers in well under 200 ms (NFR-PERF-01), so re-asking costs nothing — and it buys a property storage does not: **if the day later frees up, the next retrieval simply places the task and the offer disappears**, with nothing to clean up and no stale row claiming otherwise.*
   >
@@ -91,7 +113,12 @@ You are an expert TypeScript engineer writing a test suite. **CRITICAL**: You ar
   > *Deliberately **not** in this release, recorded so it is not re-proposed: **discarding** the task for that day (FR-RSC-08's skip explicitly re-invokes the engine, so a discard-without-re-placement is a different obligation, and no Essential requirement asks for it), and **rearranging the current day** to make room — that is **FR-SCH-07**, Conditional, which §2.7.1 forbids starting until every Essential requirement is complete and verified.*
 - **FR-RSC-06.** *(Essential, T)* Automatic rescheduling shall be **idempotent and terminating**: the same trigger processed twice shall not produce two placements, and one trigger shall not cause an unbounded chain of reschedules. Verified by firing a trigger repeatedly and asserting a stable final schedule.
 
-  > **What makes two triggers "the same", added v2.13 (closing OPEN-16(3)).** **Idempotency is a property of the placement's state, not of a record of past triggers.** A trigger acts only on an occurrence still in a state that admits it — a **`PLANNED`**, incomplete occurrence — and handling it moves that occurrence out of `PLANNED` (to `MISSED` or `SKIPPED`) while creating the successor placement. **A second firing therefore finds nothing to act on and does nothing.** This matters because FR-RSC-10 re-evaluates on **every** schedule retrieval: a user refreshing five times fires the missed check five times, and exactly one placement must result.
+  > **What makes two triggers "the same" — added v2.13, generalised at v2.14 (closing OPEN-16(3), then E10).** **A trigger is a no-op when the condition that fires it is no longer true of the stored schedule.** Idempotency is therefore a property of **the schedule itself**, never of a record of past triggers — and the three triggers reach that state by two different routes, both of which must hold:
+  >
+  > - **Missed and skipped** — the trigger acts only on a **`PLANNED`**, incomplete occurrence, and handling it moves that occurrence out of `PLANNED` (to `MISSED` or `SKIPPED`) while creating the successor. A second firing finds nothing to act on.
+  > - **Displaced** — the occurrence **stays `PLANNED`** and is moved in place (FR-RSC-02 note), so a second firing for the same commitment finds **no overlap** and does nothing.
+  >
+  > This matters because FR-RSC-10 re-evaluates on **every** schedule retrieval: a user refreshing five times fires the missed check five times, and exactly one placement must result.
   >
   > *Rejected: **a stored record of processed triggers.** It is a second source of truth about what happened, and it must be kept in step with the schedule by hand — FR-RSC-09's cancellation would have to unwind it, and any divergence between the two is invisible. The state of the occurrence already carries the fact; recording it twice creates the opportunity for the two copies to disagree.*
   >
@@ -99,7 +126,21 @@ You are an expert TypeScript engineer writing a test suite. **CRITICAL**: You ar
 - **FR-RSC-07.** *(Essential, T)* A task the user has marked complete shall **never** be rescheduled.
 - **FR-RSC-08.** *(Essential, T)* The System shall allow a user to declare a placed, incomplete, flexible occurrence **skipped**, and shall thereupon classify it skipped and invoke the engine exactly as FR-RSC-01 does for a missed task. **The declaration shall be accepted before the occurrence's window has elapsed**, not only after. *(This is the third reschedule trigger and the only one available in advance. It is not a substitute for FR-RSC-01: a user who forgets the task will also forget to declare it, so the automatic path must remain. It is offered only for flexible occurrences — a fixed commitment cannot be re-placed.)*
 - **FR-RSC-09.** *(Essential, T)* Where an occurrence was automatically rescheduled under FR-RSC-01 and the user subsequently marks **the original occurrence** complete, the System shall **cancel the reschedule**, withdraw the later placement, free the interval it held, record the occurrence as completed, and state that it has done so. *(The classification in FR-RSC-01 is an inference from silence and can be wrong in exactly one direction — the task was done and not marked. **Without this requirement that error is permanent and uncorrectable**, and the user is left with a phantom task on their evening. This is what makes the automatic classification a proposal rather than a verdict. See FR-ANL-03: the occurrence counts as completed.)*
+
+  > **Scope — added v2.14, closing E6.** This remedy is **for the missed classification only**, and deliberately not for the other two triggers. **A miss is inferred from silence and can be wrong without anyone having said anything; a skip and a displacement are events the user witnessed** — one they declared themselves, one they caused by adding a commitment. *The correction exists because the System guessed, not because the schedule changed.* Completing an occurrence that a skip or a displacement moved is **ordinary completion** (FR-ANL-03) and needs no withdrawal — and in the displacement case there is no earlier occurrence to withdraw at all, since the placement was moved in place (FR-RSC-02 note).
 - **FR-RSC-10.** *(Essential, T)* The System shall evaluate FR-RSC-01 against every placed, incomplete, flexible occurrence whose window has elapsed **at each point a user's schedule for that date is retrieved**. A background scheduler or timer is **permitted but not required**. *(FR-RSC-01 states the condition for a miss but not what observes it. **An unstated mechanism is decided by whichever module is implemented first**, which is how a requirement acquires an accidental design. Evaluation on retrieval is sufficient because FR-RSC-04 requires the user to be told what moved and why — a reschedule nobody has been shown yet has no observable behavior to be late for. Verification: with the clock advanced past a placed occurrence's window, retrieving the schedule yields the occurrence re-placed and the reason recorded, with no background process running.)*
+
+### §3.8.2 — FR-TSK-04, added to this packet on 22 Jul (OPEN-18)
+
+- **FR-TSK-04.** *(Essential, T)* When a user changes a task's duration or preferred window, the System shall re-evaluate its placement and re-place it if the current placement is no longer valid.
+
+  > **What performs this — added v2.15, closing OPEN-18.** **`RescheduleService.onTaskEdited(task, date)`** (§3.6), re-evaluating that task's occurrence on that date. Until v2.15 this requirement named **no mechanism at all**: it is Essential, and it was cited nowhere else in the SRS — no use case, no sequence diagram, no class.
+  >
+  > **The boundary: does the occurrence already exist?** **Re-placing an occurrence that exists** — missed, skipped, displaced, or **edited** — belongs to `RescheduleService`. **Placing a task that has no occurrence yet** — creation, and planning a day's tasks under FR-SCH-10 — belongs to the API layer (packet 12).
+  >
+  > ⛔ **The validity check may only REJECT, never CHOOSE.** *"Does this placement still fit the new duration, still lie inside the new window, still avoid every busy interval?"* is a predicate over an existing placement. **Where the task should go instead is the engine's, always** (FR-RSC-03). *This is the closest any requirement comes to licensing a second placement function.*
+  >
+  > **FR-SCH-10 does not apply** — it orders **several** flexible tasks; this re-places **one** against the existing busy set. **One call re-evaluates one occurrence**: under FR-TSK-05 a recurring task has many, and the caller invokes this once per date it has materialised.
 
 ### §3.8.4 — FR-SCH-10, and it is yours
 
@@ -112,6 +153,10 @@ You are an expert TypeScript engineer writing a test suite. **CRITICAL**: You ar
   > *Note what this does **not** do: a task **already placed** is not evicted by a higher-priority task created later. That is displacement, and it is **FR-SCH-07** (Conditional).*
   >
   > **What "earlier-created" reads, added v2.11 (closing OPEN-15).** The tie is broken on **`Task.createdAt`**, an ISO 8601 UTC instant recorded when the task is created. **Until v2.11 there was no such field**, so the tiebreak named a fact the System did not hold and *"total and repeatable"* could not be satisfied — the same defect shape as FR-SCH-03's criterion (b), removed in v2.7. **It is an instant, not a calendar date**, because two tasks created minutes apart on one day are the ordinary case and a date would tie them again. **Where `createdAt` is absent, or where two tasks share one instant, the order falls through to ascending `id`** — so the order is total in every case, which is what the requirement demands. *The engine does not read this field: FR-SCH-10 governs the order in which the engine is invoked, not anything inside a placement, and FR-SCH-05's purity forbids the engine **consulting** a clock, not the caller **passing** it data.*
+  >
+  > **Where only one of a pair has a creation instant — clarified v2.14 (closing E5).** `createdAt` is optional, so **a partly backfilled store is the ordinary state, not an edge case.** The order is: **tasks with a known instant are ordered by it; a task with no known instant sorts after every task that has one; any remaining tie breaks on ascending `id`.**
+  >
+  > ⚠️ *The alternative packet 06 proposed — "if either is absent, compare that pair by `id`" — **is not transitive and therefore does not define an order at all.** With **A** (10:00, id `a`), **B** (absent, id `b`) and **C** (09:00, id `c`) it gives A before B, B before C, and C before A. A sort handed that comparator returns whatever its pivot choices happen to produce, which can differ between two runs of the same day — **precisely the outcome this requirement exists to eliminate.** The rule above ranks on a single key, `(has instant, instant, id)`, which is total by construction.*
 
 ### Supporting requirements this suite must respect
 
@@ -161,12 +206,33 @@ class RescheduleService {
     +onUserSkipped(placement: Placement) void
     +onCommitmentAdded(commitment: Task) void
     +onCompletionRecorded(placement: Placement) void
+    +onTaskEdited(task: Task, date: IsoDate) void
     +sweepElapsed(userId, date) void
     +moveToNextDay(taskId, date) void
 }
+
+class TaskRepository {          <<interface>>
+    +getTask(taskId) Promise~Task~
+    +ownerOfTask(taskId) Promise~string~
+    +tasksForDate(userId, date) Promise~Task[]~
+    +placementsForDate(userId, date) Promise~Placement[]~
+    +schedulableDay(userId, date) Promise~Interval~
+    +savePlacement(placement) Promise~void~
+    +nextPlacementId() string
+}
+
+class Clock {                   <<interface>>
+    +nowMinute() Minute
+    +today() IsoDate
+    +nextDate(date) IsoDate
+}
 ```
 
-**MANDATORY**: These six methods are the surface. **The SRS names them; you do not rename them.** *(`moveToNextDay` is the newest — added to §3.6 at v2.13 as the path that acts on FR-RSC-05's offer. It re-invokes the same engine against the next day; it is **not** a second placement path.)* Return types are yours to specify — `void` in a class diagram means "the diagram does not say", not "returns nothing" — and whatever you choose must let a test assert FR-RSC-04's three facts and FR-RSC-05's offer.
+**MANDATORY — `onCommitmentAdded` takes a `date` (v2.14, closing E2).** `Task` records *when in a day* and never *which day*; without the parameter the method silently means "today" and is wrong for a commitment added for next Tuesday.
+
+**MANDATORY — the repository is ASYNCHRONOUS. `Clock` is not.** Every storage method returns a `Promise`; `nextPlacementId` stays synchronous because identity generation is local. *Packet 12 implements this port over the promise-based MongoDB driver (CON-08), and **a port its only real implementer cannot satisfy is the wrong port** — finding that out after this suite is frozen would mean editing frozen tests. `await` in a test costs one keyword; a re-freeze costs the correctness argument.*
+
+**MANDATORY**: These **seven** methods are the surface. **The SRS names them; you do not rename them.** *(`moveToNextDay` was added to §3.6 at v2.13 as the path that acts on FR-RSC-05's offer. It re-invokes the same engine against the next day; it is **not** a second placement path. The two ports were ratified into §3.6 at v2.14 — they had been named and left empty, which is why packet 06's first run had to draft them.)* Return types are yours to specify — `void` in a class diagram means "the diagram does not say", not "returns nothing" — and whatever you choose must let a test assert FR-RSC-04's three facts and FR-RSC-05's offer.
 
 ### **CRITICAL**: Two Structural Constraints On That Surface
 
@@ -189,11 +255,25 @@ class RescheduleService {
 **MANDATORY**: **All three triggers, and all three reaching the same engine.** §6's verification approach requires a *"trigger suite covering all three triggers."*
 
 - **Missed (FR-RSC-01)** — window fully elapsed, not complete, not skipped ⟹ classified missed and the engine invoked. **Flexible only**: an elapsed **FIXED** commitment is *not* classified missed and *not* re-placed.
+  - **MANDATORY (v2.14, E1):** assert the engine is invoked with a **derived task whose preferred window is the remainder of the day**, and that the **stored task still carries the user's original window.** *Without the substitution the engine must reject every missed task — FR-SCH-09's last boundary row — so this assertion is the one standing between UC-05 and a Core requirement that cannot fire.*
+  - **A partly elapsed window is passed as it stands** — no substitution. Assert that too; the two cases are one `if` apart and an implementation will get exactly one of them right.
+  - **`now` at or past the end of the schedulable day** ⟹ the engine is **not called at all**, and the outcome is unplaceable with reason **`DAY_FULL`**.
 - **Displaced (FR-RSC-02)** — a new fixed commitment overlapping a placed flexible task ⟹ the flexible task is re-placed and **the commitment does not move.** Assert both halves; the second is the one an implementation gets wrong.
+  - **MANDATORY (v2.14, E10):** the displaced occurrence is **moved in place** — same `Placement` id, **status still `PLANNED`**, `rescheduleTrigger` = `'DISPLACED'`, **no successor row.** Contrast a missed occurrence, which keeps the original as `MISSED` *and* creates a successor. **⛔ If a test wants a `DISPLACED` status, it is asserting a state that does not exist.**
+  - `onCommitmentAdded` takes **the commitment and the date** it falls on (E2).
 - **Skipped (FR-RSC-08)** — a placed, incomplete, **flexible** occurrence declared skipped ⟹ classified skipped and the engine invoked *exactly as FR-RSC-01 does*. **MANDATORY**: assert the declaration is **accepted before the window has elapsed** — that sentence is in the requirement precisely because the obvious implementation rejects it.
 - Each trigger stores its own `rescheduleTrigger` (**DR-06**): `'MISSED'`, `'DISPLACED'`, `'SKIPPED'`. **A trigger the store cannot tell apart from another is DR-06 failing.**
 - **MANDATORY — all three triggers, per the v2.12 rule above:** the placement lands on the engine's **rank-1** candidate, and the **`schedulableDay` the service passes begins at `now`.** Assert **both**: the resulting placement equals `slots[0]`, and the `schedulableDay` argument the engine received starts at the current time. *The second is the one that catches a service which searched the whole day and then filtered the past out afterwards — same answer today, and the rule silently relocated from the caller into the caller's post-processing.*
 - **CRITICAL**: give the engine double a result whose **rank 1 is NOT the earliest** candidate, and assert the service still takes rank 1. **A suite whose fixtures always agree cannot tell the two rules apart** — which is exactly why the SRS was silent here for so long.
+
+### `task-edited.test.ts` — FR-TSK-04
+
+**MANDATORY**: `onTaskEdited(task, date)`, added to this packet on 22 Jul (OPEN-18). **Four obligations:**
+
+- **A still-valid placement is left alone** — the engine is **not called**, and the stored placement is unchanged. *The requirement says "re-place it **if** the current placement is no longer valid"; an implementation that re-places unconditionally satisfies every other assertion here and moves the user's task for no reason.*
+- **An invalidated placement is re-placed through the injected engine** — assert the three ways a placement is invalidated by an edit: the new **duration no longer fits** the placed interval, the placed interval now **falls outside** the new preferred window, and *(control case)* neither, so nothing happens.
+- **The new placement carries `rescheduleTrigger: 'EDITED'`** (DR-06, contract v2.15) and a `placementReason` naming the edit — a different sentence from a miss or a skip.
+- ⛔ **The validity check may only reject.** Assert **no start time is ever computed outside the engine**: every re-placement traces to a `findCandidateSlots` return value, exactly as `single-engine.test.ts` requires of the other triggers.
 
 ### `single-engine.test.ts` — FR-RSC-03 *(the testable half)*
 
@@ -205,13 +285,14 @@ class RescheduleService {
 ### `completion.test.ts` — FR-RSC-07, FR-RSC-09
 
 - **FR-RSC-07** — a task marked complete is **never** rescheduled. Assert across **every** trigger and through a `sweepElapsed`, not just one path. *"Never" is a quantifier and the test should behave like one.*
+- **FR-RSC-09 is scoped to the MISSED classification only** (v2.14, E6). Write no test asking it to withdraw a placement a *skip* or a *displacement* produced — and note a displacement leaves no earlier occurrence to withdraw at all.
 - **FR-RSC-09** — original marked complete after an automatic reschedule ⟹ **all five obligations**, asserted separately: the reschedule is **cancelled**, the later placement **withdrawn**, **the interval it held is freed** (assert something else can now be placed there — this is the half an implementation forgets), the occurrence is **recorded completed**, and the System **states that it has done so.**
 - **MANDATORY (DR-06)**: the cancelled placement stays **distinguishable from one that never happened** — `'CANCELLED'`, not deleted — **and a subsequent `sweepElapsed` does not resurrect it.** *(DR-06 says so explicitly, and it is the exact interaction between FR-RSC-09 and FR-RSC-10 that a naive sweep gets wrong.)*
 
 ### `idempotence.test.ts` — FR-RSC-06, NFR-REL-02
 
 - **The same trigger processed twice produces one placement, not two.** Fire it repeatedly; assert a **stable final schedule** — deep-equal state after the second, third and tenth firing.
-- **MANDATORY — the v2.13 rule above: idempotency comes from the occurrence's STATE.** Assert the second firing is a **no-op because the occurrence is no longer `PLANNED`**, not because something remembered the first firing. **⛔ If a test needs a store of processed triggers to pass, it is asserting the rejected design — stop.**
+- **MANDATORY — the rule above: a trigger is a no-op when the condition that fires it is no longer true of the schedule.** Assert **both routes** (v2.14, E10): a missed or skipped occurrence is a no-op on the second firing **because it is no longer `PLANNED`**; a displaced one is a no-op **because it no longer overlaps the commitment**, having been moved in place while staying `PLANNED`. **⛔ If a test needs a store of processed triggers to pass, it is asserting the rejected design — stop.**
 - **`sweepElapsed` is the case that matters**, since FR-RSC-10 runs it on **every** retrieval: ten retrievals of the same day ⟹ **one** successor placement.
 - **No unbounded chain**: one trigger does not cascade. Assert a **bounded** number of engine invocations for a single trigger, and that the schedule converges. **Assert the property termination actually rests on: each successor starts strictly later than the occurrence it replaced.** *(Do not assert a maximum number of reschedules — no such cap exists, and writing one into a frozen test would create it.)*
 
@@ -235,7 +316,7 @@ class RescheduleService {
 - Several flexible tasks into one day ⟹ engine invoked in **ascending priority order, 1 first.** Assert the **order of invocations**, not only the outcome.
 - **MANDATORY**: **Each placement becomes a busy interval for the next call.** Assert the `busy` argument of call *n+1* contains the slot returned by call *n*. **This is the requirement's substance** — an implementation that sorts correctly but passes a stale busy set produces two tasks on top of each other, and every "ordering" assertion still passes.
 - Contention: where two flexible tasks want the same slot, **the higher-priority task gets it** and the lower-priority one takes its next-best alternative.
-- **Equal priority ⟹ earlier-created first, "so that the order is total and repeatable."** **MANDATORY**: earlier-created means an earlier **`Task.createdAt`** *(SRS v2.11)*. **Where `createdAt` is absent on either task, or where two tasks share one instant, the order falls through to ascending `id`** — assert **all three** cases, because "total" is a claim about the ones without a timestamp too.
+- **Equal priority ⟹ earlier-created first, "so that the order is total and repeatable."** **MANDATORY**: earlier-created means an earlier **`Task.createdAt`** *(SRS v2.11)*, ranked on the single key **`(has an instant, the instant, id)`** *(v2.14, E5)*. Assert **all four** cases: both instants known; **one known and one absent — the known one first, whatever the ids say**; both absent; and identical instants. *"Total" is a claim about the mixed pair too, and that pair is where the obvious rule produces a cycle.*
 - Repeatability: same inputs, same resulting schedule, including order.
 
 ### `reason.test.ts` — DR-03, FR-RSC-04 *(data only)*
@@ -250,6 +331,7 @@ class RescheduleService {
 
 - `server/test/reschedule/**` — the suite, plus its test doubles and fixtures
 - `server/src/reschedule/RescheduleService.ts` — **only** the surface declaration with `throw new Error('07')` bodies. **Nothing more.**
+  - **`.eslintrc.cjs` now has `argsIgnorePattern: '^_'`** *(added 22 Jul, closing E7)*. **Prefix a deliberately-unused parameter with `_` and delete any file-level `eslint-disable`** — the workaround is no longer needed, and leaving it would hide a genuinely unused argument from packet 07.
 - `docs/P06-RED-REPORT.md` — your escalations and the failing-test count *(follow `docs/P04-RED-REPORT.md`)*
 
 ## **CRITICAL**: Files You Must **NOT** Touch
@@ -307,6 +389,8 @@ class RescheduleService {
 4. ✅ **CLOSED before this packet ran — FR-RSC-06's *"the same trigger."*** **Answer: identity is the occurrence's STATE — a trigger acts only on a `PLANNED`, incomplete occurrence, and handling it moves the occurrence out of `PLANNED`. No trigger log; termination is proved from strictly-later successors, not capped (SRS v2.13, OPEN-16(3)).** The rule is quoted under FR-RSC-06 above — **use it, do not re-derive it.**
 
 > **CRITICAL**: **All four were found by reading the SRS while this packet was written, and all four were answered by a human before you started** — see `docs/TEAM-MEETING.md` for the reasoning and the rejected alternatives in each case. **That is exactly what the four above are examples of, and what you are expected to do with the next one you find.** *The specification is dense and was corrected four times in one day; assume there is a fifth.*
+
+> **MANDATORY — and this packet's first run proves the point: there were ten more.** They are recorded in `docs/P06-RED-REPORT.md` and were adjudicated into **SRS v2.14** before the freeze. **The most valuable one, E1, was that a missed task could never be re-placed at all** — the engine was obliged by FR-SCH-09 to reject a preferred window that had already elapsed, so §2.7.1's *"the schedule repairs itself"* was false for the Core's own trigger, **with all 30 engine tests green throughout.** *An agent that had guessed a workaround, or quietly widened the day, would have buried it.* **Two of the ten were decided AGAINST the run's recommendation** — E5's tiebreak comparator was not transitive, and E9's repository port had to become asynchronous — **which is what adjudication is for, and is not a mark against the escalations.**
 
 > **MANDATORY**: An escalation is a **success**, not a failure. It is the mechanism working. **A RED packet that finishes with zero escalations and zero questions on a specification this detailed is the outcome to be suspicious of.**
 

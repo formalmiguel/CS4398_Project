@@ -142,8 +142,13 @@ export interface Task {
    * OPTIONAL in the type, set in practice at the API boundary. It is optional because the
    * 30 engine tests frozen at ac06e70 construct `Task` literals: a REQUIRED field would
    * break their typecheck and force a re-freeze, for a field the engine never reads.
-   * Where it is absent, or where two tasks share an instant, FR-SCH-10 falls through to
-   * ascending `id` — the order stays total either way.
+   * ORDERING, and it is a single key rather than a pair of cases (FR-SCH-10, SRS v2.14):
+   * rank on `(has an instant, the instant, id)`. Tasks with a known instant order by it; a
+   * task without one sorts AFTER every task that has one; remaining ties break on `id`.
+   *
+   * ⚠️ NOT "if either is absent, compare that pair by id" — that comparator is NOT TRANSITIVE
+   * and so defines no order at all. A(10:00, id 'a'), B(absent, id 'b'), C(09:00, id 'c')
+   * gives A<B, B<C and C<A, and a sort handed a cycle returns whatever its pivots produce.
    */
   readonly createdAt?: IsoTimestamp;
 
@@ -223,7 +228,8 @@ export type PlacementResult =
 export type RescheduleTrigger =
   | 'MISSED'      // inferred: window elapsed, not complete, not skipped  (FR-RSC-01)
   | 'SKIPPED'     // declared by the user, possibly before the window     (FR-RSC-08)
-  | 'DISPLACED';  // a new fixed commitment overlapped it                 (FR-RSC-02)
+  | 'DISPLACED'   // a new fixed commitment overlapped it                 (FR-RSC-02)
+  | 'EDITED';     // the user changed the task's duration or window      (FR-TSK-04)
 
 export type PlacementStatus =
   | 'PLANNED'
