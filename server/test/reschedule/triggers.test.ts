@@ -571,10 +571,42 @@ describe('FR-RSC-08 — a user-declared skip is the third trigger, and the only 
 
 // ─── All three, on one day, through one service ──────────────────────────────
 
+/**
+ * ⛔ THE SKIP RESULT BELOW IS LOCAL TO THIS SCENARIO ON PURPOSE. DO NOT REPLACE IT WITH THE
+ * SHARED `SKIP_CANDIDATES`, however tempting the tidy-up looks.
+ *
+ * This scenario needs all three triggers to fire in sequence on one day, and the middle one is
+ * a **displacement of Gym by the Advisor meeting**. That requires Gym to be **still overlapping
+ * 17:00–17:45 when the commitment lands** — so the slot the SKIP puts it in has to overlap the
+ * Advisor, and rank 1 here is 17:15–18:15 for exactly that reason.
+ *
+ * `SKIP_CANDIDATES` ranks 20:00–21:00 first, which moves Gym *clear* of the Advisor. Then the
+ * only row still overlapping the meeting is the `SKIPPED` one — and **a skipped occurrence is
+ * not displaced**:
+ *
+ *   • FR-RSC-02 acts on a **placed** flexible occurrence, and a `SKIPPED` row is not one; and
+ *   • moving it would **overwrite DR-06's record that the user skipped it**, which is the only
+ *     thing that knows *"you skipped the 5:00 PM session"* is the true sentence (FR-DSH-05); and
+ *   • it never leaves `SKIPPED`, so the overlap would still be there next time — the commitment
+ *     would displace it again on every retrieval, which is FR-RSC-06 failing.
+ *
+ * So with the shared fixture nothing is displaced, `onCommitmentAdded` correctly returns `[]`,
+ * and this test asserts a `'DISPLACED'` that the scenario never actually set up. **The engine
+ * script gave the intent away**: its second entry is `GYM_CANDIDATES`, whose rank 1 is 17:45 —
+ * "just after the Advisor ends" — which is only a meaningful answer if Gym were still on it.
+ *
+ * *(Fixture corrected post-freeze; see the correction note in `docs/P06-RED-REPORT.md`. The
+ * assertion did not move, and no other test changed.)*
+ */
+const SKIP_ONTO_ADVISOR = placed(
+  slot(at(17, 15), at(18, 15), 1), // overlaps the Advisor's 17:00–17:45 — the point of this fixture
+  slot(at(15, 30), at(16, 30), 2), // and rank 1 is still not the earliest candidate
+);
+
 describe('FR-RSC-01 / FR-RSC-02 / FR-RSC-08 — the three triggers are distinguishable in store', () => {
   it('DR-06: three reschedules on one day record three different triggers', async () => {
     const h = makeHarness({
-      engine: scriptedEngine([SKIP_CANDIDATES, GYM_CANDIDATES, READ_CANDIDATES]),
+      engine: scriptedEngine([SKIP_ONTO_ADVISOR, GYM_CANDIDATES, READ_CANDIDATES]),
       now: at(15),
     });
     const gymSkipped = placement({ id: 'p-gym', taskId: 'gym', start: at(17), end: at(18) });

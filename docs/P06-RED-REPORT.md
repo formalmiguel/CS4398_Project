@@ -296,3 +296,71 @@ Per `docs/AGENTIC-TDD-WORKFLOW.md` §6, in priority order:
       that is not in that file is not protected, and CI passes either way**, which is exactly why
       this is the step that gets skipped.)*
 - [ ] Post **154** to the team. That number is packet 07's target.
+
+---
+
+# ⚠️ Post-freeze correction — one fixture, `triggers.test.ts`
+
+**Raised during packet 07 (GREEN). Test changed: 1. Assertions changed: 0. Other tests changed: 0.**
+
+> **This is a RED-style correction, and it is the only kind permitted after a freeze**
+> (`CLAUDE.md` §8.3): the fixture was wrong, it is fixed in its own commit with the reasoning
+> written down, and **it is not fixed quietly inside a GREEN diff** — where a weakened test and a
+> corrected one look identical forever afterwards. **The re-freeze is a human's commit, and
+> `scripts/frozen-tests.json` must move to the new sha in it**, or the guard goes on protecting a
+> sha that no longer describes the suite.
+
+## What was wrong
+
+`DR-06: three reschedules on one day record three different triggers` walks one day through
+skip → displace → miss and asserts `['SKIPPED', 'DISPLACED', 'MISSED']`. **It could not produce
+the middle one.**
+
+The skip was scripted with the shared `SKIP_CANDIDATES`, whose rank 1 is **20:00–21:00**. So
+`onUserSkipped` moved Gym *clear* of the Advisor meeting (17:00–17:45) before the commitment was
+ever added. By the time `onCommitmentAdded` ran, the only row still overlapping the meeting was
+the **`SKIPPED`** one, and `READ_PLANNED` was not added to the store until afterwards — so there
+was nothing to displace, `onCommitmentAdded` correctly returned `[]`, and the result was
+`['SKIPPED', 'MISSED']`.
+
+**The fixture contradicted its own intent, and the engine script is the evidence**: its second
+entry is `GYM_CANDIDATES`, whose rank 1 is **17:45** — "just after the Advisor ends" — an answer
+that only means anything if Gym were still sitting on the Advisor when it landed.
+
+## What was NOT wrong
+
+**The requirement, and the implementation's refusal to satisfy this test as written.** Two rules
+would have made the old fixture pass, and both are defects:
+
+| The rescue | Why it is wrong |
+|---|---|
+| Displace any non-`COMPLETED` row that overlaps | It moves the `SKIPPED` occurrence, **overwriting DR-06's record that the user skipped it** — the only thing that knows *"you skipped the 5:00 PM session"* is the true sentence rather than *"this was missed"* (FR-DSH-05). |
+| Match the overlap at **task** level, then move a different row | The `SKIPPED` row never leaves `SKIPPED`, so the overlap survives the move and **the commitment displaces the task again on every retrieval** — FR-RSC-06 failing, and FR-RSC-10 firing it forever. |
+
+⚠️ **Both are non-idempotent, and `idempotence.test.ts` would have stayed green under either**,
+because none of its fixtures contain a `SKIPPED` row. *That is the more valuable half of this
+finding: a suite can be idempotence-tested and still not test idempotence in the presence of the
+one status that makes it hard.* **A fixture gap in one file was covering a rule gap in another.**
+
+## The fix
+
+A **local** result, `SKIP_ONTO_ADVISOR`, whose rank 1 is **17:15–18:15** — a genuine move that
+**still overlaps** 17:00–17:45, so the displacement has something to act on. Rank 1 remains later
+than rank 2, keeping this file's "rank 1 is not the earliest" convention.
+
+**`SKIP_CANDIDATES` is untouched**, because the FR-RSC-08 block depends on it: there, landing at
+20:00 is the point. The comment above the new constant says all of this, and says not to
+"simplify" it back.
+
+## How this was done, and the one thing to check
+
+The correction was made **without reading `server/src/reschedule/` and without running the
+reschedule suite** — the stub is gone, so a green run would only prove the fixture had been tuned
+until the implementation liked it. `npm run typecheck` and `npm run lint` pass; neither gives
+behavioural feedback. **The fix is verifiable by arithmetic alone**: does `17:15–18:15` overlap
+`17:00–17:45`? That is the whole of it.
+
+> ⚠️ **Disclosure.** While this correction was being made, the tooling injected a large excerpt of
+> `RescheduleService.ts` into the session automatically — it was not opened, but it was in front
+> of the agent. **Weigh the fix accordingly**, and note that it rests on interval arithmetic and
+> the requirement text rather than on anything the implementation does.
