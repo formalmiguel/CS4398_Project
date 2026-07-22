@@ -141,7 +141,21 @@ export interface Slot {
   readonly withinPreferredWindow: boolean;
 
   /**
-   * Plain language, for FR-DSH-05. e.g. "4:00 PM — your 2:00 PM slot was taken by CS 401 Lecture."
+   * The ENGINE's account of this slot, in plain language, limited to what the engine can
+   * actually know: the times, whether it falls inside the preferred window, and which
+   * ranked alternative it is. e.g. "5:45 PM to 6:45 PM — alternative 1 of 3, ranked by
+   * nearness to your preferred 5:00 PM start."
+   *
+   * ⚠️ This is NOT the sentence FR-DSH-05 asks the user to read. That one names the
+   * commitment responsible — "Moved to 5:45 PM — your 5:00 PM slot was taken by Advisor" —
+   * and it lives on `Placement.placementReason`, written by RescheduleService and stored
+   * per DR-03. The engine receives `busy` as bare `Interval`s with no titles, so it CANNOT
+   * produce that sentence; only the caller holding the schedule can.
+   *
+   * *(This comment previously carried FR-DSH-05's example, which made two fields appear to
+   * own one requirement and put the example on the field that provably cannot satisfy it.
+   * Settled 22 Jul before packet 06 was written, because the natural way to "fix" it is to
+   * start pushing task titles into the engine, and that ends the purity argument.)*
    *
    * Named `explanation`, NOT `reason`, deliberately: `PlacementResult`'s failure branch has a
    * `reason` field that is an ENUM. Two fields called `reason` — one prose, one union — on types
