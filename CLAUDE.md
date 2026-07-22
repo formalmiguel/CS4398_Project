@@ -296,7 +296,7 @@ These two commits are the git half of the RED/GREEN split (`AGENTIC-TDD-WORKFLOW
 - **Record the agent's escalations in the body.** An ambiguity the RED agent found and refused to guess at is the highest-value line in the whole log, and it exists nowhere else once the session ends.
 
 **The GREEN commit**
-- `git diff --stat <test dir> <RED-sha>..HEAD` must be **empty**, and the body must state it: `Tests unchanged since a1b2c3d.`
+- **`npm run guard:tests-frozen` must pass**, and the body must state it: `Tests unchanged since a1b2c3d.` The guard reads `scripts/frozen-tests.json` and compares the **working tree** against each freeze sha, so it catches an edited-and-committed test as well as an uncommitted one. By hand: `git diff --stat <RED-sha> -- <test dir>` — **revisions before paths, separated by `--`**, which is the order git actually takes. *(This line previously gave that command with the path first, which errors out, and the packets gave it with no revision at all — a form that compares the working tree to `HEAD` and therefore **cannot detect a test that was edited and committed.** That is the one case §8.3 exists for. Corrected 22 Jul, and made executable so it cannot rot again.)*
 - If a test genuinely was wrong, it is fixed in a **separate RED-style commit** with a human's reasoning in the body — **never quietly inside a GREEN diff.** A test edited inside a GREEN commit is indistinguishable, forever after, from a test that was weakened to go green.
 
 ### 8.4 What never enters a commit

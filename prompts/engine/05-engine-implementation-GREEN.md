@@ -93,7 +93,7 @@ export const findCandidateSlots: FindCandidateSlots =
 ## **MANDATORY**: Verification Steps — Definition of Done
 
 - [ ] **CRITICAL**: **Every test in `engine/test/` passes**, with `engine/test/` **byte-identical** to how prompt 04 left it.
-  - **Verify: `git diff --stat engine/test/` is EMPTY.** If it is not, **revert it and report what you were trying to fix.**
+  - **Verify: `npm run guard:tests-frozen` passes.** If it does not, **restore the tests and report what you were trying to fix** — `git checkout <RED-sha> -- engine/test/`. **⛔ Do not "fix" a failing guard by editing `scripts/frozen-tests.json`.** That file records which suites are frozen and at which commit; changing it to silence the guard is the same act as editing the test, one level removed.
 - [ ] **Coverage on `engine/` ≥ 90% lines** *(NFR-MNT-01, Essential — CI enforces it)*
 - [ ] **`findCandidateSlots` is the only export from `engine/src/index.ts`**
 - [ ] `grep -rn "Date\|Math.random\|fetch\|require(" engine/src/` returns **nothing**
@@ -118,6 +118,6 @@ export const findCandidateSlots: FindCandidateSlots =
 
 ### CRITICAL REQUIREMENT ###
 
-**MANDATORY**: **This packet passes when every test in `engine/test/` is green, coverage is ≥ 90%, and `git diff --stat engine/test/` is empty.**
+**MANDATORY**: **This packet passes when every test in `engine/test/` is green, coverage is ≥ 90%, and `npm run guard:tests-frozen` passes.**
 
 **CRITICAL**: **You may not edit a test.** Where this prompt and `docs/SRS-v2.md` disagree, **the SRS wins and this prompt is a defect** — report it rather than reconciling it.

@@ -15,7 +15,8 @@
     "test": "jest --passWithNoTests",
     "test:coverage": "jest --coverage --passWithNoTests",
     "guard:engine-deps": "node scripts/guard-engine-deps.mjs",
-    "verify": "npm run typecheck && npm run lint && npm run guard:engine-deps && npm run test:coverage"
+    "guard:tests-frozen": "node scripts/guard-tests-frozen.mjs",
+    "verify": "npm run typecheck && npm run lint && npm run guard:engine-deps && npm run guard:tests-frozen && npm run test:coverage"
   },
   "engines": {
     "node": ">=20"

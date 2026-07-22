@@ -149,6 +149,7 @@ Generate a random schedulable day, a random set of busy intervals (**deliberatel
   - **⛔ A test that PASSES means you wrote the engine.**
 - [ ] `git diff --stat engine/src/` shows **~1 line** — the throwing stub — and nothing else
 - [ ] Post the failing-test count to the team. **That number is prompt 05's target.**
+- [ ] **After the human gate and the freeze commit: record the suite in `scripts/frozen-tests.json`** — packet number, path, freeze sha, test count. **A frozen suite that is not in that file is not actually protected**, because `npm run guard:tests-frozen` only checks what it is told about, and CI will pass either way.
 
 ---
 

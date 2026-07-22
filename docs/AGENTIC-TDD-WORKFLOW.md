@@ -176,7 +176,7 @@ Some choices inside it are load-bearing and deserve to be understood rather than
 | **Never sees** | **Any implementation** | — |
 | **Writes** | **Test files only** | **Implementation files only** |
 | **Absolutely forbidden** | Writing any implementation (beyond a one-line throwing stub so the tests compile) | **Editing, deleting, renaming, skipping, or weakening any test file** |
-| **Success looks like** | A suite that **fails** | A suite that passes with **`git diff --stat <tests>` empty** |
+| **Success looks like** | A suite that **fails** | A suite that passes with **`npm run guard:tests-frozen` green** |
 
 **The GREEN agent may not touch a test. Not to fix a typo. Not to correct an assertion that is *obviously* wrong. Not to add `.skip` to one that seems unreasonable.** If it cannot make a test pass, it **stops and reports the test as suspect**, naming the test and the requirement it cites — and a human adjudicates it against the SRS.
 
@@ -283,7 +283,7 @@ The extensibility requirements exist because **the grader wants the principle de
    │  Agent writes: IMPLEMENTATION ONLY.                        │
    │                                                            │
    │  ► MAY NOT EDIT A TEST. Stuck ⇒ escalate to a human.       │
-   │  ► Verify: `git diff --stat <tests>` is EMPTY.             │
+   │  ► Verify: `npm run guard:tests-frozen` passes.            │
    └───────────────────────────┬───────────────────────────────┘
                                ▼
    ┌─ 👤 OWNER CHECK ──────────────────────────────────────────┐
@@ -333,9 +333,9 @@ git add engine/test/ && git commit -m "P04 RED: engine test suite (frozen)"
 /clear
 # paste prompts/engine/05-engine-implementation-GREEN.md
 npx jest engine --coverage
-git diff --stat engine/test/
-#   ✅ EXPECT: empty. Nothing in engine/test/ changed.
-#   ☠️ NOT empty = GREEN touched a test. `git checkout -- engine/test/`, re-run,
+npm run guard:tests-frozen
+#   ✅ EXPECT: passes. Nothing in engine/test/ changed since the freeze sha.
+#   ☠️ FAILS = GREEN touched a test. `git checkout <RED-sha> -- engine/test/`, re-run,
 #      and ASK IT WHAT IT WAS TRYING TO FIX.
 #      That question is usually where you discover the requirement was ambiguous —
 #      which is worth more than the fix was.

@@ -1,0 +1,28 @@
+{
+  "comment": [
+    "Frozen test suites. One entry per RED packet, added when its freeze commit lands.",
+    "",
+    "A RED packet's tests are the requirements in executable form. Once frozen, the GREEN",
+    "agent implementing against them may not edit, skip, rename or weaken one - see",
+    "CLAUDE.md 8.3 and AGENTIC-TDD-WORKFLOW.md 5. That rule used to be enforced by a human",
+    "remembering to run a git command, which was documented wrong in six places and could",
+    "not have caught a test that was edited AND committed. It is now enforced here.",
+    "",
+    "ADDING AN ENTRY: after a RED freeze commit, record its sha and the path it froze.",
+    "",
+    "CHANGING OR REMOVING AN ENTRY is how you would defeat this guard, so it is a team",
+    "decision with a row in TEAM-MEETING.md - exactly like editing the tests themselves.",
+    "If a frozen test was genuinely wrong, fix it in a RED-style commit with a human's",
+    "reasoning in the body and re-freeze at the new sha. Never quietly inside a GREEN diff."
+  ],
+  "frozen": [
+    {
+      "packet": "04",
+      "path": "engine/test",
+      "sha": "ac06e70",
+      "frozenOn": "2026-07-22",
+      "owner": "Patrick Rucker",
+      "tests": 30
+    }
+  ]
+}
