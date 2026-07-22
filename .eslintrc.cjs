@@ -5,6 +5,21 @@ module.exports = {
   extends: ['eslint:recommended', 'plugin:@typescript-eslint/recommended'],
   env: { node: true, es2022: true },
   ignorePatterns: ['node_modules', 'dist', 'docs', 'prompts', '*.cjs'],
+  rules: {
+    // A RED packet's stub has no body, so EVERY parameter of EVERY method is unused
+    // by construction — while the packet also requires `npm run lint` to pass with
+    // zero errors. Without this, each RED session has to smuggle in a file-level
+    // eslint-disable, which then has to be remembered and removed by the GREEN
+    // session that follows. Packet 06 hit it first (E7 in docs/P06-RED-REPORT.md).
+    //
+    // The `_` prefix is the signal: an argument named `_placement` is declared
+    // deliberately unused. An argument that is genuinely forgotten still errors.
+    '@typescript-eslint/no-unused-vars': ['error', {
+      argsIgnorePattern: '^_',
+      varsIgnorePattern: '^_',
+      caughtErrorsIgnorePattern: '^_',
+    }],
+  },
   overrides: [
     {
       // FR-SCH-05 purity guard, import-level. The package.json check catches
