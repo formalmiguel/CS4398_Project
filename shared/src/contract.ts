@@ -75,6 +75,28 @@ export interface Task {
   readonly flexibility: Flexibility;
   readonly source: TaskSource;
 
+  /**
+   * When the task was created. FR-SCH-10 breaks a priority tie on the EARLIER-CREATED
+   * task "so that the order is total and repeatable" — and until this field existed there
+   * was nothing on `Task` to read, so the tiebreak could not be evaluated (OPEN-15).
+   *
+   * ⚠️ The ENGINE never reads it. It is a SERVICE-level input: FR-SCH-10 governs the ORDER
+   * IN WHICH the engine is invoked across several tasks, not anything about a single
+   * placement. A timestamp on a type the engine receives does NOT weaken FR-SCH-05 —
+   * purity forbids the engine CONSULTING a clock, not the caller passing it data.
+   *
+   * An INSTANT, not `IsoDate`: two tasks created eleven minutes apart on the same day are
+   * the ordinary case, and a calendar date would tie them again — reopening the very hole
+   * this field closes.
+   *
+   * OPTIONAL in the type, set in practice at the API boundary. It is optional because the
+   * 30 engine tests frozen at ac06e70 construct `Task` literals: a REQUIRED field would
+   * break their typecheck and force a re-freeze, for a field the engine never reads.
+   * Where it is absent, or where two tasks share an instant, FR-SCH-10 falls through to
+   * ascending `id` — the order stays total either way.
+   */
+  readonly createdAt?: IsoTimestamp;
+
   /** Set only for type === 'WORKOUT'. */
   readonly intensityTier?: IntensityTier;
 }
@@ -221,6 +243,16 @@ export type Metric =
 
 /** ISO 8601 calendar date, `YYYY-MM-DD`. */
 export type IsoDate = string;
+
+/**
+ * An ISO 8601 instant in UTC, `YYYY-MM-DDTHH:MM:SS.sssZ`. Used only by `Task.createdAt`.
+ *
+ * ALWAYS UTC with the trailing `Z` and always millisecond precision, because FR-SCH-10
+ * compares two of these to break a tie — and in that fixed format, and ONLY in that
+ * format, lexicographic string order IS chronological order. A local-time or
+ * offset-bearing string sorts wrongly while still looking like a valid timestamp.
+ */
+export type IsoTimestamp = string;
 
 export interface DailyMetricSet {
   readonly date: IsoDate;
