@@ -52,6 +52,14 @@ export const findCandidateSlots: FindCandidateSlots =
 
 > *It is the most interesting problem in the project and the fastest way to lose a week — `CLAUDE.md` §6.*
 
+**⛔ MANDATORY: FR-SCH-10 (placement order across several tasks) is NOT yours.** It was added at SRS **v2.9** and **you will encounter it in §3.8.4, sitting immediately after FR-SCH-09** — so read this before you act on it.
+
+> **It is an obligation on the *caller*, not a behaviour of the engine.** It governs the **order in which the engine is invoked** when a day contains several flexible tasks; it adds nothing to the engine's inputs and changes nothing about a single placement. The requirement text says so explicitly.
+>
+> **The engine you are writing places ONE task.** Its signature — `(busy, task, schedulableDay) => PlacementResult` — cannot express an ordering across tasks, and **there is no test for it in `engine/test/`.** If you find yourself accepting a list of tasks, sorting anything by `priority`, or looping over tasks inside the engine, **stop: you have left this packet.** FR-SCH-10 is implemented and tested in packets 06–07, at service level.
+>
+> *`task.priority` is therefore **read by nothing in this packet**. That is correct and expected, not an omission — FR-SCH-03's ranking uses proximity then earlier start, and priority plays no part in it since SRS v2.7.*
+
 ---
 
 ## ⛔ **CRITICAL**: The Purity Requirement Is Structural, Not Stylistic
