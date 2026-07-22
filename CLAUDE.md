@@ -372,7 +372,7 @@ Owner: Patrick Rucker
 
 | Owner | Queue, in order |
 |---|---|
-| **Patrick** | 04 RED → **human gate** → freeze → 05 GREEN → author 06 → gate → 07 GREEN → **16 (the (I) guards)** → 17 + FR-REC-04 wiring + rehearsals |
+| **Patrick** | 04 RED → **human gate** → freeze → 05 GREEN → author 06 → gate → 07 GREEN → **16a (FR-RSC-03 + FR-SCH-05 guards, runnable now)** → **17a RED (acceptance suite, incl. FR-REC-04) → gate → freeze** → *(after 10/11)* **16b (FR-LIB-02 + FR-REC-11 guards)** → **17b GREEN (the wiring)** → rehearsals |
 | **Ryan** | **OPEN-01 (blocks everything below)** → 08 adapter + Daily Metric Set → 09 RED → gate → **10 GREEN ← FR-WER-10 clears here** → OPEN-04 → 11 libraries |
 | **Miguel** | 12 backend (**answers OPEN-12 in flight**) → 13 dashboard → 14/15 unless Ryan takes them |
 
@@ -380,7 +380,7 @@ Owner: Patrick Rucker
 
 **Each owner authors their own packet immediately before running it** (§4.11). Authoring is the first half of the work item, not batchable overhead.
 
-**⚠️ Open and unresolved: OPEN-09, the workload rebalance.** Ryan's queue empties after packet 11; Miguel has the backend plus three views alone. The original fix (*Patrick takes the backend*) is dead — 06/07/16/17 fill his queue. **Revised proposal: Ryan takes views 14 and 15.** Not yet agreed by Ryan and Miguel.
+**⚠️ OPEN-09, the workload rebalance — direction set 22 Jul, pending agreement.** Ryan's queue empties after packet 11; Miguel had the backend plus three views alone. The original fix (*Patrick takes the backend*) is dead — 06/07/16/17a/17b fill his queue. **Patrick's direction: Ryan takes views 14 and 15; Miguel keeps 12 and the Core dashboard (13).** Changes both their queues, so it holds once Ryan and Miguel have seen it and agreed (§7.2). Raise at the next standup.
 
 ---
 

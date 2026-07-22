@@ -79,8 +79,10 @@ Each prompt follows the required formatting techniques with **Sandwich Method**,
 | 13 | `frontend/13-frontend-schedule-dashboard.md` | BUILD | ⬜ Not yet written |
 | 14 | `frontend/14-frontend-wellness-view.md` | BUILD | ⬜ Not yet written |
 | 15 | `frontend/15-frontend-analytics-view.md` | BUILD | ⬜ Not yet written |
-| 16 | `verification/16-inspection-requirement-guards.md` | GUARD | ⬜ Not yet written |
-| 17 | `verification/17-complete-implementation-guide.md` | INTEGRATION | ⬜ Not yet written |
+| 16a | `verification/16a-guards-placement-purity.md` | GUARD | ⬜ Not yet written — **runnable now** |
+| 16b | `verification/16b-guards-network-extensibility.md` | GUARD | ⬜ Not yet written — needs 10/11 |
+| 17a | `verification/17a-acceptance-suite-RED.md` | 🔴 RED | ⬜ Not yet written |
+| 17b | `verification/17b-integration-GREEN.md` | 🟢 GREEN | ⬜ Not yet written |
 
 > **CRITICAL**: Prompts **08–17** are **enumerated but not yet authored.** Their scope, phase, and requirement IDs are fixed below and derived from the SRS; their detailed text is written when the packet is run. **This is deliberate.** A prompt authored weeks before its module is designed encodes guesses, and an agent will implement a guess as faithfully as a requirement. **A prompt that does not exist is visibly missing; a prompt written from speculation is invisibly wrong.**
 
@@ -96,14 +98,15 @@ Each prompt follows the required formatting techniques with **Sandwich Method**,
 | 04–05 | FR-SCH-01…06, FR-SCH-09, NFR-COR-01…03, NFR-PERF-01 | §3.8.4, §4.1 |
 | 06–07 | FR-RSC-01…10, **FR-SCH-10**, **FR-TSK-04** *(the re-placement mechanism only — OPEN-18)* | §3.8.5, §3.8.4, §3.8.2 |
 | 08 | FR-WER-01…10, DR-02, DR-04, DR-05, NFR-ROB-01 | §3.8.6, §5 |
-| 09–10 | FR-REC-01…07, FR-REC-11, FR-REC-13, **FR-REC-04** | §3.8.7 |
+| 09–10 | FR-REC-01…07, FR-REC-11, FR-REC-13 · ⚠️ **FR-REC-04 moved to 17a/17b on 22 Jul** — see below | §3.8.7 |
 | 11 | FR-LIB-01…08, FR-LIB-10 | §3.8.11 |
 | 12 | FR-USR, FR-TSK *(**except FR-TSK-04's mechanism**, which is 06–07 — packet 12 **calls** `onTaskEdited`)*, FR-CAL, NFR-SEC, NFR-PERF-02, **the task-creation placement path incl. FR-SCH-10 ordering (OPEN-17)** | §3.8.1–3.8.3 |
 | 13 | FR-DSH-01…07, UI-01, UI-05, UI-07 | §3.8.8, §3.9.1 |
 | 14 | FR-WEL-01…05, UI-03 | §3.8.9 |
 | 15 | FR-ANL-01…06, UI-04 | §3.8.10 |
-| 16 | FR-RSC-03, FR-LIB-02, FR-SCH-05, FR-REC-11 *(all **(I)** requirements)* | §3.8.5, §3.8.11 |
-| 17 | §6 verification approach, Appendix D acceptance | §6 |
+| 16a | FR-RSC-03, FR-SCH-05 *(subjects exist now)* | §3.8.5, §3.8.4 |
+| 16b | FR-LIB-02, FR-REC-11 *(need packets 10/11)* | §3.8.7, §3.8.11 |
+| 17a–17b | §6 verification approach, Appendix D acceptance, **FR-REC-04** *(its test is frozen in 17a, the wiring written in 17b — see the note below)* | §6, §3.8.7 |
 
 ---
 
