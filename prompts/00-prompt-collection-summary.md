@@ -44,6 +44,20 @@ Each prompt follows the required formatting techniques with **Sandwich Method**,
 >
 > **MANDATORY**: The **`Human owner` field inside each packet is authoritative.** The folder is a convenience for finding things. **If the two ever disagree, the packet wins** and the folder is the thing to fix.
 
+### ⚠️ **CRITICAL**: That Applies To `prompts/` ONLY — **Source Folders Are Named For The MODULE**
+
+**MANDATORY**: **There is no folder ownership in the source tree** *(Patrick, 22 Jul)*. A packet is a unit of human review; a source folder is a unit of subject matter. **Do not carve `server/src/` up by who wrote it** — name each folder for what the code *is*, so it can be found by the name of the thing you are looking for:
+
+| Module | Source | Tests | Packets |
+|---|---|---|---|
+| Reschedule service | `server/src/reschedule/` | `server/test/reschedule/` | **06–07** |
+| Wearable adapter + Daily Metric Set | `server/src/wearable/` | `server/test/wearable/` | 08 |
+| Recommendation rules | `server/src/recommendation/` | `server/test/recommendation/` | 09–10 |
+| Catalog + seeded libraries | `server/src/catalog/` | `server/test/catalog/` | 11 |
+| HTTP API + persistence | `server/src/api/`, `server/src/db/` | `server/test/api/` | 12 |
+
+> **CRITICAL**: This mirrors **§3.6's class clusters**, so the class diagram and a directory listing read the same way, and it matches the committed `engine/src` ↔ `engine/test` shape. **A packet's *must-NOT-touch* list still fences one packet off from another's files — that is scope, not ownership.**
+
 ---
 
 ### **PROMPT FILES**:
@@ -55,7 +69,7 @@ Each prompt follows the required formatting techniques with **Sandwich Method**,
 | 03 | `foundation/03-shared-contract-types.md` | **HUMAN-AUTHORED** | ✅ Written |
 | 04 | `engine/04-engine-tests-RED.md` | 🔴 RED | ✅ Written |
 | 05 | `engine/05-engine-implementation-GREEN.md` | 🟢 GREEN | ✅ Written |
-| 06 | `engine/06-reschedule-service-tests-RED.md` | 🔴 RED | ⬜ Not yet written |
+| 06 | `engine/06-reschedule-service-tests-RED.md` | 🔴 RED | ✅ Written *(22 Jul, immediately before its run)* |
 | 07 | `engine/07-reschedule-service-GREEN.md` | 🟢 GREEN | ⬜ Not yet written |
 | 08 | `wearable/08-wearable-adapter-and-metric-set.md` | 🔴/🟢 | ⬜ Not yet written |
 | 09 | `wearable/09-recommendation-rules-tests-RED.md` | 🔴 RED | ⬜ Not yet written |
@@ -68,7 +82,7 @@ Each prompt follows the required formatting techniques with **Sandwich Method**,
 | 16 | `verification/16-inspection-requirement-guards.md` | GUARD | ⬜ Not yet written |
 | 17 | `verification/17-complete-implementation-guide.md` | INTEGRATION | ⬜ Not yet written |
 
-> **CRITICAL**: Prompts 06–17 are **enumerated but not yet authored.** Their scope, phase, and requirement IDs are fixed below and derived from the SRS; their detailed text is written when the packet is run. **This is deliberate.** A prompt authored weeks before its module is designed encodes guesses, and an agent will implement a guess as faithfully as a requirement. **A prompt that does not exist is visibly missing; a prompt written from speculation is invisibly wrong.**
+> **CRITICAL**: Prompts **07–17** are **enumerated but not yet authored.** Their scope, phase, and requirement IDs are fixed below and derived from the SRS; their detailed text is written when the packet is run. **This is deliberate.** A prompt authored weeks before its module is designed encodes guesses, and an agent will implement a guess as faithfully as a requirement. **A prompt that does not exist is visibly missing; a prompt written from speculation is invisibly wrong.**
 
 ---
 
