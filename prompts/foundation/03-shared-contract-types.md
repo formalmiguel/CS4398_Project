@@ -118,7 +118,7 @@ export interface Task {
   /** Must be > 0. */
   readonly durationMinutes: number;
 
-  /** 1–5, where 1 is the HIGHEST priority. (FR-SCH-03 ranking tiebreak.) */
+  /** 1–5, where 1 is the HIGHEST priority. (FR-SCH-10 placement order; FR-SCH-07 displacement.) */
   readonly priority: number;
 
   readonly preferredWindow: Interval;
