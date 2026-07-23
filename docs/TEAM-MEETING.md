@@ -32,8 +32,9 @@
 
 | # | Item | Done when |
 |---|---|---|
-| 1 | ⚠️ **OPEN-01 — pull the Garmin export and read the actual field names.** **Blocks every item below it.** | We know whether there is a published **sleep score** and whether **active calories** are present. Fixtures are **derived** from it — the real export never enters the repo (§8.4). |
-| 2 | Author + run **08** — adapter + Daily Metric Set | **One document per metric per date, not one field per metric** (DR-05). An absent metric and a measured zero stay distinguishable (FR-WER-06, NFR-ROB-01). |
+| 1 | ✅ **DONE 22 Jul — OPEN-01 closed, and OPEN-02 closed with it.** Both metrics exist as published fields: **`activeKilocalories`** (UDS file) and **`sleepScores.overallScore`** (sleep file), joined on `calendarDate`. **Nothing below is blocked any more.** | ✅ Field names recorded in OPEN-01. The real export **stays out of the repo** — fixtures are *derived* from it (§8.4), and note the height/weight/VO2Max files are **more** sensitive than the scores. |
+| 1b | **OPEN-20 — settle the absent-vs-measured-zero rule for calories** *(new, from reading the export)* | The team has adopted a stated rule for when `activeKilocalories: 0.0` means *unavailable* rather than *zero*. **It goes in packet 08 as a constraint; an agent must not infer it.** |
+| 2 | Author + run **08** — adapter + Daily Metric Set | **One document per metric per date, not one field per metric** (DR-05). An absent metric and a measured zero stay distinguishable (FR-WER-06, NFR-ROB-01). ⚠️ **`bmrKilocalories: 2299` and the height/weight/VO2Max profile are in the export and must NOT be used to derive a calorie baseline** — CON-05 and §4.9: the System **asks** (FR-REC-09). Real value available to seed the demo: `nutritionLogs.mfpCalorie.calorieGoal = 2480`. |
 | 3 | Author **09** (rules RED) → run → gate → freeze | Boundary values are **exactly** 49, 50, 74, 75 (FR-REC-01). An off-by-one in the test becomes a permanent green off-by-one in the code. |
 | 4 | Run **10** (rules GREEN) | ✅ **FR-WER-10 clears here** — one real metric, from a real device, driving one real recommendation. This is the go/no-go the project's whole claim rests on. |
 | 5 | OPEN-04 (exercise dataset + licence), then author + run **11** | Libraries seeded locally, **with calorie counts** — without them FR-REC-08 has nothing to target |
@@ -71,7 +72,7 @@
 | # | Decision |
 |---|---|
 | **Roles** | **Patrick Rucker → Scheduling Algorithm Lead.** **Ryan Woosley → Data & Wearable Integration Lead.** **Miguel Alvarez → Frontend & Backend Lead.** |
-| **Garmin export** | **Ryan owns it.** *(Still due 16 July — see OPEN-01. Nobody has looked at the file yet.)* |
+| **Garmin export** | **Ryan owns it.** ✅ *(Pulled and read 22 July — OPEN-01 and OPEN-02 both closed. Two files matter; field names are recorded in OPEN-01.)* |
 | **Database** | **MongoDB, not PostgreSQL.** |
 | **Calendar** | **Not importing.** Instead we will **export an `.ics` file** the user can import into Google Calendar. |
 | **Repo** | **Patrick creates it.** |
@@ -222,17 +223,13 @@ This is the **load-bearing requirement of the whole project.** It's what makes u
 
 ### Q4. Who pulls the Garmin export, and when? ⚠️ **CRITICAL PATH**
 
-**Nobody has looked at a real Garmin export yet.** Until someone does:
-- We don't know if it contains a **sleep score** *(needed for FR-REC-01)*
-- We don't know if it contains **active calories** *(needed for FR-REC-08 — without this, the meal plan has nothing to target)*
-- The sleep-score derivation formula (OPEN-02) is a **guess**
-- The meal library's calorie assumptions are a **guess**
+✅ **ANSWERED 22 July — Ryan pulled it and read it. This section is kept for the record; the live detail is in OPEN-01.**
 
-**This is small work. It is on the critical path. It should be the first thing anyone does.**
+- **Sleep score** *(FR-REC-01)* — ✅ published, `sleepScores.overallScore`, integer 0–100. **No derivation formula needed, so OPEN-02 closed unopened.**
+- **Active calories** *(FR-REC-08)* — ✅ `activeKilocalories`, separated from BMR by Garmin.
+- **The meal library's calorie assumptions** are still open — that is **OPEN-04**, and it is independent of the export.
 
-- [ ] **Owner:** ______________________  **Due: 16 July (midpoint)**
-
-**Ask the team:** *"Whoever has the Garmin — can you export your data and just look at what fields are actually in it, before Thursday?"*
+⚠️ **One thing the export could not supply: there is no 2026 sleep score anywhere in it.** The sleep-driven demonstration therefore runs on the 20-day 2023–24 overlap — see the mixed-vintage decision-log row of 22 Jul, which also records why waiting for a fresh export and why swapping to Body Battery were both rejected.
 
 ---
 
@@ -302,7 +299,7 @@ The path to it is **export → adapter → Daily Metric Set → rule → decisio
 
 | | By | Who |
 |---|---|---|
-| Pull the Garmin export and **look at the actual fields** (OPEN-01) | **ASAP — it is small and it is blocking** | |
+| ~~Pull the Garmin export and **look at the actual fields** (OPEN-01)~~ | ✅ **Done 22 Jul** | **Ryan** |
 | Contract ratified + repo up (packets 01–03) | 13 Jul | |
 | DB schema — **one row per metric per date**  (packet 08) | 15 Jul | Data Lead |
 | Sleep-score → intensity rule (packets 09–10) | 15 Jul | Data Lead |
@@ -363,6 +360,8 @@ Everything above serves this one sequence. It's worth having all three of us abl
 
 | Date | Decision | Reasoning | Decided by |
 |---|---|---|---|
+| **22 Jul** | **Fixtures are MIXED VINTAGE by necessity: the calorie rule is demonstrated on 2026 data, the sleep rule on the 20-day 2023–24 overlap.** The export carries `activeKilocalories` for **84 of 85 days in 2026**, but **the only sleep file in all 38 folders ends 2024-10-04** — there is no 2026 sleep score anywhere, and no re-export will produce one, because the gap is in the *measurement*, not the export (22 sleep records exist across ten months; the watch is worn by day, rarely overnight). **The 20 days where both metrics land on the same `calendarDate` are the entire sleep-driven fixture basis**, and they are enough: scores span 14 → 83, cover all three FR-REC-01 tiers, include an exact **75** (a named boundary value), and **2024-03-30 carries score 27 *and* 1,352 active kcal — one real record driving both rules at once, which is FR-WER-10's demonstration.** *Rejected: waiting for a fresh export before starting packet 08* — the lead time is days against a 31 July presentation, and it blocks four packets for a cosmetic gain. *Rejected: swapping the driver metric to Body Battery* (21 days of 2026 data, would allow 2026-only) — it changes FR-REC-01 and FR-WER-03 and discards *"poor sleep lowers workout intensity"*, the sentence the project is about. **⚠️ Write this down precisely so nobody later "fixes" the mixed vintage by inventing a 2026 sleep score.** **FR-WER-10 requires the metric be REAL, not RECENT** — a 2024 record from the team member's own device satisfies it exactly. **In parallel, at zero cost: wear the watch overnight and request a fresh export now**, so a 2026 sleep score is available if it arrives in time. It is an upgrade, and a prerequisite for nothing. | **Ryan** (data owner) · Patrick (to ratify) |
+| **22 Jul** | **§4.1 re-affirmed: HealthKit / Apple Watch stays excluded — including the manual-export route that §4.1 did not explicitly consider.** Raised 22 Jul when the 2026 sleep gap surfaced. The iOS Health app **can** export manually (Health → Export All Health Data → `export.xml`), so unlike the Garmin *API* the door is not technically welded shut — it is a file, not an API, and would fit DEP-02 Layer 1 and FR-WER-08's export shape **without** needing an iOS app. **It still loses on merits, and the deciding reason is the second one: Apple publishes no 0–100 sleep score** — only stages and durations — **so adopting it would reopen OPEN-02**, the exact question the Garmin export just closed for free, trading a published number for a formula the team would have to defend. It also costs a second adapter, a second parser, and a second fixture set for data we already hold, **and it only helps if the watch is worn overnight — which is the same behavioural fix that yields fresh Garmin sleep data anyway.** *Recorded so the option is visibly considered-and-rejected rather than merely absent* — the original §4.1 wording (*"cannot reach a web backend without an iOS app"*) is true of the API but overstated for the export path, and someone re-deriving it would have found the gap and reopened the question. **Revisit only if: an Apple Watch is owned AND worn overnight AND the Garmin re-export does not arrive.** Even then it is Conditional — **FR-WER-05 means it costs one adapter and zero changes to the recommendation engine.** | Patrick (§4.1 owner) · Ryan (raised) |
 | 12 Jul | **Official Garmin Health API is off the critical path.** Wearable data comes from **account exports** instead. | Garmin's Health API requires partner approval with a lead time we can't schedule. Apple Watch is excluded entirely (HealthKit is on-device, iOS-only — can't reach a web backend). **We own the device, which gives us the data; it does not give us the API.** | Patrick + AI |
 | 12 Jul | **Workout and meal libraries are local seeded data, not runtime API calls.** | Workouts and recipes are static — there's no freshness argument for fetching them. Calling an external API at recommendation time reintroduces rate limits, keys, and demo-day network failure in exchange for nothing. **Consequence: the whole demo runs offline.** | Patrick + AI |
 | 12 Jul | **Stack: React + TS / Node + TS / PostgreSQL.** | One language across the stack — all three of us can review the entire codebase. TypeScript because the engine is interval math where types catch real bugs. | Patrick + AI *(pending team ratification — Q6)* |
@@ -431,8 +430,9 @@ Everything above serves this one sequence. It's worth having all three of us abl
 
 | ID | Issue | Owner | Due | Status |
 |---|---|---|---|---|
-| **OPEN-01** | **Pull a real Garmin export; confirm it has a sleep score AND active calories.** Critical path — the sleep-score formula and the meal library's calorie assumptions are guesses until this is done. | **Ryan Woosley** | **16 Jul** | 🔴 Open |
-| **OPEN-02** | Sleep-score derivation formula (if the export has no single published score). Depends on OPEN-01. | | 16 Jul | 🔴 Open |
+| **OPEN-01** | ✅ **CLOSED 22 Jul — both metrics exist, as published fields.** Ryan pulled the full Garmin GDPR export (38 top-level folders) and read it. **Exactly two files matter**, and everything else in the export maps to no requirement: **(1)** `DI_CONNECT/DI-Connect-Aggregator/UDSFile_*.json` → **`activeKilocalories`** (kcal, float), separate from `bmrKilocalories` and `totalKilocalories` — **84 of 85 days in 2026**; **(2)** `DI_CONNECT/DI-Connect-Wellness/2023-12-16_2024-10-04_118195747_sleepData.json` → **`sleepScores.overallScore`** (integer 0–100). **Both files key on `calendarDate` in `"YYYY-MM-DD"` form**, which is already the contract's `IsoDate` and is the join key. *Original question:* ~~Pull a real Garmin export; confirm it has a sleep score AND active calories.~~ | **Ryan Woosley** | ~~16 Jul~~ **done 22 Jul** | ✅ **Closed** |
+| **OPEN-02** | ✅ **CLOSED 22 Jul — no derivation formula is needed; Garmin publishes the score.** `sleepScores.overallScore` is an integer 0–100 that maps directly onto FR-REC-01's tiers. **This question existed only in case the export lacked a single published score. It does not.** ⚠️ **Two properties of the real data that a fixture must preserve:** `overallScore` **can be `null`** on a record that otherwise exists and is marked `ENHANCED_CONFIRMED_FINAL` (2024-01-11, 2024-09-19) — that is FR-WER-06's unavailable branch occurring naturally, and an adapter doing `score ?? 0` would silently recommend a recovery session for a night that was never measured; and the 22 real scores **span all three tiers (14 → 83) and include an exact 75**, one of the four boundary values FR-REC-01's verification note names. | **Ryan Woosley** | ~~16 Jul~~ **done 22 Jul** | ✅ **Closed** |
+| **OPEN-20** | **The absent-vs-measured-zero discriminator for active calories.** `activeKilocalories: 0.0` appears in two unrelated situations — the watch was not worn (**no data**, FR-WER-06 → unavailable) and the watch was worn but the user barely moved (**a real measured zero**, 2026-03-17 has 26 steps). Garmin publishes no explicit flag. **Presence of the `totalSteps` key separates them correctly on all 88 days checked**, and `includesActivityData` does **not** (2026-02-13 carries 721 active kcal with `includesActivityData: false`). ⚠️ **This rule was inferred from the data, not documented by Garmin — so it is a team decision that belongs in packet 08 as a stated constraint, not something an agent derives on its own.** Getting it wrong is invisible: the value is a valid number either way and no test fails. | **Ryan Woosley** | **Before packet 08** | 🔴 Open |
 | **OPEN-03** | ~~Calendar source.~~ **CLOSED 12 Jul.** Import declined; **`.ics` export adopted** (SI-06 / FR-CAL-07, Conditional). Fixed commitments come from **manual entry only**. | Miguel | — | ✅ **Closed** |
 | **OPEN-09** | **Workload imbalance: Miguel has frontend AND backend. ⚠️ DIRECTION SET 22 Jul, pending Ryan and Miguel's agreement — Ryan takes views 14 and 15.** Miguel keeps packet 12 (backend) and packet 13 (the **Core** schedule dashboard, FR-DSH-01/05); Ryan picks up the wellness view (14) and analytics view (15) once his wearable chain is green after packet 11. This balances the load and keeps the Core dashboard with the person who built its backend. *Rejected: Ryan takes only view 15 — lighter, but leaves Miguel with three; and leaving all three views with Miguel — four packets against §7.3's "reviewing is the bottleneck", on the person who also owns the demo's whole UI. The original fix (Patrick takes the backend) died when 06/07/16/17a/17b filled Patrick's queue.* **This changes both their queues, so it is Patrick's direction until each has seen it and agreed** (§7.2 — each owns their own work). **Raise it with them today: Ryan is idle after 11, which is exactly when the hand-off is cheap.** | Patrick (directed) · Ryan + Miguel (must agree) | **Next standup** | 🟡 Direction set, awaiting agreement |
 | **OPEN-10** | **Questions for the professor** — (1) is AI-generated prompting acceptable? (2) does he expect tests to be human-written? *(This one has teeth: NFR-MNT-01's 90% coverage and NFR-COR-01's property tests stop meaning what they appear to mean if one agent writes both the tests and the code.)* (3) deliverable format for the SRS? | Patrick | Before 16 Jul | 🔴 Open |
