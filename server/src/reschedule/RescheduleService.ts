@@ -164,19 +164,31 @@ export type NoActionReason =
  * `UNPLACEABLE` is a REPORT, not a stored state. FR-RSC-05 (v2.13): unplaced is the ABSENCE
  * of a placement — no `UNPLACED` member is added to `PlacementStatus`, the reason is
  * recomputed on retrieval from the engine's own `NoSlotReason`, and nothing is written.
+ *
+ * ⚠️ `trigger` IS OPTIONAL ON BOTH, and only because FR-RSC-05's re-attempt reaches them for a
+ * task that was never placed (SRS v2.20). FR-RSC-04's three facts are the facts of a
+ * RESCHEDULE, and a first placement is not one — so there is no trigger to state, and the
+ * alternative to omitting it is inventing it. **Every trigger the user actually caused is
+ * still required**: `classifyAndReplace` and `moveInPlace` take a literal union and cannot
+ * produce an absent one. `undefined` here is reachable from exactly one direction — an
+ * evidence-free `triggerFromHistory`.
+ *
+ * *(Written `?: T | undefined` rather than the absent-key discipline `Placement` uses. The
+ * stored field is persisted and compared, so DR-06 needs the key genuinely gone; this is a
+ * transient report that `JSON.stringify` drops either way — `res.json` sends the same bytes.)*
  */
 export type RescheduleOutcome =
   | {
       readonly kind: 'RESCHEDULED';
       readonly taskId: string;
-      readonly trigger: RescheduleTrigger;
+      readonly trigger?: RescheduleTrigger | undefined;
       readonly placement: Placement;
     }
   | {
       readonly kind: 'UNPLACEABLE';
       readonly taskId: string;
       readonly date: IsoDate;
-      readonly trigger: RescheduleTrigger;
+      readonly trigger?: RescheduleTrigger | undefined;
       /**
        * The ENGINE's reason and explanation (FR-SCH-06), passed through and never invented —
        * with exactly one exception, written down in FR-RSC-01's v2.14 note so that it stays
@@ -253,7 +265,7 @@ const noAction = (taskId: string, why: NoActionReason): RescheduleOutcome => ({
 const unplaceable = (
   taskId: string,
   date: IsoDate,
-  trigger: RescheduleTrigger,
+  trigger: RescheduleTrigger | undefined,
   answer: { readonly reason: NoSlotReason; readonly explanation: string },
 ): RescheduleOutcome => ({
   kind: 'UNPLACEABLE',
@@ -276,14 +288,30 @@ const withTrigger = (
 ): Placement => (trigger === undefined ? base : { ...base, rescheduleTrigger: trigger });
 
 /**
- * Which trigger a RE-ATTEMPT reports, for a task that has no `PLANNED` placement at all.
+ * Which trigger a RE-ATTEMPT descends from, for a task that has no `PLANNED` placement at all.
  * FR-RSC-05's offer is derived on every retrieval and nothing about it was stored, so the only
  * evidence of what happened is the row the day left behind.
+ *
+ * ⛔ `undefined` WHERE THE STORE HOLDS NO EVIDENCE, and this function may never guess again
+ * (SRS v2.20, closing OPEN-21). It previously ended `return 'MISSED'`, which made every
+ * evidence-free re-attempt claim an event that had not happened — and the commonest such
+ * re-attempt by far is a brand-new task's FIRST placement, which the API reaches this branch
+ * for deliberately (`server/src/api/app.ts`). "Absent means it has never been rescheduled" is
+ * the contract's own sentence on `RescheduleTrigger`; a first placement has never been
+ * rescheduled, so `MISSED` contradicted the contract and would have had FR-DSH-05 render
+ * *"its 8:00 PM slot passed without being marked complete"* over a task that was simply
+ * created.
+ *
+ * ⚠️ Two DIFFERENT histories are both empty and the store cannot tell them apart: a task never
+ * placed at all, and one whose `PLANNED` row `moveInPlace` hard-deleted when a displacement or
+ * edit could not be re-placed (FR-RSC-05, v2.16 E11). Provenance is genuinely lost in the
+ * second case, and that is accepted — `undefined` understates it by one fact, where a named
+ * trigger would state a fact that is false. Saying nothing is the only honest option available.
  */
-const triggerFromHistory = (rows: readonly Placement[]): RescheduleTrigger => {
+const triggerFromHistory = (rows: readonly Placement[]): RescheduleTrigger | undefined => {
   if (rows.some((p) => p.status === 'MISSED')) return 'MISSED';
   if (rows.some((p) => p.status === 'SKIPPED')) return 'SKIPPED';
-  return 'MISSED';
+  return undefined;
 };
 
 // ─── The service ─────────────────────────────────────────────────────────────
@@ -485,6 +513,9 @@ export class RescheduleService {
       if ('stored' in item) {
         outcomes.push(await this.classifyAndReplace(userId, item.task, item.stored, 'MISSED'));
       } else {
+        // The re-attempt is stamped with what it descends from — and with NOTHING where the
+        // store holds no evidence it descends from anything (v2.20). This branch is also a
+        // brand-new task's first-ever placement, which is not a reschedule at all.
         outcomes.push(
           await this.placeFresh(
             userId,
@@ -677,12 +708,19 @@ export class RescheduleService {
    * `stamped: false` leaves `rescheduleTrigger` absent: the next day's placement is an ordinary
    * one, and "absent means it has never been rescheduled" is what the contract says the field
    * means. The trigger is still reported on the outcome, so a failure says what it descends from.
+   *
+   * ⚠️ `stamped` and an ABSENT `trigger` are two different absences and both are needed (v2.20).
+   * `stamped: false` says *"this really is a reschedule, but the ROW being written is a fresh
+   * placement"* — the accepted next-day offer, which still reports what it descends from. An
+   * absent `trigger` says *"the store holds no evidence this descends from anything"*, and it
+   * is absent in the report too, because there is nothing to report. Collapsing the two would
+   * have `moveToNextDay` stop naming the miss that produced the offer.
    */
   private async placeFresh(
     userId: string,
     task: Task,
     date: IsoDate,
-    trigger: RescheduleTrigger,
+    trigger: RescheduleTrigger | undefined,
     reason: (start: Minute) => string,
     options: { readonly stamped: boolean } = { stamped: true },
   ): Promise<RescheduleOutcome> {
