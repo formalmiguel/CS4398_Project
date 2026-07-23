@@ -76,7 +76,7 @@ Each prompt follows the required formatting techniques with **Sandwich Method**,
 | 10 | `wearable/10-recommendation-rules-GREEN.md` | 🟢 GREEN | ⬜ Not yet written |
 | 11 | `wearable/11-catalog-and-seeded-libraries.md` | 🔴/🟢 | ⬜ Not yet written |
 | 12 | `backend/12-backend-api.md` | 🔴/🟢 | ✅ Written and run, 22 Jul — `npm run verify` green, `docs/P12-REPORT.md` |
-| 13 | `frontend/13-frontend-schedule-dashboard.md` | BUILD | ⬜ Not yet written |
+| 13 | `frontend/13-frontend-schedule-dashboard.md` | BUILD | ✅ Written and run, 23 Jul — `npm run verify` green, live smoke test passed, `docs/P13-REPORT.md` |
 | 14 | `frontend/14-frontend-wellness-view.md` | BUILD | ⬜ Not yet written |
 | 15 | `frontend/15-frontend-analytics-view.md` | BUILD | ⬜ Not yet written |
 | 16a | `verification/16a-guards-placement-purity.md` | GUARD | ⬜ Not yet written — **runnable now** |
