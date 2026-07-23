@@ -55,6 +55,21 @@ interface TaskDocument {
   readonly createdAt: string;
   readonly recurrence?: Recurrence;
   readonly intensityTier?: IntensityTier;
+  /**
+   * UC-03 / FR-DSH-06: true from the moment `POST /tasks` offers ranked alternatives until the
+   * user accepts one via `POST /tasks/:id/place`. Repository-internal — not on the shared `Task`
+   * type, and NOT read by `RescheduleService`.
+   *
+   * ⛔ Exists because `sweepElapsed`'s reattempt branch (FR-RSC-05) auto-places ANY flexible task
+   * with no `PLANNED` row, on every `GET /schedule` — which FR-RSC-10 requires unconditionally.
+   * Without this flag, the very next schedule retrieval after UC-03 offers a choice would
+   * silently auto-place the task at rank 1 before the user ever saw the picker, making the
+   * "present alternatives, let the user accept one" flow racy against an ordinary page refresh.
+   * `tasksForDate` (the ratified port `sweepElapsed` reads) excludes these; `allTasksForDate`
+   * (this file's own, for `GET /tasks` and `GET /schedule`'s own listing) does not — the user
+   * must still SEE the task while its choice is pending.
+   */
+  readonly awaitingChoice: boolean;
 }
 
 interface PlacementDocument {
@@ -165,11 +180,36 @@ export class TaskRepository {
     return doc === null ? undefined : doc.userId;
   }
 
-  /** OPEN-17: see `matchesDate` — this is the method that makes a task visible to `sweepElapsed`. */
+  /**
+   * OPEN-17: see `matchesDate` — this is the method that makes a task visible to `sweepElapsed`.
+   * Excludes `awaitingChoice` tasks (UC-03) — see that field's comment. Use `allTasksForDate` for
+   * a listing the user sees; this one is what the reschedule service's automatic sweep reads.
+   */
   async tasksForDate(userId: string, date: IsoDate): Promise<readonly Task[]> {
     if (!isNonEmptyString(userId)) return [];
     const docs = await this.tasks.find({ userId }).toArray();
+    return docs.filter((doc) => matchesDate(doc, date) && !doc.awaitingChoice).map(toTask);
+  }
+
+  /** Every task for the date, INCLUDING one awaiting a UC-03 choice — for the user's own view. */
+  async allTasksForDate(userId: string, date: IsoDate): Promise<readonly Task[]> {
+    if (!isNonEmptyString(userId)) return [];
+    const docs = await this.tasks.find({ userId }).toArray();
     return docs.filter((doc) => matchesDate(doc, date)).map(toTask);
+  }
+
+  /** Task ids currently awaiting a UC-03 choice for this date — what the frontend re-offers a picker for. */
+  async awaitingChoiceTaskIds(userId: string, date: IsoDate): Promise<readonly string[]> {
+    if (!isNonEmptyString(userId)) return [];
+    const docs = await this.tasks
+      .find({ userId, awaitingChoice: true }, { projection: { _id: 1 } })
+      .toArray();
+    return docs.filter((doc) => matchesDate(doc, date)).map((doc) => doc._id.toHexString());
+  }
+
+  async setAwaitingChoice(taskId: string, awaiting: boolean): Promise<void> {
+    if (!isValidObjectIdString(taskId)) return;
+    await this.tasks.updateOne({ _id: new ObjectId(taskId) }, { $set: { awaitingChoice: awaiting } });
   }
 
   async placementsForDate(userId: string, date: IsoDate): Promise<readonly Placement[]> {
@@ -245,6 +285,7 @@ export class TaskRepository {
       flexibility: input.flexibility,
       source: 'USER',
       createdAt: new Date().toISOString(),
+      awaitingChoice: false,
       ...(input.recurrence === undefined ? {} : { recurrence: input.recurrence }),
       ...(input.intensityTier === undefined ? {} : { intensityTier: input.intensityTier }),
     };

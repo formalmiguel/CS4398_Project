@@ -260,16 +260,125 @@ describe('FR-CAL — fixed commitments', () => {
   });
 });
 
-describe('FR-SCH-10 / OPEN-17 — day-planning order via GET /schedule', () => {
+describe('UC-02/UC-03 — task creation calls the engine directly (FR-DSH-06)', () => {
   let token: string;
+  const date = '2026-07-23';
   beforeEach(async () => {
     ta = await buildTestApp();
     token = (await register(ta.app)).token;
   });
 
-  it('places sequentially-created, out-of-priority-order flexible tasks in ascending priority order, with no overlaps', async () => {
+  it('UC-02: a task whose preferred window has room is auto-placed at creation, no candidates offered', async () => {
+    const res = await authed(ta.app, token).post('/tasks').send({
+      title: 'Read',
+      type: 'HABIT',
+      durationMinutes: 30,
+      priority: 3,
+      preferredWindow: { start: 600, end: 700 },
+      flexibility: 'FLEXIBLE',
+      intendedDate: date,
+    });
+    expect(res.status).toBe(201);
+    expect(res.body.placement).toMatchObject({ start: 600, end: 630, status: 'PLANNED' });
+    expect(res.body.candidates).toBeNull();
+  });
+
+  it('UC-03: a task whose preferred window is full returns ranked candidates and writes nothing', async () => {
     const client = authed(ta.app, token);
-    // Created LOW priority first, on purpose — this is the case the eager-sweep design broke.
+    // Fill the exact preferred window with a fixed commitment first.
+    await client.post('/tasks').send({
+      title: 'Advisor Meeting',
+      type: 'MEETING',
+      durationMinutes: 60,
+      priority: 1,
+      preferredWindow: { start: 600, end: 660 },
+      flexibility: 'FIXED',
+      intendedDate: date,
+    });
+
+    const res = await client.post('/tasks').send({
+      title: 'Gym',
+      type: 'WORKOUT',
+      durationMinutes: 30,
+      priority: 3,
+      preferredWindow: { start: 600, end: 660 },
+      flexibility: 'FLEXIBLE',
+      intendedDate: date,
+      intensityTier: 'MODERATE',
+    });
+    expect(res.status).toBe(201);
+    expect(res.body.placement).toBeNull();
+    expect(Array.isArray(res.body.candidates)).toBe(true);
+    expect(res.body.candidates.length).toBeGreaterThan(0);
+    expect(res.body.candidates[0].withinPreferredWindow).toBe(false);
+
+    // Nothing was written — GET /schedule shows no placement for this task yet.
+    const schedule = await client.get(`/schedule?date=${date}`);
+    const mine = schedule.body.placements.find((p: { taskId: string }) => p.taskId === res.body.task.id);
+    expect(mine).toBeUndefined();
+  });
+
+  it('POST /tasks/:id/place writes the accepted candidate', async () => {
+    const client = authed(ta.app, token);
+    await client.post('/tasks').send({
+      title: 'Advisor Meeting',
+      type: 'MEETING',
+      durationMinutes: 60,
+      priority: 1,
+      preferredWindow: { start: 600, end: 660 },
+      flexibility: 'FIXED',
+      intendedDate: date,
+    });
+    const created = await client.post('/tasks').send({
+      title: 'Gym',
+      type: 'HABIT',
+      durationMinutes: 30,
+      priority: 3,
+      preferredWindow: { start: 600, end: 660 },
+      flexibility: 'FLEXIBLE',
+      intendedDate: date,
+    });
+    const chosen = created.body.candidates[0];
+
+    const placed = await client.post(`/tasks/${created.body.task.id}/place`).send({
+      date,
+      start: chosen.start,
+      end: chosen.end,
+    });
+    expect(placed.status).toBe(201);
+    expect(placed.body.placement).toMatchObject({ start: chosen.start, end: chosen.end, status: 'PLANNED' });
+  });
+
+  it('POST /tasks/:id/place rejects a slot that is no longer available', async () => {
+    const client = authed(ta.app, token);
+    const created = await client.post('/tasks').send({
+      title: 'Gym',
+      type: 'HABIT',
+      durationMinutes: 30,
+      priority: 3,
+      preferredWindow: { start: 600, end: 660 },
+      flexibility: 'FLEXIBLE',
+      intendedDate: date,
+    });
+    // Someone else's commitment lands on the chosen interval between offer and accept.
+    await client.post('/tasks').send({
+      title: 'Surprise Meeting',
+      type: 'MEETING',
+      durationMinutes: 30,
+      priority: 1,
+      preferredWindow: { start: 600, end: 630 },
+      flexibility: 'FIXED',
+      intendedDate: date,
+    });
+
+    const res = await client
+      .post(`/tasks/${created.body.task.id}/place`)
+      .send({ date, start: 600, end: 630 });
+    expect(res.status).toBe(409);
+  });
+
+  it('sequentially-created tasks do NOT evict each other, even out of priority order (no retroactive eviction, FR-SCH-10\'s own note)', async () => {
+    const client = authed(ta.app, token);
     const low = await client.post('/tasks').send({
       title: 'Low priority',
       type: 'HABIT',
@@ -277,7 +386,95 @@ describe('FR-SCH-10 / OPEN-17 — day-planning order via GET /schedule', () => {
       priority: 5,
       preferredWindow: { start: 600, end: 660 },
       flexibility: 'FLEXIBLE',
-      intendedDate: '2026-07-23',
+      intendedDate: date,
+    });
+    // Auto-placed immediately at its preferred start.
+    expect(low.body.placement).toMatchObject({ start: 600, end: 630 });
+
+    const high = await client.post('/tasks').send({
+      title: 'High priority',
+      type: 'HABIT',
+      durationMinutes: 30,
+      priority: 1,
+      preferredWindow: { start: 600, end: 660 },
+      flexibility: 'FLEXIBLE',
+      intendedDate: date,
+    });
+    // High priority does NOT evict the already-placed low-priority task — it takes what's left.
+    expect(high.body.placement).toMatchObject({ start: 630, end: 660 });
+
+    const schedule = await client.get(`/schedule?date=${date}`);
+    const lowP = schedule.body.placements.find((p: { taskId: string }) => p.taskId === low.body.task.id);
+    expect(lowP.start).toBe(600); // still where it was placed — untouched by the later, higher-priority create
+  });
+
+  it('FR-SCH-06: a task that cannot be placed at all is reported, written nowhere, and retried later via GET /schedule', async () => {
+    // A schedulable day short enough that one (<=480-min, FR-TSK-01's cap) commitment fills it.
+    const shortDayToken = (await register(ta.app, { wakeMinute: 600, sleepMinute: 630 })).token;
+    const client = authed(ta.app, shortDayToken);
+    await client.post('/tasks').send({
+      title: 'Fills The Whole Day',
+      type: 'OTHER',
+      durationMinutes: 30,
+      priority: 1,
+      preferredWindow: { start: 600, end: 630 },
+      flexibility: 'FIXED',
+      intendedDate: date,
+    });
+    const created = await client.post('/tasks').send({
+      title: 'Stuck',
+      type: 'HABIT',
+      durationMinutes: 30,
+      priority: 3,
+      preferredWindow: { start: 600, end: 630 },
+      flexibility: 'FLEXIBLE',
+      intendedDate: date,
+    });
+    expect(created.status).toBe(201);
+    expect(created.body.placement).toBeNull();
+    expect(created.body.candidates).toBeNull();
+    expect(created.body.unplaceable.placed).toBe(false);
+
+    // FR-RSC-05's re-attempt: nothing else changes the day, so it stays unplaceable.
+    const still = await client.get(`/schedule?date=${date}`);
+    expect(still.body.placements.find((p: { taskId: string }) => p.taskId === created.body.task.id)).toBeUndefined();
+    // It's still there, just unplaced — NFR-REL-01, never silently dropped.
+    expect(still.body.tasks.map((t: { id: string }) => t.id)).toContain(created.body.task.id);
+  });
+});
+
+describe('FR-SCH-10 — a batch of genuinely-simultaneous unplaced tasks is still ordered by priority', () => {
+  let token: string;
+  const date = '2026-07-23';
+  beforeEach(async () => {
+    ta = await buildTestApp();
+    // A schedulable day short enough that one commitment fills it entirely, so a competing
+    // flexible task is genuinely UNPLACEABLE (FR-SCH-06) rather than offered UC-03 candidates
+    // elsewhere in the day — the latter would mark it `awaitingChoice` and correctly exclude it
+    // from `sweepElapsed`'s reattempt, which is not the scenario this test wants.
+    token = (await register(ta.app, { wakeMinute: 600, sleepMinute: 660 })).token;
+  });
+
+  it('two tasks unplaceable at creation both place, in priority order, once the day frees up and GET /schedule sweeps them together', async () => {
+    const client = authed(ta.app, token);
+    const blocker = await client.post('/tasks').send({
+      title: 'Blocker',
+      type: 'MEETING',
+      durationMinutes: 60,
+      priority: 1,
+      preferredWindow: { start: 600, end: 660 },
+      flexibility: 'FIXED',
+      intendedDate: date,
+    });
+
+    const low = await client.post('/tasks').send({
+      title: 'Low priority',
+      type: 'HABIT',
+      durationMinutes: 30,
+      priority: 5,
+      preferredWindow: { start: 600, end: 660 },
+      flexibility: 'FLEXIBLE',
+      intendedDate: date,
     });
     const high = await client.post('/tasks').send({
       title: 'High priority',
@@ -286,35 +483,26 @@ describe('FR-SCH-10 / OPEN-17 — day-planning order via GET /schedule', () => {
       priority: 1,
       preferredWindow: { start: 600, end: 660 },
       flexibility: 'FLEXIBLE',
-      intendedDate: '2026-07-23',
+      intendedDate: date,
     });
-    const mid = await client.post('/tasks').send({
-      title: 'Mid priority',
-      type: 'HABIT',
-      durationMinutes: 30,
-      priority: 3,
-      preferredWindow: { start: 600, end: 660 },
-      flexibility: 'FLEXIBLE',
-      intendedDate: '2026-07-23',
-    });
-    // None placed yet — POST never sweeps.
+    // Neither could go anywhere in the (tiny) day — genuinely unplaceable, not offered a choice.
     expect(low.body.placement).toBeNull();
+    expect(low.body.candidates).toBeNull();
     expect(high.body.placement).toBeNull();
-    expect(mid.body.placement).toBeNull();
+    expect(high.body.candidates).toBeNull();
 
-    const schedule = await client.get('/schedule?date=2026-07-23');
+    // Free up the day: remove the blocker's task entirely.
+    await client.delete(`/tasks/${blocker.body.task.id}`);
+
+    const schedule = await client.get(`/schedule?date=${date}`);
     const byTask = (id: string) => schedule.body.placements.find((p: { taskId: string }) => p.taskId === id);
     const highP = byTask(high.body.task.id);
-    const midP = byTask(mid.body.task.id);
     const lowP = byTask(low.body.task.id);
-
-    // FR-SCH-10: the highest-priority task gets the actually-preferred slot.
+    expect(highP).toBeDefined();
+    expect(lowP).toBeDefined();
+    // FR-SCH-10: the higher-priority task gets the actually-preferred slot.
     expect(highP.start).toBe(600);
-    // No two overlap.
-    const all = [highP, midP, lowP].sort((a, b) => a.start - b.start);
-    for (let i = 0; i < all.length - 1; i += 1) {
-      expect(all[i].end).toBeLessThanOrEqual(all[i + 1].start);
-    }
+    expect(lowP.start).toBeGreaterThanOrEqual(highP.end);
   });
 });
 

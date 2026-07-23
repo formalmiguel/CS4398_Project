@@ -103,6 +103,56 @@ one retrieval point FR-RSC-10 already requires.
 
 ---
 
+## A third correction — the second one above turned out to be wrong too, found authoring packet 13
+
+Authoring packet 13 (the schedule dashboard) required reading FR-DSH-06 and UC-03 closely, and
+they describe a flow the design above cannot produce: **"the engine returns up to three ranked
+alternatives, the System presents them, and the user accepts one"** — before anything is placed.
+The corrected design above defers every flexible task's first placement to `sweepElapsed`, which
+always auto-takes rank 1 with no mechanism to pause for a user choice or expose the other two
+candidates. By the time `GET /schedule` returns a placement, they're gone. Packet 13 had nothing
+to build a picker against.
+
+**The reasoning that produced the second correction was itself incomplete.** It rejected a direct
+per-task engine call at creation on the theory that a lower-priority task, created first, could
+claim a slot before a higher-priority one created moments later existed to contend for it — a
+violation of FR-SCH-10. But FR-SCH-10's own text says otherwise: *"a task already placed is not
+evicted by a higher-priority task created later. That is displacement, and it is FR-SCH-07
+(Conditional)."* FR-SCH-10 governs tasks placed **together in one operation** (which `sweepElapsed`
+still correctly does for a genuine batch of simultaneously-unplaced tasks); it was never a
+constraint on live, sequential, one-at-a-time task creation, which is what UC-02 and UC-03 both
+describe ("Engine finds…", "System places…", called per task, at creation).
+
+**Corrected a third time**: `POST /tasks` for a flexible task calls `findCandidateSlots` directly
+— a single task, against the current busy set and the schedulable day narrowed to the remainder
+of the day if creating for today with an already-elapsed preferred window (the identical
+caller-side shaping `RescheduleService.askEngine` already does for every reschedule trigger,
+necessarily duplicated here since that file is off limits to this packet). If the winning
+candidate is `withinPreferredWindow`, auto-place it (UC-02) — no real conflict. If not, write
+nothing and return the ranked candidates for the client to offer a picker against (UC-03/FR-DSH-06).
+A new endpoint, `POST /tasks/:id/place`, writes whichever one the user accepts, re-validated
+against the current busy set (the offer may be stale by the time they choose).
+
+**This reopened a live bug**, caught before it shipped: `GET /schedule` unconditionally calls
+`sweepElapsed` (FR-RSC-10), whose reattempt branch auto-places *any* flexible task with no
+`PLANNED` row — which would include a UC-03 task still awaiting the user's choice, the moment
+anyone reloads the schedule. Fixed with a repository-internal `awaitingChoice` flag: set when
+UC-03 offers candidates, cleared when `POST /tasks/:id/place` succeeds. `TaskRepository.tasksForDate`
+(the port `sweepElapsed` reads) excludes it; a new `allTasksForDate` (for `GET /tasks` and
+`GET /schedule`'s own listing) does not, so the user still sees the task while its choice is
+pending.
+
+**What is unchanged**: `sweepElapsed` is still the only place `findCandidateSlots` is called for
+a task that's already been placed once (missed/skipped/displaced/edited), and for a task that was
+genuinely unplaceable at creation (no candidates at all, not "candidates the user hasn't picked
+from yet") and needs to be retried once the day frees up — the batch scenario FR-SCH-10 actually
+governs. `RescheduleService` itself was not touched.
+
+Full test suite for all three corrections: `server/test/api/app.test.ts`. `npm run verify`: 241
+tests green, both freeze guards intact, `git diff --stat -- server/src/reschedule/ engine/` empty.
+
+---
+
 ## Known limitation, not a defect: NFR-SEC-06 and packet 08
 
 `DELETE /user/me` deletes everything this packet owns — the user record, every task, every
