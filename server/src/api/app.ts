@@ -122,7 +122,12 @@ export const buildApp = (deps: AppDependencies): Express => {
     }
     const passwordHash = await auth.hashPassword(password);
     const user = await users.create({ email, passwordHash, wakeMinute, sleepMinute });
-    res.status(201).json({ userId: user.id, token: auth.signSession(user.id) });
+    res.status(201).json({
+      userId: user.id,
+      token: auth.signSession(user.id),
+      wakeMinute: user.wakeMinute,
+      sleepMinute: user.sleepMinute,
+    });
   });
 
   app.post('/auth/login', async (req, res) => {
@@ -141,10 +146,28 @@ export const buildApp = (deps: AppDependencies): Express => {
       res.status(401).json({ error: 'invalid email or password' });
       return;
     }
-    res.json({ userId: user.id, token: auth.signSession(user.id) });
+    res.json({
+      userId: user.id,
+      token: auth.signSession(user.id),
+      wakeMinute: user.wakeMinute,
+      sleepMinute: user.sleepMinute,
+    });
   });
 
   // ── User (FR-USR-07, NFR-SEC-06) ───────────────────────────────────────
+
+  // FR-USR-07's schedulable day, re-readable on session restore (e.g. a stored token surviving
+  // a page reload, with no fresh /auth/login to carry wakeMinute/sleepMinute again). Additive:
+  // no existing route's shape changes, and neither does the contract.
+  app.get('/user/me', requireAuth(auth), async (req: AuthedRequest, res) => {
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+    const user = await users.findById(req.userId!);
+    if (user === undefined) {
+      res.status(404).json({ error: 'not found' });
+      return;
+    }
+    res.json({ userId: user.id, email: user.email, wakeMinute: user.wakeMinute, sleepMinute: user.sleepMinute });
+  });
 
   app.patch('/user/schedulable-day', requireAuth(auth), async (req: AuthedRequest, res) => {
     const { wakeMinute, sleepMinute } = req.body as Record<string, unknown>;
