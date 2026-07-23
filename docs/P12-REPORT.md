@@ -17,7 +17,7 @@
 |---|---|
 | **Test suites (this packet)** | 5 — `server/test/db/{UserStore,TaskRepository}.test.ts`, `server/test/api/{auth,SystemClock,app}.test.ts` |
 | **Tests (this packet)** | 49 |
-| **Whole-workspace `npm run verify`** | ✅ typecheck, lint, both freeze guards, **233/233 tests**, engine coverage still 100% |
+| **Whole-workspace `npm run verify`** | ✅ typecheck, lint, both freeze guards, **235/235 tests**, engine coverage still 100% *(recorded as 233 in an earlier draft of this report and in `CLAUDE.md`'s prior status refresh — 235 was already the true count at the time; the old figure was simply mistaken, not a regression or a later addition)* |
 | `git diff --stat -- server/src/reschedule/ engine/` | **empty** — nothing touched |
 | `git diff --stat -- shared/src/contract.ts` | 2 additive changes, both pre-authorized before this packet's code was written (see below) |
 
