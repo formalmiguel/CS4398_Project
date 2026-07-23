@@ -102,8 +102,38 @@ export interface Task {
    */
   readonly createdAt?: IsoTimestamp;
 
+  /**
+   * How often the task repeats. Absent means it does not — FR-TSK-01 lists "no recurrence"
+   * as a valid answer, and the Data Requirements table (§5) has always listed `recurrence`
+   * as a retained Task attribute; this field closes the gap between that table and the
+   * class diagram (added 22 Jul, closing the recurrence half of packet 12's scope).
+   *
+   * FR-TSK-05 expands a recurring task into one Placement PER MATCHING DAY, each
+   * independently completable and reschedulable. That expansion happens in the API layer
+   * (packet 12) — the ENGINE never reads this field and never sees a recurrence rule, only
+   * the concrete per-day Task and Interval produced by expanding it. This is the identical
+   * principle FR-CAL-06 already states for calendar-sourced events ("the engine shall never
+   * receive a recurrence rule — only concrete busy intervals"); it isn't a new rule, only a
+   * second requirement landing on it.
+   */
+  readonly recurrence?: Recurrence;
+
   /** Set only for type === 'WORKOUT'. */
   readonly intensityTier?: IntensityTier;
+}
+
+/** FR-TSK-01: "daily, or specific weekdays." Daily repeats every day by definition. */
+export type RecurrenceFrequency = 'DAILY' | 'WEEKLY';
+
+export interface Recurrence {
+  readonly frequency: RecurrenceFrequency;
+
+  /**
+   * ISO 8601 weekday numbers, 1 (Monday) – 7 (Sunday). Required and non-empty when
+   * `frequency` is `'WEEKLY'` — that is what "specific weekdays" means. Absent and ignored
+   * when `frequency` is `'DAILY'`, which needs no day list to mean every day.
+   */
+  readonly daysOfWeek?: readonly number[];
 }
 
 // ─── Placement ───────────────────────────────────────────────────────────────
