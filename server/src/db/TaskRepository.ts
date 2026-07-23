@@ -1,0 +1,309 @@
+/**
+ * The Mongo implementation of `TaskRepository`, ratified into §3.6 at SRS v2.14 and imported
+ * from `RescheduleService` (packet 06/07) — the port is asynchronous because this is the real
+ * implementer it was written for. See that file for the interface itself; it is not redeclared
+ * here.
+ *
+ * ⛔ THIS FILE DOES NOT COMPUTE A PLACEMENT. It stores and reads back whatever
+ * `RescheduleService` (or, for a fixed commitment, this packet's own route handler) decides.
+ * FR-RSC-03 forbids a second placement function; a repository method that ranked, merged, or
+ * chose among candidates would be exactly that, wearing a different file name.
+ *
+ * OPEN-17: `tasksForDate` is the method that actually turns FR-SCH-10 on for a never-placed or
+ * recurring task — see its own comment below. It does not call the engine; it decides
+ * VISIBILITY, and `RescheduleService.sweepElapsed` does the rest.
+ */
+import { Collection, Db, ObjectId } from 'mongodb';
+
+import type {
+  Interval,
+  IsoDate,
+  Minute,
+  Placement,
+  PlacementStatus,
+  RescheduleTrigger,
+  Task,
+  TaskSource,
+  TaskType,
+  Flexibility,
+  IntensityTier,
+  Recurrence,
+} from '@capstone/shared';
+
+import { UserStore } from './UserStore';
+
+// ─── Documents ─────────────────────────────────────────────────────────────
+
+/**
+ * The Mongo shape. `userId` and `intendedDate` are repository-internal — neither is on the
+ * shared `Task` type. `userId` is OPEN-12's answer applied (ownership at the boundary, not on
+ * the domain type). `intendedDate` exists because `Task` carries no date at all: a one-off task
+ * needs something to anchor it to the day its creator meant, and a recurring task needs an
+ * anchor for "starting from" (FR-TSK-05).
+ */
+interface TaskDocument {
+  readonly _id: ObjectId;
+  readonly userId: string;
+  readonly intendedDate: IsoDate;
+  readonly title: string;
+  readonly type: TaskType;
+  readonly durationMinutes: number;
+  readonly priority: number;
+  readonly preferredWindow: Interval;
+  readonly flexibility: Flexibility;
+  readonly source: TaskSource;
+  readonly createdAt: string;
+  readonly recurrence?: Recurrence;
+  readonly intensityTier?: IntensityTier;
+}
+
+interface PlacementDocument {
+  readonly _id: string;
+  readonly taskId: string;
+  readonly userId: string;
+  readonly date: IsoDate;
+  readonly start: Minute;
+  readonly end: Minute;
+  readonly status: PlacementStatus;
+  readonly placementReason: string;
+  readonly rescheduleTrigger?: RescheduleTrigger;
+}
+
+interface CompletionRecordDocument {
+  readonly _id: ObjectId;
+  readonly placementId: string;
+  readonly taskId: string;
+  readonly userId: string;
+  readonly completedAt: string;
+}
+
+// ─── Mapping — Mongo document to the CONTRACT's Task/Placement, nothing extra ────────────────
+
+const toTask = (doc: TaskDocument): Task => {
+  const task: Task = {
+    id: doc._id.toHexString(),
+    title: doc.title,
+    type: doc.type,
+    durationMinutes: doc.durationMinutes,
+    priority: doc.priority,
+    preferredWindow: doc.preferredWindow,
+    flexibility: doc.flexibility,
+    source: doc.source,
+    createdAt: doc.createdAt,
+  };
+  return {
+    ...task,
+    ...(doc.recurrence === undefined ? {} : { recurrence: doc.recurrence }),
+    ...(doc.intensityTier === undefined ? {} : { intensityTier: doc.intensityTier }),
+  };
+};
+
+const toPlacement = (doc: PlacementDocument): Placement => {
+  const base: Placement = {
+    id: doc._id,
+    taskId: doc.taskId,
+    date: doc.date,
+    start: doc.start,
+    end: doc.end,
+    status: doc.status,
+    placementReason: doc.placementReason,
+  };
+  return doc.rescheduleTrigger === undefined
+    ? base
+    : { ...base, rescheduleTrigger: doc.rescheduleTrigger };
+};
+
+const isValidObjectIdString = (value: unknown): value is string =>
+  typeof value === 'string' && ObjectId.isValid(value);
+
+const isNonEmptyString = (value: unknown): value is string =>
+  typeof value === 'string' && value.length > 0;
+
+/** ISO weekday, 1 (Monday) – 7 (Sunday), from an `IsoDate` (`YYYY-MM-DD`) — UTC, no locale. */
+const isoWeekday = (date: IsoDate): number => {
+  const jsDay = new Date(`${date}T00:00:00.000Z`).getUTCDay(); // 0=Sunday..6=Saturday
+  return jsDay === 0 ? 7 : jsDay;
+};
+
+/** OPEN-17 / FR-TSK-05: does `date` "match" this task's recurrence, given where it started? */
+const matchesDate = (doc: TaskDocument, date: IsoDate): boolean => {
+  if (doc.recurrence === undefined) return doc.intendedDate === date;
+  if (doc.intendedDate > date) return false;
+  if (doc.recurrence.frequency === 'DAILY') return true;
+  return (doc.recurrence.daysOfWeek ?? []).includes(isoWeekday(date));
+};
+
+// ─── The repository ────────────────────────────────────────────────────────
+
+export class TaskRepository {
+  private readonly tasks: Collection<TaskDocument>;
+  private readonly placements: Collection<PlacementDocument>;
+  private readonly completionRecords: Collection<CompletionRecordDocument>;
+  private readonly users: UserStore;
+
+  constructor(db: Db, users: UserStore) {
+    this.tasks = db.collection<TaskDocument>('tasks');
+    this.placements = db.collection<PlacementDocument>('placements');
+    this.completionRecords = db.collection<CompletionRecordDocument>('completionRecords');
+    this.users = users;
+  }
+
+  // ── §3.6's ratified surface ────────────────────────────────────────────
+
+  async getTask(taskId: string): Promise<Task | undefined> {
+    if (!isValidObjectIdString(taskId)) return undefined;
+    const doc = await this.tasks.findOne({ _id: new ObjectId(taskId) });
+    return doc === null ? undefined : toTask(doc);
+  }
+
+  async ownerOfTask(taskId: string): Promise<string | undefined> {
+    if (!isValidObjectIdString(taskId)) return undefined;
+    const doc = await this.tasks.findOne(
+      { _id: new ObjectId(taskId) },
+      { projection: { userId: 1 } },
+    );
+    return doc === null ? undefined : doc.userId;
+  }
+
+  /** OPEN-17: see `matchesDate` — this is the method that makes a task visible to `sweepElapsed`. */
+  async tasksForDate(userId: string, date: IsoDate): Promise<readonly Task[]> {
+    if (!isNonEmptyString(userId)) return [];
+    const docs = await this.tasks.find({ userId }).toArray();
+    return docs.filter((doc) => matchesDate(doc, date)).map(toTask);
+  }
+
+  async placementsForDate(userId: string, date: IsoDate): Promise<readonly Placement[]> {
+    if (!isNonEmptyString(userId)) return [];
+    const docs = await this.placements.find({ userId, date }).toArray();
+    return docs.map(toPlacement);
+  }
+
+  /** FR-USR-07: wake/sleep as `Minute`. The engine is told, never asked. */
+  async schedulableDay(userId: string, _date: IsoDate): Promise<Interval> {
+    const day = await this.users.schedulableDay(userId);
+    if (day === undefined) throw new Error(`no schedulable day for user ${userId}`);
+    return day;
+  }
+
+  async savePlacement(placement: Placement): Promise<void> {
+    const owner = await this.ownerOfTask(placement.taskId);
+    if (owner === undefined) throw new Error(`savePlacement: no owner for task ${placement.taskId}`);
+    const doc: PlacementDocument = {
+      _id: placement.id,
+      taskId: placement.taskId,
+      userId: owner,
+      date: placement.date,
+      start: placement.start,
+      end: placement.end,
+      status: placement.status,
+      placementReason: placement.placementReason,
+      ...(placement.rescheduleTrigger === undefined
+        ? {}
+        : { rescheduleTrigger: placement.rescheduleTrigger }),
+    };
+    await this.placements.replaceOne({ _id: doc._id }, doc, { upsert: true });
+  }
+
+  /**
+   * ⛔ THE DOMAIN'S ONLY DELETION (SRS v2.16). Its one legitimate caller is inside
+   * `RescheduleService`'s own displaced/edited failure path. If anything in THIS packet ever
+   * calls it, that is a second caller and it is an escalation, not a convenience.
+   */
+  async deletePlacement(placementId: string): Promise<void> {
+    if (!isNonEmptyString(placementId)) return;
+    await this.placements.deleteOne({ _id: placementId });
+  }
+
+  /** Synchronous, local — identity generation is not storage (§3.6's note). */
+  nextPlacementId(): string {
+    return new ObjectId().toHexString();
+  }
+
+  // ── Application-level methods this packet's routes need, beyond the ratified port ──────────
+
+  async createTask(input: {
+    userId: string;
+    intendedDate: IsoDate;
+    title: string;
+    type: TaskType;
+    durationMinutes: number;
+    priority: number;
+    preferredWindow: Interval;
+    flexibility: Flexibility;
+    recurrence?: Recurrence;
+    intensityTier?: IntensityTier;
+  }): Promise<Task> {
+    const doc: TaskDocument = {
+      _id: new ObjectId(),
+      userId: input.userId,
+      intendedDate: input.intendedDate,
+      title: input.title,
+      type: input.type,
+      durationMinutes: input.durationMinutes,
+      priority: input.priority,
+      preferredWindow: input.preferredWindow,
+      flexibility: input.flexibility,
+      source: 'USER',
+      createdAt: new Date().toISOString(),
+      ...(input.recurrence === undefined ? {} : { recurrence: input.recurrence }),
+      ...(input.intensityTier === undefined ? {} : { intensityTier: input.intensityTier }),
+    };
+    await this.tasks.insertOne(doc);
+    return toTask(doc);
+  }
+
+  async updateTaskAttributes(
+    taskId: string,
+    patch: Partial<
+      Pick<
+        TaskDocument,
+        'title' | 'durationMinutes' | 'priority' | 'preferredWindow' | 'recurrence' | 'intensityTier'
+      >
+    >,
+  ): Promise<void> {
+    if (!isValidObjectIdString(taskId)) throw new Error('invalid taskId');
+    await this.tasks.updateOne({ _id: new ObjectId(taskId) }, { $set: patch });
+  }
+
+  /** FR-TSK-07: deletes the task and its FUTURE placements; completion records are untouched (DR-01). */
+  async deleteTaskAndFuturePlacements(taskId: string, today: IsoDate): Promise<void> {
+    if (!isValidObjectIdString(taskId)) return;
+    await this.tasks.deleteOne({ _id: new ObjectId(taskId) });
+    await this.placements.deleteMany({ taskId, date: { $gte: today } });
+  }
+
+  async recordCompletion(placementId: string, taskId: string, userId: string): Promise<void> {
+    await this.completionRecords.insertOne({
+      _id: new ObjectId(),
+      placementId,
+      taskId,
+      userId,
+      completedAt: new Date().toISOString(),
+    });
+  }
+
+  async completionRecordsForTask(taskId: string): Promise<readonly { completedAt: string }[]> {
+    return this.completionRecords.find({ taskId }, { projection: { completedAt: 1 } }).toArray();
+  }
+
+  /**
+   * FR-TSK-04: every date this task currently has a `PLANNED` placement, so the caller can
+   * call `onTaskEdited(task, date)` once per date — "one call re-evaluates one occurrence"
+   * (the requirement's own note). A date without a `PLANNED` row already happened (`MISSED`,
+   * `SKIPPED`, `COMPLETED`) or was withdrawn (`CANCELLED`); nothing here is re-evaluated.
+   */
+  async plannedDatesForTask(taskId: string): Promise<readonly IsoDate[]> {
+    if (!isNonEmptyString(taskId)) return [];
+    const docs = await this.placements
+      .find({ taskId, status: 'PLANNED' }, { projection: { date: 1 } })
+      .toArray();
+    return [...new Set(docs.map((d) => d.date))];
+  }
+
+  /** NFR-SEC-06, bounded to what this repository owns (tasks, placements, completion records). */
+  async deleteAllForUser(userId: string): Promise<void> {
+    await this.tasks.deleteMany({ userId });
+    await this.placements.deleteMany({ userId });
+    await this.completionRecords.deleteMany({ userId });
+  }
+}
