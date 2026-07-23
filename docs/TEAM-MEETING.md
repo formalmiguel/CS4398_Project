@@ -45,7 +45,7 @@
 | # | Item | Done when |
 |---|---|---|
 | 1 | ✅ Author + run **12** — accounts, tasks, commitments, persistence | **Done, 22 Jul — `docs/P12-REPORT.md`.** OPEN-12 answered before the packet was authored (Mongo `_id`, boundary ownership — SRS v2.18). FR-CAL-05 resolved as vacuous under manual-entry-only scope, not a runtime guard — the first-drafted guard didn't survive contact with `RescheduleService`'s internals; see the report. OPEN-17 (FR-SCH-10's day-planning path) closed via `TaskRepository.tasksForDate` + `sweepElapsed` wiring, no new placement code. `npm run verify`: 233 tests green. |
-| 2 | **13** — schedule dashboard *(next, not yet authored)* | The view the demo runs through. Complete/skip actions (FR-DSH-07) and reschedule notices. |
+| 2 | **13** — schedule dashboard *(next, not yet authored; starting in a fresh session)* | The view the demo runs through. Complete/skip actions (FR-DSH-07) and reschedule notices. ⚠️ **Branch off `wp-12-backend-api`, not `dev`** — everything packet 13 calls (packet 12's API) exists only on that branch, unmerged; `dev` does not have it. |
 | 3 | **14**, **15** — *unless Ryan takes them* | |
 
 ### 🔗 Cross-person dependencies — the only places one queue blocks another
