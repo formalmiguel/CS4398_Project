@@ -22,6 +22,12 @@ module.exports = {
   },
   overrides: [
     {
+      // web/ is browser code, not Node — `window`, `document`, `fetch`, `localStorage` are
+      // real globals here and must not trip `no-undef` the way they would in server/engine.
+      files: ['web/src/**/*.{ts,tsx}'],
+      env: { browser: true, node: false, es2022: true },
+    },
+    {
       // FR-SCH-05 purity guard, import-level. The package.json check catches
       // `npm install x -w engine`; this catches a stray import line, which is
       // the likelier mistake and the one the requirement actually cares about.

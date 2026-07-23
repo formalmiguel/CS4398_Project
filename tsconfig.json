@@ -1,6 +1,6 @@
 {
   "extends": "./tsconfig.base.json",
   "compilerOptions": { "noEmit": true },
-  "include": ["shared/**/*.ts", "engine/**/*.ts", "server/**/*.ts", "web/**/*.ts"],
-  "exclude": ["node_modules", "**/dist", "docs", "prompts"]
+  "include": ["shared/**/*.ts", "engine/**/*.ts", "server/**/*.ts"],
+  "exclude": ["node_modules", "**/dist", "docs", "prompts", "web"]
 }

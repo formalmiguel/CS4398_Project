@@ -10,7 +10,7 @@
     "web"
   ],
   "scripts": {
-    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "typecheck": "tsc --noEmit -p tsconfig.json && npm run typecheck --workspace=web",
     "lint": "eslint . --ext .ts,.tsx",
     "test": "jest --passWithNoTests",
     "test:coverage": "jest --coverage --passWithNoTests",
