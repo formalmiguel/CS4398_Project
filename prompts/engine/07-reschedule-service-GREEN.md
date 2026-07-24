@@ -8,7 +8,7 @@ You are an expert TypeScript engineer. **CRITICAL**: Implement `RescheduleServic
 |---|---|
 | **Phase** | 🟢 **GREEN — implementation only.** |
 | **Human owner** | **Patrick Rucker** — Scheduling Algorithm Lead |
-| **Depends on** | 06 (the frozen suite) — **gate held and freeze committed at `8b24320`**; 05 (the engine, merged and green) |
+| **Depends on** | 06 (the frozen suite) — **gate held and the suite registered in `scripts/frozen-tests.json`**; 05 (the engine, merged and green) |
 | **Spec** | `docs/SRS-v2.md` §3.8.5 (FR-RSC), §3.8.4 (**FR-SCH-10**), §3.8.2 (**FR-TSK-04**), §3.6, §5 (DR-03, DR-06) |
 
 ---
@@ -21,9 +21,9 @@ You are an expert TypeScript engineer. **CRITICAL**: Implement `RescheduleServic
 
 **⛔ STOP**: If you cannot make a test pass and you believe the test is wrong — **report it.** Name the test, name the requirement it cites, and say why you think it misreads the SRS. A human adjudicates it and either fixes the test in a **separate RED-style commit** or tells you to keep going.
 
-> **MANDATORY**: The 154 tests in `server/test/reschedule/` were written by an agent that never saw an implementation, and **fourteen escalations were adjudicated into the SRS before they were frozen.** They are the requirements in executable form. **The instant an implementer is allowed to adjust them, they stop describing the requirement and start describing the code.**
+> **MANDATORY**: The tests in `server/test/reschedule/` were written by an agent that never saw an implementation, and **every escalation they raised was adjudicated into the SRS before they were frozen.** They are the requirements in executable form. **The instant an implementer is allowed to adjust them, they stop describing the requirement and start describing the code.**
 >
-> **`npm run guard:tests-frozen` compares the working tree against `8b24320`**, so it catches an edited test **even if you commit it**. It has been verified to fail on purpose. Do not try to satisfy it by editing `scripts/frozen-tests.json` — that is editing the test, one level removed.
+> **`npm run guard:tests-frozen` compares the working tree against the digest packet 06 recorded in `scripts/frozen-tests.json`**, so it catches an edited test **even if you commit it**, and a file **added** to the suite as well. It has been verified to fail on purpose. Do not try to satisfy it by editing the manifest or by re-running `npm run freeze` — both are editing the test, one level removed.
 
 ---
 
@@ -90,7 +90,7 @@ moveToNextDay(taskId, date)          FR-RSC-05
 ## **CRITICAL**: Files You Must **NOT** Touch
 
 - **⛔ `server/test/**` — ANY test file, including `support/harness.ts`.** See THE ONE RULE.
-- **⛔ `engine/**`** — the engine is merged, green, and frozen at `ac06e70`. **You are its caller, not its author.**
+- **⛔ `engine/**`** — the engine is merged, green, and its suite frozen by packet 04. **You are its caller, not its author.**
 - `shared/src/contract.ts` — the contract *(§4.7: a team decision, never an agent's refactor)*
 - `scripts/frozen-tests.json` — **read it; never edit it to make something pass**
 - `.eslintrc.cjs`, `server/package.json`, `web/**`, `docs/**`, `prompts/**`
@@ -99,9 +99,9 @@ moveToNextDay(taskId, date)          FR-RSC-05
 
 ## **MANDATORY**: Verification Steps — Definition of Done
 
-- [ ] **CRITICAL**: **All 154 tests in `server/test/reschedule/` pass**, with the directory **byte-identical** to how packet 06 left it
-- [ ] **The 30 engine tests still pass** — you have not perturbed `engine/`
-- [ ] **`npm run guard:tests-frozen` passes** — both suites, `ac06e70` and `8b24320`
+- [ ] **CRITICAL**: **Every test in `server/test/reschedule/` passes**, with the directory **byte-identical** to how packet 06 left it. *(Packet 06 posted the count and recorded it in `scripts/frozen-tests.json`. **Take the target from there, not from this prompt** — a number written into a prompt is one run's output, and it is wrong the next time this packet runs.)*
+- [ ] **Every engine test still passes** — you have not perturbed `engine/`
+- [ ] **`npm run guard:tests-frozen` passes** — every suite registered in `scripts/frozen-tests.json`
 - [ ] `grep -rn "Date.now\|new Date(\|setTimeout\|setInterval" server/` returns **nothing**
 - [ ] **No function under `server/src/` computes a placement.** Every placed interval traces to a `findCandidateSlots` return value
 - [ ] `npm run lint` and `npm run typecheck` pass with **zero** errors *(NFR-MNT-04)*
@@ -128,8 +128,8 @@ moveToNextDay(taskId, date)          FR-RSC-05
 
 ### CRITICAL REQUIREMENT ###
 
-**MANDATORY**: **This packet passes when all 154 tests in `server/test/reschedule/` are green, the 30 engine tests are still green, `npm run guard:tests-frozen` passes, and `npm run verify` passes — with not one byte of `server/test/` changed.**
+**MANDATORY**: **This packet passes when every test in `server/test/reschedule/` is green, every engine test is still green, `npm run guard:tests-frozen` passes, and `npm run verify` passes — with not one byte of `server/test/` changed.**
 
-**CRITICAL**: The claim this packet makes, and it is demonstrable in front of a room: **delete `server/src/reschedule/`, re-run this packet, and the 154 tests still pass.** The implementation is disposable; the specification and its executable form are not.
+**CRITICAL**: The claim this packet makes, and it is demonstrable in front of a room: **delete `server/src/reschedule/`, re-run this packet, and the frozen suite still passes** — whatever that suite turned out to be on the run that wrote it (NFR-MNT-09). The implementation is disposable; the specification and its executable form are not.
 
 **CRITICAL**: Where this prompt and `docs/SRS-v2.md` disagree, **the SRS wins and this prompt is a defect** — report it rather than reconciling it.

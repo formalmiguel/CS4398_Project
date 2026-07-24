@@ -149,7 +149,11 @@ Generate a random schedulable day, a random set of busy intervals (**deliberatel
   - **⛔ A test that PASSES means you wrote the engine.**
 - [ ] `git diff --stat engine/src/` shows **~1 line** — the throwing stub — and nothing else
 - [ ] Post the failing-test count to the team. **That number is prompt 05's target.**
-- [ ] **After the human gate and the freeze commit: record the suite in `scripts/frozen-tests.json`** — packet number, path, freeze sha, test count. **A frozen suite that is not in that file is not actually protected**, because `npm run guard:tests-frozen` only checks what it is told about, and CI will pass either way.
+- [ ] **After the human gate — and BEFORE any implementation is written — freeze the suite:**
+
+      npm run freeze -- --packet 04 --path engine/test --tests <the count you just posted>
+
+  **A frozen suite that is not in `scripts/frozen-tests.json` is not protected**, because `npm run guard:tests-frozen` only checks what it is told about — **and CI passes either way, which is exactly why this is the step that gets skipped.** *(NFR-MNT-08. The freeze is hash-based and needs no commit, so it works here, now, before anything is committed. **Do not hand-edit the manifest** — that is editing the test, one level removed.)*
 
 ---
 

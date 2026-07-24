@@ -66,6 +66,7 @@ Each prompt follows the required formatting techniques with **Sandwich Method**,
 |---|---|---|---|
 | 01 | `foundation/01-project-scaffold.md` | SCAFFOLD | ✅ Written |
 | 02 | `foundation/02-toolchain-and-dependencies.md` | SCAFFOLD | ✅ Written |
+| 02b | `foundation/02b-executable-guards.md` | **HUMAN-AUTHORED** | ✅ Written *(24 Jul — the guards + the freeze; runs after 02, before 04)* |
 | 03 | `foundation/03-shared-contract-types.md` | **HUMAN-AUTHORED** | ✅ Written |
 | 04 | `engine/04-engine-tests-RED.md` | 🔴 RED | ✅ Written |
 | 05 | `engine/05-engine-implementation-GREEN.md` | 🟢 GREEN | ✅ Written |
@@ -79,7 +80,7 @@ Each prompt follows the required formatting techniques with **Sandwich Method**,
 | 13 | `frontend/13-frontend-schedule-dashboard.md` | BUILD | ⬜ Not yet written |
 | 14 | `frontend/14-frontend-wellness-view.md` | BUILD | ⬜ Not yet written |
 | 15 | `frontend/15-frontend-analytics-view.md` | BUILD | ⬜ Not yet written |
-| 16a | `verification/16a-guards-placement-purity.md` | GUARD | ⬜ Not yet written — **runnable now** |
+| 16a | `verification/16a-guards-placement-purity.md` | GUARD | ✅ Written *(24 Jul, immediately before its run)* |
 | 16b | `verification/16b-guards-network-extensibility.md` | GUARD | ⬜ Not yet written — needs 10/11 |
 | 17a | `verification/17a-acceptance-suite-RED.md` | 🔴 RED | ⬜ Not yet written |
 | 17b | `verification/17b-integration-GREEN.md` | 🟢 GREEN | ⬜ Not yet written |
@@ -94,6 +95,7 @@ Each prompt follows the required formatting techniques with **Sandwich Method**,
 |---|---|---|
 | 01 | CON-04, CON-08, NFR-MNT-03, NFR-PRT-02 | §2.5, §4.5 |
 | 02 | NFR-MNT-01, NFR-MNT-04, NFR-COR-01 *(tooling only)* | §4.5 |
+| 02b | **NFR-MNT-07, NFR-MNT-08**, NFR-MNT-03, NFR-MNT-04, FR-SCH-05, CON-04 | §4.5, §3.8.4, §3.2 |
 | 03 | §3.6 class diagram; `CLAUDE.md` §4.7 | §3.6 |
 | 04–05 | FR-SCH-01…06, FR-SCH-09, NFR-COR-01…03, NFR-PERF-01 | §3.8.4, §4.1 |
 | 06–07 | FR-RSC-01…10, **FR-SCH-10**, **FR-TSK-04** *(the re-placement mechanism only — OPEN-18)* | §3.8.5, §3.8.4, §3.8.2 |
@@ -104,7 +106,7 @@ Each prompt follows the required formatting techniques with **Sandwich Method**,
 | 13 | FR-DSH-01…07, UI-01, UI-05, UI-07 | §3.8.8, §3.9.1 |
 | 14 | FR-WEL-01…05, UI-03 | §3.8.9 |
 | 15 | FR-ANL-01…06, UI-04 | §3.8.10 |
-| 16a | FR-RSC-03, FR-SCH-05 *(subjects exist now)* | §3.8.5, §3.8.4 |
+| 16a | FR-RSC-03, **NFR-MNT-03**, FR-SCH-05, **CON-04**, NFR-MNT-04 *(subjects exist now)* | §3.8.5, §3.8.4, §4.5, §3.2 |
 | 16b | FR-LIB-02, FR-REC-11 *(need packets 10/11)* | §3.8.7, §3.8.11 |
 | 17a–17b | §6 verification approach, Appendix D acceptance, **FR-REC-04** *(its test is frozen in 17a, the wiring written in 17b — see the note below)* | §6, §3.8.7 |
 

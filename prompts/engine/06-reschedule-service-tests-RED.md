@@ -336,7 +336,7 @@ class Clock {                   <<interface>>
 
 ## **CRITICAL**: Files You Must **NOT** Touch
 
-- **⛔ `engine/test/**`** — **frozen at sha `ac06e70` and registered in `scripts/frozen-tests.json`.** Not one character. If you believe an FR-SCH test is wrong, **report it**.
+- **⛔ `engine/test/**`** — **frozen by packet 04 and registered in `scripts/frozen-tests.json`.** Not one character. If you believe an FR-SCH test is wrong, **report it**.
 - **⛔ `engine/src/**`** — the engine is written, merged and green. **You are its caller, not its author.** Needing to change it means you have misread this packet or found a real defect: **stop and report.**
 - **⛔ `shared/src/contract.ts`** — the contract.
 - `scripts/frozen-tests.json` — **read it; never edit it to make something pass.** *(Registering **your** freeze is a step for the human owner after the gate — see the last checklist item.)*
@@ -358,14 +358,18 @@ class Clock {                   <<interface>>
 - [ ] `grep -rn "Date.now\|new Date(\|setTimeout\|setInterval" server/` returns **nothing** — times are literals, supplied by the test *(FR-RSC-10)*
 - [ ] **No test asserts on `Slot.explanation`**, and no test names FR-SCH-07, FR-SCH-08, or a dashboard requirement
 - [ ] `npm run lint` and `npm run typecheck` pass with **zero** errors *(NFR-MNT-04)*
-- [ ] **`npm run guard:tests-frozen` passes** — proving `engine/test/` is untouched at `ac06e70`
+- [ ] **`npm run guard:tests-frozen` passes** — proving `engine/test/` is untouched since packet 04 froze it *(the guard reads `scripts/frozen-tests.json`; take the freeze reference from there, never from this prompt)*
 - [ ] **CRITICAL**: **`npx jest server` FAILS, and every failure is `Error: 07`.** ← *This is the pass condition for this packet.*
   - A failure for any **other** reason means a test is broken rather than merely unimplemented — **fix it.**
   - **⛔ A test that PASSES means you wrote the service.**
 - [ ] `git diff --stat server/src/` shows **one file**, containing the surface and `throw new Error('07')` bodies **and no other statement**
 - [ ] `docs/P06-RED-REPORT.md` written: failing-test count, files written, and **every escalation with the requirement text it turns on**
 - [ ] Post the failing-test count to the team. **That number is prompt 07's target.**
-- [ ] **After the human gate and the freeze commit: register the suite in `scripts/frozen-tests.json`** — packet `06`, path `server/test/reschedule`, freeze sha, date, owner, test count. **MANDATORY: a frozen suite that is not in that file is not protected**, because `npm run guard:tests-frozen` only checks what it is told about — **and CI passes either way, which is exactly why this step is the one that gets skipped.**
+- [ ] **After the human gate — and BEFORE packet 07 writes a line — freeze the suite:**
+
+      npm run freeze -- --packet 06 --path server/test/reschedule --tests <the count you just posted>
+
+  **MANDATORY: a frozen suite that is not in `scripts/frozen-tests.json` is not protected**, because `npm run guard:tests-frozen` only checks what it is told about — **and CI passes either way, which is exactly why this step is the one that gets skipped.** *(NFR-MNT-08. Hash-based: no commit required, so this happens the moment the gate is held. **Do not hand-edit the manifest.**)*
 
 ---
 
