@@ -67,15 +67,27 @@ if (Object.keys(files).length === 0) {
 }
 
 /** Provenance only. A replay in progress has no commit yet, and that is not an error.
- *  `--sha` overrides, for backfilling an entry frozen before hashes were recorded. */
+ *  `--sha` overrides, for backfilling an entry frozen before hashes were recorded.
+ *
+ *  HEAD is adopted as provenance ONLY when the working tree for `path` matches it - i.e.
+ *  HEAD actually contains THESE frozen files. In a from-scratch replay `rev-parse` fails
+ *  and no sha is recorded; in a partial replay layered on unrelated history HEAD holds a
+ *  DIFFERENT suite, and recording it would make guard-tests-frozen report a false
+ *  PROVENANCE MISMATCH (hashes agree with the manifest but the tree differs from the sha).
+ *  Leaving the entry sha-less is legitimate - the per-file hashes verify it fully
+ *  (CLAUDE.md 4.12), and `--sha` backfills once a real commit containing these files exists. */
 let sha = flag('sha');
 if (!sha) {
   try {
-    sha = execFileSync('git', ['rev-parse', '--short', 'HEAD'], {
+    const head = execFileSync('git', ['rev-parse', '--short', 'HEAD'], {
       cwd: ROOT,
       encoding: 'utf8',
       stdio: ['ignore', 'pipe', 'ignore'],
     }).trim();
+    // Throws (exit 1) when the working tree for `path` differs from HEAD - a replay whose
+    // suite HEAD does not contain. Then the catch leaves sha undefined, which is correct.
+    execFileSync('git', ['diff', '--quiet', 'HEAD', '--', path], { cwd: ROOT, stdio: 'ignore' });
+    sha = head;
   } catch {
     sha = undefined;
   }
@@ -88,12 +100,17 @@ const entry = {
   ...(existing ?? {}),
   packet,
   path,
-  ...(sha ? { sha } : {}),
   frozenOn: existing?.frozenOn ?? new Date().toISOString().slice(0, 10),
   ...(owner ? { owner } : {}),
   ...(flag('tests') ? { tests: Number(flag('tests')) } : {}),
   files,
 };
+// sha is provenance of THIS freeze's content, so it is set from this run's computation,
+// never inherited. A re-freeze that establishes no commit (a replay) must CLEAR any stale
+// sha the previous entry carried - otherwise guard-tests-frozen diffs the tree against a
+// commit that no longer matches it and reports a false PROVENANCE MISMATCH.
+if (sha) entry.sha = sha;
+else delete entry.sha;
 
 if (existing) {
   manifest.frozen[manifest.frozen.indexOf(existing)] = entry;
