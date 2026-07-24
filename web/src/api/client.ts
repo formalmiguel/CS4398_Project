@@ -84,6 +84,16 @@ export interface TaskInput {
 }
 
 /**
+ * FR-RSC-02: what `RescheduleService.onCommitmentAdded` reports for one displaced task — the
+ * `kind`/`taskId` common to all three `RescheduleOutcome` variants (`server/src/reschedule/
+ * RescheduleService.ts`), which is all the frontend needs to know whether anything moved.
+ */
+export interface DisplacedOutcome {
+  readonly kind: 'RESCHEDULED' | 'UNPLACEABLE' | 'NO_ACTION';
+  readonly taskId: string;
+}
+
+/**
  * The three-way shape `POST /tasks` returns (docs/P12-REPORT.md):
  * `placement` set = auto-placed (UC-02, or a FIXED commitment). `candidates` set = the
  * preferred window had no room; present the FR-DSH-06 picker. `unplaceable` set = FR-SCH-06,
@@ -94,7 +104,7 @@ export interface CreateTaskResult {
   readonly placement: Placement | null;
   readonly candidates?: readonly Slot[] | null;
   readonly unplaceable?: Extract<PlacementResult, { placed: false }> | null;
-  readonly displaced?: readonly unknown[];
+  readonly displaced?: readonly DisplacedOutcome[];
 }
 
 export const createTask = (input: TaskInput): Promise<CreateTaskResult> =>

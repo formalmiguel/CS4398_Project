@@ -2,7 +2,7 @@ import { useState } from 'react';
 
 import type { Flexibility, IntensityTier, Placement, Slot, Task, TaskType } from '@capstone/shared';
 
-import { ApiError, CreateTaskResult, createTask } from '../api/client';
+import { ApiError, CreateTaskResult, createTask, moveToNextDay, toErrorMessage } from '../api/client';
 import { timeToMinute } from '../dateUtils';
 import { CandidatePicker } from './CandidatePicker';
 
@@ -41,7 +41,12 @@ export const TaskForm = ({ date, onDone, onCancel }: Props) => {
   // UC-03: set once the server reports the preferred window had no room (FR-DSH-06).
   const [picker, setPicker] = useState<{ task: Task; candidates: readonly Slot[] } | null>(null);
   // UC-02/FR-SCH-06: set once the server reports no valid slot exists anywhere today.
-  const [unplaceable, setUnplaceable] = useState<string | null>(null);
+  const [unplaceable, setUnplaceable] = useState<{ taskId: string; explanation: string } | null>(null);
+  // FR-RSC-05: the next-day offer, accepted or declined from the unplaceable screen above.
+  const [movingToNextDay, setMovingToNextDay] = useState(false);
+  const [nextDayError, setNextDayError] = useState<string | null>(null);
+  // FR-RSC-02: a FIXED commitment can displace other flexible tasks; how many, if any.
+  const [displacedCount, setDisplacedCount] = useState<number | null>(null);
 
   const submit = async (e: React.FormEvent): Promise<void> => {
     e.preventDefault();
@@ -49,7 +54,7 @@ export const TaskForm = ({ date, onDone, onCancel }: Props) => {
     setFormError(null);
 
     // FR-TSK-02, client-side nicety only — the server's validateTaskInput is authoritative.
-    if (windowEnd <= windowStart) {
+    if (timeToMinute(windowEnd) <= timeToMinute(windowStart)) {
       setFieldErrors({ preferredWindow: 'end must be after start' });
       return;
     }
@@ -69,6 +74,12 @@ export const TaskForm = ({ date, onDone, onCancel }: Props) => {
 
       if (result.placement !== null) {
         // UC-02, or a FIXED commitment: auto-placed, no conflict to resolve.
+        const displaced = (result.displaced ?? []).filter((d) => d.kind !== 'NO_ACTION');
+        if (displaced.length > 0) {
+          // FR-RSC-02: this commitment moved other flexible tasks — say so before closing.
+          setDisplacedCount(displaced.length);
+          return;
+        }
         onDone();
         return;
       }
@@ -79,7 +90,7 @@ export const TaskForm = ({ date, onDone, onCancel }: Props) => {
       }
       if (result.unplaceable != null) {
         // FR-SCH-06: reported, never silently dropped. The task stays created and unplaced.
-        setUnplaceable(result.unplaceable.explanation);
+        setUnplaceable({ taskId: result.task.id, explanation: result.unplaceable.explanation });
         return;
       }
       onDone();
@@ -89,7 +100,7 @@ export const TaskForm = ({ date, onDone, onCancel }: Props) => {
         for (const fe of err.fieldErrors) byField[fe.field] = fe.reason;
         setFieldErrors(byField);
       } else {
-        setFormError(err instanceof ApiError ? err.message : 'Could not reach the server.');
+        setFormError(toErrorMessage(err, 'Could not reach the server.'));
       }
     } finally {
       setBusy(false);
@@ -109,10 +120,44 @@ export const TaskForm = ({ date, onDone, onCancel }: Props) => {
   }
 
   if (unplaceable !== null) {
+    const acceptNextDay = async (): Promise<void> => {
+      setMovingToNextDay(true);
+      setNextDayError(null);
+      try {
+        await moveToNextDay(unplaceable.taskId, date);
+        onDone();
+      } catch (err) {
+        setNextDayError(toErrorMessage(err, 'Could not move the task to tomorrow.'));
+      } finally {
+        setMovingToNextDay(false);
+      }
+    };
+
     return (
       <div className="task-form">
-        <p>⚠️ {unplaceable}</p>
+        <p>⚠️ {unplaceable.explanation}</p>
         <p>The task was created and remains visible, unplaced.</p>
+        {nextDayError !== null && <p className="error">{nextDayError}</p>}
+        <div className="task-form__actions">
+          {/* FR-RSC-05: "the System shall offer to move it to the next day." */}
+          <button type="button" onClick={() => void acceptNextDay()} disabled={movingToNextDay}>
+            Move to tomorrow
+          </button>
+          <button type="button" className="link" onClick={() => onDone()} disabled={movingToNextDay}>
+            Leave it unplaced
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (displacedCount !== null) {
+    return (
+      <div className="task-form">
+        <p>
+          This commitment displaced {displacedCount} other task{displacedCount === 1 ? '' : 's'}, which the
+          System rescheduled automatically.
+        </p>
         <button type="button" onClick={() => onDone()}>
           OK
         </button>
