@@ -45,7 +45,7 @@ and reset the freeze manifest to empty — `scripts/frozen-tests.json`, `"frozen
 |---|---|---|---|
 | 01 | `foundation/01-project-scaffold.md` | SCAFFOLD | workspaces resolve |
 | 02 | `foundation/02-toolchain-and-dependencies.md` | SCAFFOLD | `npm run typecheck` and `npm run lint` clean |
-| **02b** | `foundation/02b-executable-guards.md` | **HUMAN-AUTHORED** | `npm run verify` passes; freeze guard prints *no frozen test suites recorded yet* |
+| **02b** | `foundation/02b-executable-guards.md` | **HUMAN-AUTHORED** | typecheck, lint, `guard:engine-deps`, `guard:tests-frozen` all pass (the last prints *no frozen test suites recorded yet*). **Not** full `verify` yet — see the note below |
 | 03 | `foundation/03-shared-contract-types.md` | **HUMAN-AUTHORED** | contract transcribed byte-identically |
 | 04 | `engine/04-engine-tests-RED.md` | 🔴 RED | **🚦 RED GATE** → **freeze** |
 | 05 | `engine/05-engine-implementation-GREEN.md` | 🟢 GREEN | suite green, freeze guard green, engine coverage ≥ 90% |
@@ -56,6 +56,8 @@ and reset the freeze manifest to empty — `scripts/frozen-tests.json`, `"frozen
 | 16a | `verification/16a-guards-placement-purity.md` | GUARD | both new guards watched to fail, then pass |
 
 > ⚠️ **Packets 08–11, 14, 15, 16b, 17a and 17b are not yet authored**, so a replay today reproduces exactly what has been built and no more. That is a gap in coverage, not a defect in the method — and it is why **NFR-MNT-09 is Conditional**: the claim cannot be demonstrated in full until every packet exists.
+>
+> ⚠️ **Full `npm run verify` cannot be green until packet 05 exists.** `jest.config.cjs` sets a coverage threshold on `./engine/src/` (the real NFR-MNT-01 gate). Until 05 recreates that directory, `jest --coverage` exits 1 with *"Coverage data for ./engine/src/ was not found"* — `--passWithNoTests` forgives *no tests*, not a *missing coverage target*. This is expected at every pre-05 checkpoint (02b, 03, and the 04 RED gate). **Do not patch the threshold to work around it** — it is correct for the real build, and 05 restores the coverage that satisfies it. At those checkpoints, run the individual gates (typecheck, lint, `guard:engine-deps`, `guard:tests-frozen`) rather than full `verify`.
 
 **Between packets, no commits are required.** The freeze is content-addressed (NFR-MNT-08) and works with no repository history at all. Commit at the end, once, as the human's assertion that they read the result — which is what `CLAUDE.md` §8.5 asks for anyway.
 
@@ -124,6 +126,8 @@ When a single session writes the test and the code, it writes the test *after* w
 | | Engine coverage ≥ 90%; property test ≥ 1,000 cases | The freeze digests, which are that run's |
 
 **Environmental preconditions are not produced by any packet and never will be:** a reachable MongoDB (`server/.env`, gitignored, holding a connection string — `CLAUDE.md` §8.4 keeps credentials out of the repository), Node ≥ 20, and a browser for the packet 13 check. If `server/.env` is absent, packets 12 and 13 build and test green and have nothing to connect to.
+
+> ⚠️ **What a replay does NOT reproduce: suite *thoroughness* — established by the 24 July run, not assumed.** The engine + reschedule chain (04–07) came back working, but the regenerated reschedule suite was **weaker than the mainline's** on one adjudicated edge case: a fresh RED agent omitted FR-RSC-05's *displaced-or-edited-still-`PLANNED`-cannot-re-place* deletion path (`deletePlacement`, SRS v2.16), and the GREEN implementation then **passed while being wrong on it**, because nothing tested it. **Two standing consequences:** (1) *"requirements satisfied"* is only as strong as the RED session's enumeration — a subtle prose-only requirement can be under-tested in a re-run; (2) this is the concrete reason a replay's suite must **never** flow back to the mainline — it would *lose* real coverage. The mainline's curated suites are authoritative; a replay demonstrates the method. Where an Essential behaviour lives only in prose, it is promoted to a **named required-test-case** in its RED packet so the next run cannot skip it (SRS NFR-MNT-09 note, v2.22).
 
 > **The honest summary, and the one to say out loud in a presentation:**
 > *"The specification and its three human-authored inputs generate the application. Re-running produces different code and a different test suite — deliberately, because an implementation derived independently of its tests is the only reason our coverage number means anything. What is reproducible is that the requirements are met and that the safety nets are watching."*
