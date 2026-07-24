@@ -16,6 +16,7 @@
     "test:coverage": "jest --coverage --passWithNoTests",
     "guard:engine-deps": "node scripts/guard-engine-deps.mjs",
     "guard:tests-frozen": "node scripts/guard-tests-frozen.mjs",
+    "freeze": "node scripts/freeze-tests.mjs",
     "verify": "npm run typecheck && npm run lint && npm run guard:engine-deps && npm run guard:tests-frozen && npm run test:coverage"
   },
   "engines": {
