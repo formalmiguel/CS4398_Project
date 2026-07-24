@@ -45,7 +45,7 @@ and reset the freeze manifest to empty — `scripts/frozen-tests.json`, `"frozen
 |---|---|---|---|
 | 01 | `foundation/01-project-scaffold.md` | SCAFFOLD | workspaces resolve |
 | 02 | `foundation/02-toolchain-and-dependencies.md` | SCAFFOLD | `npm run typecheck` and `npm run lint` clean |
-| **02b** | `foundation/02b-executable-guards.md` | **HUMAN-AUTHORED** | `npm run verify` passes; freeze guard prints *no frozen test suites recorded yet* |
+| **02b** | `foundation/02b-executable-guards.md` | **HUMAN-AUTHORED** | typecheck, lint, `guard:engine-deps`, `guard:tests-frozen` all pass (the last prints *no frozen test suites recorded yet*). **Not** full `verify` yet — see the note below |
 | 03 | `foundation/03-shared-contract-types.md` | **HUMAN-AUTHORED** | contract transcribed byte-identically |
 | 04 | `engine/04-engine-tests-RED.md` | 🔴 RED | **🚦 RED GATE** → **freeze** |
 | 05 | `engine/05-engine-implementation-GREEN.md` | 🟢 GREEN | suite green, freeze guard green, engine coverage ≥ 90% |
@@ -56,6 +56,8 @@ and reset the freeze manifest to empty — `scripts/frozen-tests.json`, `"frozen
 | 16a | `verification/16a-guards-placement-purity.md` | GUARD | both new guards watched to fail, then pass |
 
 > ⚠️ **Packets 08–11, 14, 15, 16b, 17a and 17b are not yet authored**, so a replay today reproduces exactly what has been built and no more. That is a gap in coverage, not a defect in the method — and it is why **NFR-MNT-09 is Conditional**: the claim cannot be demonstrated in full until every packet exists.
+>
+> ⚠️ **Full `npm run verify` cannot be green until packet 05 exists.** `jest.config.cjs` sets a coverage threshold on `./engine/src/` (the real NFR-MNT-01 gate). Until 05 recreates that directory, `jest --coverage` exits 1 with *"Coverage data for ./engine/src/ was not found"* — `--passWithNoTests` forgives *no tests*, not a *missing coverage target*. This is expected at every pre-05 checkpoint (02b, 03, and the 04 RED gate). **Do not patch the threshold to work around it** — it is correct for the real build, and 05 restores the coverage that satisfies it. At those checkpoints, run the individual gates (typecheck, lint, `guard:engine-deps`, `guard:tests-frozen`) rather than full `verify`.
 
 **Between packets, no commits are required.** The freeze is content-addressed (NFR-MNT-08) and works with no repository history at all. Commit at the end, once, as the human's assertion that they read the result — which is what `CLAUDE.md` §8.5 asks for anyway.
 
