@@ -208,13 +208,20 @@ export class TaskRepository {
     return docs.map(toTask);
   }
 
-  /** Task ids currently awaiting a UC-03 choice for this date — what the frontend re-offers a picker for. */
+  /**
+   * Task ids currently awaiting a UC-03 choice for this date — what the frontend re-offers a
+   * picker for.
+   *
+   * ⛔ BUG FIXED (found during a cleanup pass, not by a test): this previously queried with
+   * `projection: { _id: 1 }` and THEN filtered the result with `matchesDate`, which reads
+   * `intendedDate`/`recurrence` — fields the projection had already stripped out. `matchesDate`
+   * therefore always fell through to `undefined === date`, so this method silently returned `[]`
+   * on every call regardless of the actual date. Fixed by reusing `docsForDate`, which fetches
+   * the fields `matchesDate` needs before filtering.
+   */
   async awaitingChoiceTaskIds(userId: string, date: IsoDate): Promise<readonly string[]> {
-    if (!isNonEmptyString(userId)) return [];
-    const docs = await this.tasks
-      .find({ userId, awaitingChoice: true }, { projection: { _id: 1 } })
-      .toArray();
-    return docs.filter((doc) => matchesDate(doc, date)).map((doc) => doc._id.toHexString());
+    const docs = await this.docsForDate(userId, date);
+    return docs.filter((doc) => doc.awaitingChoice).map((doc) => doc._id.toHexString());
   }
 
   async setAwaitingChoice(taskId: string, awaiting: boolean): Promise<void> {

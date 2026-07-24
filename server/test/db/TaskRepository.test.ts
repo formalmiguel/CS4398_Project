@@ -192,6 +192,47 @@ describe('TaskRepository.tasksForDate — OPEN-17: what makes a task visible for
   });
 });
 
+describe('TaskRepository — UC-03/FR-DSH-06: awaitingChoice visibility', () => {
+  it('setAwaitingChoice(true) excludes the task from tasksForDate but not from allTasksForDate', async () => {
+    const task = await repo.createTask({
+      userId,
+      intendedDate: '2026-07-23',
+      title: 'Picking',
+      type: 'HABIT',
+      durationMinutes: 30,
+      priority: 3,
+      preferredWindow: { start: 600, end: 700 },
+      flexibility: 'FLEXIBLE',
+    });
+    await repo.setAwaitingChoice(task.id, true);
+
+    expect(await repo.tasksForDate(userId, '2026-07-23')).toEqual([]);
+    expect((await repo.allTasksForDate(userId, '2026-07-23')).map((t) => t.id)).toContain(task.id);
+  });
+
+  it('awaitingChoiceTaskIds returns the id only on the matching date, and clears once setAwaitingChoice(false)', async () => {
+    const task = await repo.createTask({
+      userId,
+      intendedDate: '2026-07-23',
+      title: 'Picking',
+      type: 'HABIT',
+      durationMinutes: 30,
+      priority: 3,
+      preferredWindow: { start: 600, end: 700 },
+      flexibility: 'FLEXIBLE',
+    });
+    await repo.setAwaitingChoice(task.id, true);
+
+    // Regression: a prior projection bug (`{ _id: 1 }`) stripped the fields matchesDate needs,
+    // so this always returned []. Asserting a non-empty, date-matched result pins the fix.
+    expect(await repo.awaitingChoiceTaskIds(userId, '2026-07-23')).toEqual([task.id]);
+    expect(await repo.awaitingChoiceTaskIds(userId, '2026-07-24')).toEqual([]);
+
+    await repo.setAwaitingChoice(task.id, false);
+    expect(await repo.awaitingChoiceTaskIds(userId, '2026-07-23')).toEqual([]);
+  });
+});
+
 describe('TaskRepository — FR-TSK-03/07, DR-01', () => {
   it('FR-TSK-07: deleting a recurring task removes future placements but keeps completion records', async () => {
     const task = await repo.createTask({
