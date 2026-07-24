@@ -76,8 +76,8 @@ Each prompt follows the required formatting techniques with **Sandwich Method**,
 | 09 | `wearable/09-recommendation-rules-tests-RED.md` | 🔴 RED | ⬜ Not yet written |
 | 10 | `wearable/10-recommendation-rules-GREEN.md` | 🟢 GREEN | ⬜ Not yet written |
 | 11 | `wearable/11-catalog-and-seeded-libraries.md` | 🔴/🟢 | ⬜ Not yet written |
-| 12 | `backend/12-backend-api.md` | 🔴/🟢 | ⬜ Not yet written — **⛔ must carry the OPEN-12 escalation, below** |
-| 13 | `frontend/13-frontend-schedule-dashboard.md` | BUILD | ⬜ Not yet written |
+| 12 | `backend/12-backend-api.md` | 🔴/🟢 | ✅ Written and run, 22 Jul — `npm run verify` green, `docs/P12-REPORT.md` |
+| 13 | `frontend/13-frontend-schedule-dashboard.md` | BUILD | ✅ Written and run, 23 Jul — `npm run verify` green, live smoke test passed, `docs/P13-REPORT.md` |
 | 14 | `frontend/14-frontend-wellness-view.md` | BUILD | ⬜ Not yet written |
 | 15 | `frontend/15-frontend-analytics-view.md` | BUILD | ⬜ Not yet written |
 | 16a | `verification/16a-guards-placement-purity.md` | GUARD | ✅ Written *(24 Jul, immediately before its run)* |
@@ -115,6 +115,8 @@ Each prompt follows the required formatting techniques with **Sandwich Method**,
 ---
 
 ### ⛔ **CRITICAL**: OPEN-12 — Ask Before Choosing a User Identifier
+
+✅ **ANSWERED 22 Jul, before packet 12 was authored — asked of Miguel directly, per the instruction below.** The identifier is the **Mongo `_id` of the `User` document, stringified**; email is used only to look it up at login; ownership is applied at the **API/persistence boundary** via `TaskRepository.ownerOfTask`, not on the domain types. SRS → v2.18, `docs/TEAM-MEETING.md` decision log (22 Jul). **Left below verbatim, because it is the reason the question got asked instead of silently decided — read it, then use the answer above rather than re-deriving one.**
 
 **MANDATORY**: **`shared/src/contract.ts` carries no `userId` field, and that is deliberate.**
 
