@@ -123,3 +123,7 @@ export const skipTask = (taskId: string, date: string): Promise<{ outcome: unkno
 
 export const moveToNextDay = (taskId: string, date: string): Promise<{ outcome: unknown }> =>
   request(`/tasks/${taskId}/move-to-next-day`, { method: 'POST', body: JSON.stringify({ date }) });
+
+/** NFR-USE-03: the one-line ternary every component's catch block was repeating. */
+export const toErrorMessage = (err: unknown, fallback: string): string =>
+  err instanceof ApiError ? err.message : fallback;

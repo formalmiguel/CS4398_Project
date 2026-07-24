@@ -1,6 +1,6 @@
 import { useState } from 'react';
 
-import { ApiError, AuthResult, login, register } from '../api/client';
+import { AuthResult, login, register, toErrorMessage } from '../api/client';
 import { timeToMinute } from '../dateUtils';
 
 interface Props {
@@ -33,7 +33,7 @@ export const AuthScreen = ({ onAuthenticated }: Props) => {
             });
       onAuthenticated(result);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Could not reach the server.');
+      setError(toErrorMessage(err, 'Could not reach the server.'));
     } finally {
       setBusy(false);
     }

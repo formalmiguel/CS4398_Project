@@ -20,22 +20,20 @@ const parseIsoDate = (isoDate: string): { year: number; month: number; day: numb
   return { year: Number(y ?? 0), month: Number(m ?? 1), day: Number(d ?? 1) };
 };
 
-export const todayIso = (): string => {
-  const now = new Date();
-  const y = now.getFullYear();
-  const m = String(now.getMonth() + 1).padStart(2, '0');
-  const d = String(now.getDate()).padStart(2, '0');
+const formatIsoDate = (date: Date): string => {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
   return `${y}-${m}-${d}`;
 };
+
+export const todayIso = (): string => formatIsoDate(new Date());
 
 export const addDays = (isoDate: string, delta: number): string => {
   const { year, month, day } = parseIsoDate(isoDate);
   const date = new Date(year, month - 1, day);
   date.setDate(date.getDate() + delta);
-  const yy = date.getFullYear();
-  const mm = String(date.getMonth() + 1).padStart(2, '0');
-  const dd = String(date.getDate()).padStart(2, '0');
-  return `${yy}-${mm}-${dd}`;
+  return formatIsoDate(date);
 };
 
 export const formatDateHeading = (isoDate: string): string => {

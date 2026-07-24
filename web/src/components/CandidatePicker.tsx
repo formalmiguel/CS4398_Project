@@ -2,7 +2,7 @@ import { useState } from 'react';
 
 import type { Placement, Slot, Task } from '@capstone/shared';
 
-import { ApiError, placeTask } from '../api/client';
+import { placeTask, toErrorMessage } from '../api/client';
 
 interface Props {
   readonly task: Task;
@@ -31,11 +31,7 @@ export const CandidatePicker = ({ task, date, candidates, onPlaced, onCancel }: 
     } catch (err) {
       // The offer may be stale by the time the user chooses (docs/P12-REPORT.md) — a 409
       // means someone/something else took the slot. Report it plainly (NFR-ROB-02/NFR-USE-03).
-      setError(
-        err instanceof ApiError
-          ? err.message
-          : 'Could not reach the server.',
-      );
+      setError(toErrorMessage(err, 'Could not reach the server.'));
     } finally {
       setBusy(false);
     }

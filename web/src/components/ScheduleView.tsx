@@ -1,8 +1,8 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import type { Interval, Task } from '@capstone/shared';
 
-import { ApiError, ScheduleResult, completeTask, getSchedule, skipTask } from '../api/client';
+import { ScheduleResult, completeTask, getSchedule, skipTask, toErrorMessage } from '../api/client';
 import { addDays, formatDateHeading, minuteToLabel } from '../dateUtils';
 import { OccurrenceBlock } from './OccurrenceBlock';
 import { TaskForm } from './TaskForm';
@@ -32,7 +32,7 @@ export const ScheduleView = ({ date, onDateChange, schedulableDay }: Props) => {
       setData(result);
       setError(null);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Could not load the schedule.');
+      setError(toErrorMessage(err, 'Could not load the schedule.'));
     }
   }, [date]);
 
@@ -40,35 +40,39 @@ export const ScheduleView = ({ date, onDateChange, schedulableDay }: Props) => {
     void refresh();
   }, [refresh]);
 
-  const taskById = new Map<string, Task>((data?.tasks ?? []).map((t) => [t.id, t]));
-
-  const onComplete = async (placementId: string, taskId: string): Promise<void> => {
+  const runAction = async (
+    placementId: string,
+    taskId: string,
+    action: (taskId: string, date: string) => Promise<unknown>,
+    errorMessage: string,
+  ): Promise<void> => {
     setBusyPlacementId(placementId);
     try {
-      await completeTask(taskId, date);
+      await action(taskId, date);
       await refresh();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Could not complete the task.');
+      setError(toErrorMessage(err, errorMessage));
     } finally {
       setBusyPlacementId(null);
     }
   };
 
-  const onSkip = async (placementId: string, taskId: string): Promise<void> => {
-    setBusyPlacementId(placementId);
-    try {
-      await skipTask(taskId, date);
-      await refresh();
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Could not skip the task.');
-    } finally {
-      setBusyPlacementId(null);
-    }
-  };
+  const onComplete = (placementId: string, taskId: string): Promise<void> =>
+    runAction(placementId, taskId, completeTask, 'Could not complete the task.');
 
-  const placements = [...(data?.placements ?? [])].sort((a, b) => a.start - b.start);
-  const placedTaskIds = new Set(placements.map((p) => p.taskId));
-  const unplacedTasks = (data?.tasks ?? []).filter((t) => !placedTaskIds.has(t.id));
+  const onSkip = (placementId: string, taskId: string): Promise<void> =>
+    runAction(placementId, taskId, skipTask, 'Could not skip the task.');
+
+  const { taskById, placements, unplacedTasks } = useMemo(() => {
+    const byId = new Map<string, Task>((data?.tasks ?? []).map((t) => [t.id, t]));
+    const sortedPlacements = [...(data?.placements ?? [])].sort((a, b) => a.start - b.start);
+    const placedTaskIds = new Set(sortedPlacements.map((p) => p.taskId));
+    return {
+      taskById: byId,
+      placements: sortedPlacements,
+      unplacedTasks: (data?.tasks ?? []).filter((t) => !placedTaskIds.has(t.id)),
+    };
+  }, [data]);
 
   return (
     <div className="schedule-view">
