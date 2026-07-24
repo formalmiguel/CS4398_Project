@@ -63,7 +63,7 @@ export const ScheduleView = ({ date, onDateChange, schedulableDay }: Props) => {
   const onSkip = (placementId: string, taskId: string): Promise<void> =>
     runAction(placementId, taskId, skipTask, 'Could not skip the task.');
 
-  const { taskById, placements, unplacedTasks } = useMemo(() => {
+  const { taskById, placements, unplacedTasks, awaitingChoiceCount } = useMemo(() => {
     const byId = new Map<string, Task>((data?.tasks ?? []).map((t) => [t.id, t]));
     const sortedPlacements = [...(data?.placements ?? [])].sort((a, b) => a.start - b.start);
     const placedTaskIds = new Set(sortedPlacements.map((p) => p.taskId));
@@ -71,6 +71,7 @@ export const ScheduleView = ({ date, onDateChange, schedulableDay }: Props) => {
       taskById: byId,
       placements: sortedPlacements,
       unplacedTasks: (data?.tasks ?? []).filter((t) => !placedTaskIds.has(t.id)),
+      awaitingChoiceCount: (data?.awaitingChoice ?? []).length,
     };
   }, [data]);
 
@@ -107,9 +108,9 @@ export const ScheduleView = ({ date, onDateChange, schedulableDay }: Props) => {
         </div>
       )}
 
-      {(data?.awaitingChoice.length ?? 0) > 0 && (
+      {awaitingChoiceCount > 0 && (
         <p className="schedule-view__banner">
-          {data?.awaitingChoice.length} task(s) are awaiting your choice of an alternative time —
+          {awaitingChoiceCount} task(s) are awaiting your choice of an alternative time —
           re-add or check back after choosing from the "+ Add Task" flow that created them.
         </p>
       )}
