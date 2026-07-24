@@ -14,6 +14,8 @@ import { Collection, Db, ObjectId } from 'mongodb';
 
 import type { Interval, Minute } from '@capstone/shared';
 
+import { isValidObjectIdString } from './mongo';
+
 export interface UserRecord {
   readonly id: string;
   readonly email: string;
@@ -40,10 +42,6 @@ const toRecord = (doc: UserDocument): UserRecord => ({
   sleepMinute: doc.sleepMinute,
   createdAt: doc.createdAt,
 });
-
-/** NFR-SEC-05: every id this store is handed must be a string before it becomes a filter. */
-const isValidObjectIdString = (value: unknown): value is string =>
-  typeof value === 'string' && ObjectId.isValid(value);
 
 export class UserStore {
   private readonly users: Collection<UserDocument>;

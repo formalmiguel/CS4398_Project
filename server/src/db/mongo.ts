@@ -4,10 +4,14 @@
  * `Db` directly (`test/support/testDb.ts`, `mongodb-memory-server`) rather than going through
  * this file at all.
  */
-import { Db, MongoClient } from 'mongodb';
+import { Db, MongoClient, ObjectId } from 'mongodb';
 
 let client: MongoClient | undefined;
 let db: Db | undefined;
+
+/** NFR-SEC-05: every id a repository is handed must be a valid ObjectId string before it becomes a filter. */
+export const isValidObjectIdString = (value: unknown): value is string =>
+  typeof value === 'string' && ObjectId.isValid(value);
 
 export const connectMongo = async (uri: string): Promise<Db> => {
   if (db !== undefined) return db;

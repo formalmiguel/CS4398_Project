@@ -31,6 +31,7 @@ import type {
 } from '@capstone/shared';
 
 import { UserStore } from './UserStore';
+import { isValidObjectIdString } from './mongo';
 
 // ─── Documents ─────────────────────────────────────────────────────────────
 
@@ -128,9 +129,6 @@ const toPlacement = (doc: PlacementDocument): Placement => {
     : { ...base, rescheduleTrigger: doc.rescheduleTrigger };
 };
 
-const isValidObjectIdString = (value: unknown): value is string =>
-  typeof value === 'string' && ObjectId.isValid(value);
-
 const isNonEmptyString = (value: unknown): value is string =>
   typeof value === 'string' && value.length > 0;
 
@@ -180,22 +178,34 @@ export class TaskRepository {
     return doc === null ? undefined : doc.userId;
   }
 
+  /** `loadOwnedTask` (app.ts) needs both the task and its owner; one round trip for both. */
+  async getTaskWithOwner(taskId: string): Promise<{ task: Task; ownerId: string } | undefined> {
+    if (!isValidObjectIdString(taskId)) return undefined;
+    const doc = await this.tasks.findOne({ _id: new ObjectId(taskId) });
+    return doc === null ? undefined : { task: toTask(doc), ownerId: doc.userId };
+  }
+
+  /** Every task document for the user on `date`, per `matchesDate` — shared by both listings below. */
+  private async docsForDate(userId: string, date: IsoDate): Promise<readonly TaskDocument[]> {
+    if (!isNonEmptyString(userId)) return [];
+    const docs = await this.tasks.find({ userId }).toArray();
+    return docs.filter((doc) => matchesDate(doc, date));
+  }
+
   /**
    * OPEN-17: see `matchesDate` — this is the method that makes a task visible to `sweepElapsed`.
    * Excludes `awaitingChoice` tasks (UC-03) — see that field's comment. Use `allTasksForDate` for
    * a listing the user sees; this one is what the reschedule service's automatic sweep reads.
    */
   async tasksForDate(userId: string, date: IsoDate): Promise<readonly Task[]> {
-    if (!isNonEmptyString(userId)) return [];
-    const docs = await this.tasks.find({ userId }).toArray();
-    return docs.filter((doc) => matchesDate(doc, date) && !doc.awaitingChoice).map(toTask);
+    const docs = await this.docsForDate(userId, date);
+    return docs.filter((doc) => !doc.awaitingChoice).map(toTask);
   }
 
   /** Every task for the date, INCLUDING one awaiting a UC-03 choice — for the user's own view. */
   async allTasksForDate(userId: string, date: IsoDate): Promise<readonly Task[]> {
-    if (!isNonEmptyString(userId)) return [];
-    const docs = await this.tasks.find({ userId }).toArray();
-    return docs.filter((doc) => matchesDate(doc, date)).map(toTask);
+    const docs = await this.docsForDate(userId, date);
+    return docs.map(toTask);
   }
 
   /** Task ids currently awaiting a UC-03 choice for this date — what the frontend re-offers a picker for. */

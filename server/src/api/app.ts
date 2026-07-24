@@ -27,7 +27,7 @@ import { TaskRepository } from '../db/TaskRepository';
 import type { Clock, RescheduleService } from '../reschedule/RescheduleService';
 import { clockLabel, dayAlreadyOverExplanation } from '../reschedule/reasons';
 import { AuthedRequest, AuthService, requireAuth } from './auth';
-import { isSafeQueryString, validateTaskInput } from './validation';
+import { isSafeQueryString, isValidSchedulableDay, validateTaskInput } from './validation';
 
 export interface AppDependencies {
   readonly db: Db;
@@ -105,11 +105,7 @@ export const buildApp = (deps: AppDependencies): Express => {
     if (
       typeof wakeMinute !== 'number' ||
       typeof sleepMinute !== 'number' ||
-      wakeMinute < 0 ||
-      wakeMinute > 1439 ||
-      sleepMinute < 0 ||
-      sleepMinute > 1439 ||
-      sleepMinute <= wakeMinute
+      !isValidSchedulableDay(wakeMinute, sleepMinute)
     ) {
       // FR-USR-07: the schedulable day is defined at account creation so task placement has
       // something to work with from the first request.
@@ -174,11 +170,7 @@ export const buildApp = (deps: AppDependencies): Express => {
     if (
       typeof wakeMinute !== 'number' ||
       typeof sleepMinute !== 'number' ||
-      wakeMinute < 0 ||
-      wakeMinute > 1439 ||
-      sleepMinute < 0 ||
-      sleepMinute > 1439 ||
-      sleepMinute <= wakeMinute
+      !isValidSchedulableDay(wakeMinute, sleepMinute)
     ) {
       res.status(400).json({ error: 'wakeMinute/sleepMinute must define a valid schedulable day' });
       return;
@@ -211,13 +203,12 @@ export const buildApp = (deps: AppDependencies): Express => {
       res.status(404).json({ error: 'not found' });
       return undefined;
     }
-    const task = await tasks.getTask(taskId);
-    const owner = await tasks.ownerOfTask(taskId);
-    if (task === undefined || owner === undefined || owner !== req.userId) {
+    const found = await tasks.getTaskWithOwner(taskId);
+    if (found === undefined || found.ownerId !== req.userId) {
       res.status(404).json({ error: 'not found' });
       return undefined;
     }
-    return task;
+    return found.task;
   };
 
   // ── Tasks (FR-TSK, FR-CAL, FR-SCH-10/OPEN-17) ──────────────────────────
@@ -454,44 +445,43 @@ export const buildApp = (deps: AppDependencies): Express => {
     return onDate.find((p) => p.taskId === taskId && p.status === 'PLANNED');
   };
 
-  app.post('/tasks/:id/complete', requireAuth(auth), async (req: AuthedRequest, res) => {
+  /** Shared by complete/skip: load the owned task, the target date, and its PLANNED occurrence. */
+  const loadPlannedOccurrence = async (
+    req: AuthedRequest,
+    res: Response,
+  ): Promise<{ task: Task; placement: Placement } | undefined> => {
     const task = await loadOwnedTask(req, res, req.params.id);
-    if (task === undefined) return;
+    if (task === undefined) return undefined;
     const { date } = req.body as Record<string, unknown>;
     if (!isSafeQueryString(date)) {
       res.status(400).json({ error: 'date is required' });
-      return;
-    }
-    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-    const userId = req.userId!;
-    const placement = await findPlannedPlacement(userId, task.id, date);
-    if (placement === undefined) {
-      res.status(404).json({ error: 'no planned occurrence on that date' });
-      return;
-    }
-    // FR-TSK-06: recording the timestamp is this packet's own bookkeeping (DR-01); FR-RSC-07/09
-    // (never reschedule a completed task; withdraw an automatic reschedule) is the service's.
-    const outcome = await reschedule.onCompletionRecorded(placement);
-    await tasks.recordCompletion(placement.id, task.id, userId);
-    res.json({ outcome });
-  });
-
-  app.post('/tasks/:id/skip', requireAuth(auth), async (req: AuthedRequest, res) => {
-    const task = await loadOwnedTask(req, res, req.params.id);
-    if (task === undefined) return;
-    const { date } = req.body as Record<string, unknown>;
-    if (!isSafeQueryString(date)) {
-      res.status(400).json({ error: 'date is required' });
-      return;
+      return undefined;
     }
     // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
     const placement = await findPlannedPlacement(req.userId!, task.id, date);
     if (placement === undefined) {
       res.status(404).json({ error: 'no planned occurrence on that date' });
-      return;
+      return undefined;
     }
+    return { task, placement };
+  };
+
+  app.post('/tasks/:id/complete', requireAuth(auth), async (req: AuthedRequest, res) => {
+    const found = await loadPlannedOccurrence(req, res);
+    if (found === undefined) return;
+    // FR-TSK-06: recording the timestamp is this packet's own bookkeeping (DR-01); FR-RSC-07/09
+    // (never reschedule a completed task; withdraw an automatic reschedule) is the service's.
+    const outcome = await reschedule.onCompletionRecorded(found.placement);
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+    await tasks.recordCompletion(found.placement.id, found.task.id, req.userId!);
+    res.json({ outcome });
+  });
+
+  app.post('/tasks/:id/skip', requireAuth(auth), async (req: AuthedRequest, res) => {
+    const found = await loadPlannedOccurrence(req, res);
+    if (found === undefined) return;
     // FR-RSC-08: accepted before the window elapses too — the service's own rule, not this route's.
-    const outcome = await reschedule.onUserSkipped(placement);
+    const outcome = await reschedule.onUserSkipped(found.placement);
     res.json({ outcome });
   });
 

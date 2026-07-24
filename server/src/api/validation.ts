@@ -140,3 +140,10 @@ export const validateTaskInput = (body: unknown): TaskValidationResult => {
 /** NFR-SEC-05: the guard every route applies to a value about to become a query filter. */
 export const isSafeQueryString = (value: unknown): value is string =>
   typeof value === 'string' && value.length > 0;
+
+/**
+ * FR-USR-07's range/order rule, validated identically at account creation and on later edit.
+ * Callers check `typeof` first — this only judges values already known to be numbers.
+ */
+export const isValidSchedulableDay = (wakeMinute: number, sleepMinute: number): boolean =>
+  wakeMinute >= 0 && wakeMinute <= 1439 && sleepMinute >= 0 && sleepMinute <= 1439 && sleepMinute > wakeMinute;
