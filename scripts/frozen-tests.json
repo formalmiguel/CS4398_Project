@@ -1,6 +1,6 @@
 {
   "comment": [
-    "Frozen test suites. One entry per RED packet, added when its freeze commit lands.",
+    "Frozen test suites. One entry per RED packet, written by `npm run freeze`.",
     "",
     "A RED packet's tests are the requirements in executable form. Once frozen, the GREEN",
     "agent implementing against them may not edit, skip, rename or weaken one - see",
@@ -8,12 +8,24 @@
     "remembering to run a git command, which was documented wrong in six places and could",
     "not have caught a test that was edited AND committed. It is now enforced here.",
     "",
-    "ADDING AN ENTRY: after a RED freeze commit, record its sha and the path it froze.",
+    "`files` IS THE ENFORCEMENT: a sha256 per file. It needs no git history, so it holds",
+    "in a shallow clone and mid-replay, before any commit exists. It catches an edited",
+    "test, an edited-and-committed one, a deleted one, and a test quietly ADDED to a",
+    "frozen suite. `sha` is PROVENANCE, not enforcement - it attests when the freeze",
+    "happened, from something other than this file, and a re-freeze that does not match",
+    "it is reported as a provenance mismatch. An entry with no `sha` is legitimate: a",
+    "replay freezes before it commits (CLAUDE.md 8.5), and hashes verify it fully.",
+    "",
+    "`tests` is informational and is never compared. A replay produces a different",
+    "number, and a count that gated the build would fail every replay by design.",
+    "",
+    "ADDING AN ENTRY: npm run freeze -- --packet NN --path <dir> --tests <N>",
     "",
     "CHANGING OR REMOVING AN ENTRY is how you would defeat this guard, so it is a team",
     "decision with a row in TEAM-MEETING.md - exactly like editing the tests themselves.",
-    "If a frozen test was genuinely wrong, fix it in a RED-style commit with a human's",
-    "reasoning in the body and re-freeze at the new sha. Never quietly inside a GREEN diff."
+    "If a frozen test was genuinely wrong, a HUMAN adjudicates it against the SRS, fixes",
+    "it in a RED-style commit with the reasoning in the body, and re-freezes. Re-running",
+    "`npm run freeze` to make a build go green is editing the test, one level removed."
   ],
   "frozen": [
     {
@@ -22,7 +34,15 @@
       "sha": "ac06e70",
       "frozenOn": "2026-07-22",
       "owner": "Patrick Rucker",
-      "tests": 30
+      "tests": 30,
+      "files": {
+        "engine/test/boundary.test.ts": "d9f2aada232d7f1b92d4567ccb405ac5f50f84ec00abd09f2d48a73f3970aeda",
+        "engine/test/no-slot.test.ts": "267df6d6962ebf7a8b9d80f6209a48856b49f956e13512f8fafb96d64e99248f",
+        "engine/test/performance.test.ts": "d9170c763e00b51b56a9f1c614a500543e18c84bb54b11c29b79aa6ce6c07109",
+        "engine/test/property.test.ts": "6263b4a3b306511c19b4064afaa3122b7961fa11957739e2f13fd523316be398",
+        "engine/test/purity.test.ts": "d488360e17af233814c52760bc12a54ac5fab0d27fd926050246e68339875bc0",
+        "engine/test/ranking.test.ts": "4b92b3fe5ec2049566d42365c51c9cc001db389eb4c09772eedf691eaa7b1728"
+      }
     },
     {
       "packet": "06",
@@ -31,7 +51,19 @@
       "frozenOn": "2026-07-22",
       "refrozenFrom": "8b24320 - one defective fixture corrected in c30e784, a RED-style commit. See TEAM-MEETING.md, 22 Jul.",
       "owner": "Patrick Rucker",
-      "tests": 154
+      "tests": 154,
+      "files": {
+        "server/test/reschedule/completion.test.ts": "ea87d46f00be196dd8fe5d24aff5d626e32fa95835f22b80de95d4e9b691d36a",
+        "server/test/reschedule/elapsed-sweep.test.ts": "fbd59a7d2a9553da7d9110657d8a593df88ef16db742468201009d1bf6bc6c56",
+        "server/test/reschedule/idempotence.test.ts": "10bbf15a7009d017c24fbd872f3787c50597815e31b896e0728c500bdb12f85e",
+        "server/test/reschedule/placement-order.test.ts": "3b4d76202fb3a8ad036224310a8401b96fe8b0d599b9f641233572b2177c98a0",
+        "server/test/reschedule/reason.test.ts": "9e3d99285e2d536a0e63df3d414d9954d1fc7dcc2f956592d7d3a38e6bd7c225",
+        "server/test/reschedule/single-engine.test.ts": "e699d89f55c5b197ee23bbb89bf72f2781ff849ec5099afb5dac803196ec71b8",
+        "server/test/reschedule/support/harness.ts": "c59a97432b53f37850432c980fd75de1bf977f5b845c575347c08133249e57d8",
+        "server/test/reschedule/task-edited.test.ts": "29db0ef7abe56663f1fe282b249ab4dc298f21603b91de78f73026562f362dea",
+        "server/test/reschedule/triggers.test.ts": "69d1fe41d082280a83392754c97d35c147d2930e5950454ed5343fbd78a23644",
+        "server/test/reschedule/unplaceable.test.ts": "984ccdf42702e367526a4beb699967d7fdd52bbc4640a108e8ac80b1bfbecc7e"
+      }
     }
   ]
 }
