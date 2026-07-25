@@ -77,6 +77,18 @@
       },
       "sha": "1199d80",
       "shaCorrectedFrom": "40a3447 - `npm run freeze` ran before the RED commit and recorded the parent, where these files do not yet exist. The suite is byte-identical to the RED freeze 1199d80: every file hash verifies, and `git diff --stat 1199d80 -- server/test/wearable` is empty. Provenance corrected by hand to point at the commit that actually froze the suite - NOT re-frozen. See TEAM-MEETING.md, 25 Jul."
+    },
+    {
+      "packet": "09",
+      "path": "server/test/recommendation",
+      "frozenOn": "2026-07-25",
+      "tests": 27,
+      "files": {
+        "server/test/recommendation/CaloriesToTargetRule.test.ts": "c07557357df79b10c5a0a1a43e136864a775e46425ebc770d2972eb3d35d1698",
+        "server/test/recommendation/RecommendationEngine.test.ts": "2fb68098b29c87ed77a3b0f3aa5140bd7a1d3618cc7e83cf134548e302912408",
+        "server/test/recommendation/SleepToIntensityRule.test.ts": "fd706efa3593d404dce7f02621b880707d3a0b579b2a9f6f49f22dffb7b26f22"
+      },
+      "sha": "59f4e8a"
     }
   ]
 }
