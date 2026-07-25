@@ -49,6 +49,9 @@ export const OccurrenceBlock = ({ placement, task, onComplete, onSkip, busy, jus
   return (
     <div className={classes.join(' ')}>
       <div className="occurrence__header">
+        {/* Decorative only — task type is never the sole carrier of any meaning the legend
+            requires (═/─/✦/↻ and the FIXED badge below still do that work in text/symbols). */}
+        <span className={`occurrence__dot type-dot--${task?.type ?? 'OTHER'}`} aria-hidden="true" />
         <span className="occurrence__marker">
           {isSystem && '✦ '}
           {wasRescheduled && '↻ '}

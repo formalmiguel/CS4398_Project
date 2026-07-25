@@ -4,11 +4,29 @@ import { AuthResult, Profile, clearToken, getProfile, getToken, setToken } from 
 import { AuthScreen } from './components/AuthScreen';
 import { ScheduleView } from './components/ScheduleView';
 import { todayIso } from './dateUtils';
+import { Theme, applyTheme, getStoredTheme, systemTheme } from './theme';
 
 export const App = () => {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [checkedSession, setCheckedSession] = useState(false);
   const [date, setDate] = useState(todayIso());
+  const [theme, setThemeState] = useState<Theme>(systemTheme);
+
+  useEffect(() => {
+    // Only an explicit prior toggle (below) sets the DOM override — with nothing stored, the
+    // OS-preference media query in styles.css keeps governing on its own.
+    const stored = getStoredTheme();
+    if (stored !== null) {
+      document.documentElement.dataset.theme = stored;
+      setThemeState(stored);
+    }
+  }, []);
+
+  const toggleTheme = (): void => {
+    const next: Theme = theme === 'dark' ? 'light' : 'dark';
+    applyTheme(next);
+    setThemeState(next);
+  };
 
   useEffect(() => {
     // A stored token surviving a page reload has no wakeMinute/sleepMinute of its own —
@@ -53,7 +71,15 @@ export const App = () => {
         <nav>
           <span>Schedule</span>
         </nav>
-        <button type="button" className="link" onClick={logOut}>
+        <button
+          type="button"
+          className="icon-button icon-button--filled icon-button--lg"
+          onClick={toggleTheme}
+          aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+        >
+          {theme === 'dark' ? '☀' : '☾'}
+        </button>
+        <button type="button" className="app__logout" onClick={logOut}>
           Log out
         </button>
       </header>

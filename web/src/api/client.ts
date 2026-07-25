@@ -134,6 +134,20 @@ export const skipTask = (taskId: string, date: string): Promise<{ outcome: unkno
 export const moveToNextDay = (taskId: string, date: string): Promise<{ outcome: unknown }> =>
   request(`/tasks/${taskId}/move-to-next-day`, { method: 'POST', body: JSON.stringify({ date }) });
 
+/**
+ * The month-grid's dots (server/src/db/TaskRepository.ts's `taskTypesInRange`). Frontend-only
+ * response shape, like `DisplacedOutcome` above — no touch to the frozen `shared/src/contract.ts`.
+ * A day absent from `days` has no matching task; this is a read of task DEFINITIONS, not
+ * placements, so it is safe to call for a month nobody has ever opened via `getSchedule`.
+ */
+export interface MonthOverviewDay {
+  readonly date: string;
+  readonly types: readonly TaskType[];
+}
+
+export const getMonthOverview = (start: string, end: string): Promise<{ days: readonly MonthOverviewDay[] }> =>
+  request(`/schedule/overview?start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}`);
+
 /** NFR-USE-03: the one-line ternary every component's catch block was repeating. */
 export const toErrorMessage = (err: unknown, fallback: string): string =>
   err instanceof ApiError ? err.message : fallback;
