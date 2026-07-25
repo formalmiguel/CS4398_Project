@@ -64,6 +64,18 @@
         "server/test/reschedule/triggers.test.ts": "69d1fe41d082280a83392754c97d35c147d2930e5950454ed5343fbd78a23644",
         "server/test/reschedule/unplaceable.test.ts": "984ccdf42702e367526a4beb699967d7fdd52bbc4640a108e8ac80b1bfbecc7e"
       }
+    },
+    {
+      "packet": "08",
+      "path": "server/test/wearable",
+      "frozenOn": "2026-07-25",
+      "files": {
+        "server/test/wearable/GarminExportAdapter.test.ts": "e6b258e857ccd59571345a5ee6d0a28fbea36c21c453b5d1889b3582a01b3da7",
+        "server/test/wearable/MetricStore.test.ts": "af01ec290e38c6a5da9c365d705ff8e60d5c51ff6713565587f1c2b5248ab6c6",
+        "server/test/wearable/fixtures/garmin-export.json": "37045d19767a9e3b610e36b4fb697b98d0d0cda605146e4d01b88547ff9377af",
+        "server/test/wearable/wearableFixtures.ts": "8d540b95786233a0f736536482a5dd69be574e9fc4caac1cc22c7150cf95e099"
+      },
+      "sha": "40a3447"
     }
   ]
 }
