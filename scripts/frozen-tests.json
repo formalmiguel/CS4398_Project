@@ -75,7 +75,8 @@
         "server/test/wearable/fixtures/garmin-export.json": "37045d19767a9e3b610e36b4fb697b98d0d0cda605146e4d01b88547ff9377af",
         "server/test/wearable/wearableFixtures.ts": "8d540b95786233a0f736536482a5dd69be574e9fc4caac1cc22c7150cf95e099"
       },
-      "sha": "40a3447"
+      "sha": "1199d80",
+      "shaCorrectedFrom": "40a3447 - `npm run freeze` ran before the RED commit and recorded the parent, where these files do not yet exist. The suite is byte-identical to the RED freeze 1199d80: every file hash verifies, and `git diff --stat 1199d80 -- server/test/wearable` is empty. Provenance corrected by hand to point at the commit that actually froze the suite - NOT re-frozen. See TEAM-MEETING.md, 25 Jul."
     }
   ]
 }
