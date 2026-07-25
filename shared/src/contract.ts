@@ -325,6 +325,54 @@ export interface Meal {
   readonly dietaryFlags: readonly DietaryFlag[];
 }
 
+// ─── Recommendations ─────────────────────────────────────────────────────────
+//
+// Realizes, in TypeScript, the recommendation DATA types the §3.6 class diagram already
+// names: `Recommendation` (RecommendationEngine.recommend → Recommendation[]), `Decision`
+// (RecommendationRule.apply/fallback → Decision), and `CalorieTarget`. The RULES and the
+// `RecommendationEngine` that evaluates them are server-local (server/src/recommendation/) —
+// like `RescheduleService` and the `WearableAdapter`, which the SAME diagram names but which
+// live under server/. Only the data a rule produces lives in the contract, because the
+// wellness views (FR-WEL-02, packets 14/15) render it (SRS v2.26, decision log 25 Jul).
+
+/** kcal. §3.6: the decision `CaloriesToTargetRule` produces (FR-REC-08). */
+export type CalorieTarget = number;
+
+/**
+ * The raw decision a `RecommendationRule` produces (§3.6: `apply`/`fallback` → `Decision`).
+ * A discriminated union on `kind`, for the same reason `Metric`/`PlacementResult` are: the
+ * two rules in this release decide different things — `SleepToIntensityRule` an
+ * `IntensityTier`, `CaloriesToTargetRule` a `CalorieTarget` — and the union keeps each
+ * payload precise while leaving room for a third rule (FR-REC-12) without widening the others.
+ */
+export type Decision =
+  | { readonly kind: 'WORKOUT_INTENSITY'; readonly tier: IntensityTier } // FR-REC-01
+  | { readonly kind: 'CALORIE_TARGET'; readonly calorieTarget: CalorieTarget }; // FR-REC-08
+
+/**
+ * The machine-readable substrate of FR-REC-13's reason — the metric and value that drove the
+ * decision, and whether a documented fallback was used (FR-REC-06). The rendered English
+ * sentence ("Recovery session — your sleep score was 42 last night") is a VIEW concern.
+ *
+ * `metricValue` is null EXACTLY when the metric was unavailable — distinct from a measured
+ * zero, which is a real value (DR-02, NFR-ROB-01). A reader must not treat null as 0.
+ */
+export interface RecommendationReason {
+  readonly metricName: string;
+  readonly metricValue: number | null;
+  readonly usedFallback: boolean;
+}
+
+/**
+ * What `RecommendationEngine.recommend()` returns (§3.6: `recommend` → `Recommendation[]`):
+ * a `Decision` plus the reason it was made (FR-REC-13). The diagram names `Recommendation`
+ * but, being UML, carries no reason — this realization supplies it.
+ */
+export interface Recommendation {
+  readonly decision: Decision;
+  readonly reason: RecommendationReason;
+}
+
 // ─── The engine signature ────────────────────────────────────────────────────
 
 /**
