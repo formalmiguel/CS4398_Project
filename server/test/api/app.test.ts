@@ -536,6 +536,84 @@ describe('FR-RSC-10 — schedule retrieval sweeps elapsed occurrences', () => {
   });
 });
 
+describe('GET /schedule/overview — month-grid dots', () => {
+  it('reports a one-off task only on its own date, and a DAILY recurring task on every date in range', async () => {
+    ta = await buildTestApp();
+    const token = (await register(ta.app)).token;
+    const client = authed(ta.app, token);
+
+    await client.post('/tasks').send({
+      title: 'Dentist',
+      type: 'MEETING',
+      durationMinutes: 30,
+      priority: 3,
+      preferredWindow: { start: 600, end: 700 },
+      flexibility: 'FIXED',
+      intendedDate: '2026-07-15',
+    });
+    await client.post('/tasks').send({
+      title: 'Daily journal',
+      type: 'HABIT',
+      durationMinutes: 15,
+      priority: 3,
+      preferredWindow: { start: 600, end: 700 },
+      flexibility: 'FLEXIBLE',
+      intendedDate: '2026-07-10',
+      recurrence: { frequency: 'DAILY' },
+    });
+
+    const res = await client.get('/schedule/overview?start=2026-07-14&end=2026-07-16');
+    expect(res.status).toBe(200);
+    const byDate = Object.fromEntries(res.body.days.map((d: { date: string; types: string[] }) => [d.date, d.types]));
+    expect(byDate['2026-07-14']).toEqual(['HABIT']);
+    expect(byDate['2026-07-15'].sort()).toEqual(['HABIT', 'MEETING']);
+    expect(byDate['2026-07-16']).toEqual(['HABIT']);
+  });
+
+  it('never materializes a Placement for a day nobody has retrieved via GET /schedule', async () => {
+    ta = await buildTestApp();
+    const { userId, token } = await register(ta.app);
+    const client = authed(ta.app, token);
+    await client.post('/tasks').send({
+      title: 'Future habit',
+      type: 'HABIT',
+      durationMinutes: 15,
+      priority: 3,
+      preferredWindow: { start: 600, end: 700 },
+      flexibility: 'FLEXIBLE',
+      intendedDate: '2026-08-01',
+      recurrence: { frequency: 'DAILY' },
+    });
+
+    const res = await client.get('/schedule/overview?start=2026-08-01&end=2026-08-05');
+    expect(res.body.days).toHaveLength(5);
+
+    // GET /schedule/overview must not have swept or placed anything itself — read the
+    // repository directly, since GET /schedule is FR-RSC-10's own sweep point and calling it
+    // here would place the task as designed, telling us nothing about the overview endpoint.
+    const placements = await ta.tasks.placementsForDate(userId, '2026-08-03');
+    expect(placements).toEqual([]);
+  });
+
+  it('rejects a range over 62 days, and requires start/end', async () => {
+    ta = await buildTestApp();
+    const token = (await register(ta.app)).token;
+    const client = authed(ta.app, token);
+
+    const tooLarge = await client.get('/schedule/overview?start=2026-01-01&end=2026-12-31');
+    expect(tooLarge.status).toBe(400);
+
+    const missing = await client.get('/schedule/overview?start=2026-07-01');
+    expect(missing.status).toBe(400);
+  });
+
+  it('requires authentication', async () => {
+    ta = await buildTestApp();
+    const res = await request(ta.app).get('/schedule/overview?start=2026-07-01&end=2026-07-07');
+    expect(res.status).toBe(401);
+  });
+});
+
 describe('FR-TSK-06/FR-RSC-08/FR-RSC-05 — occurrence actions', () => {
   let token: string;
   const date = '2026-07-23';

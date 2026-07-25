@@ -519,5 +519,34 @@ export const buildApp = (deps: AppDependencies): Express => {
     res.json({ tasks: taskList, placements: placementList, awaitingChoice });
   });
 
+  // ── Calendar overview (month-grid dots) ─────────────────────────────────
+  //
+  // NOT a placement read — see TaskRepository.taskTypesInRange's own note on why. No sweep, no
+  // engine call, no write: viewing a month must never trigger reschedule side effects for every
+  // day in it.
+  const MAX_OVERVIEW_DAYS = 62;
+
+  app.get('/schedule/overview', requireAuth(auth), async (req: AuthedRequest, res) => {
+    const { start, end } = req.query;
+    if (!isSafeQueryString(start) || !isSafeQueryString(end)) {
+      res.status(400).json({ error: 'start and end query parameters are required' });
+      return;
+    }
+    if (end < start) {
+      res.status(400).json({ error: 'end must not be before start' });
+      return;
+    }
+    const spanDays =
+      (new Date(`${end}T00:00:00.000Z`).getTime() - new Date(`${start}T00:00:00.000Z`).getTime()) / 86_400_000 + 1;
+    if (spanDays > MAX_OVERVIEW_DAYS) {
+      res.status(400).json({ error: `range too large — ${MAX_OVERVIEW_DAYS} days maximum` });
+      return;
+    }
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+    const userId = req.userId!;
+    const days = await tasks.taskTypesInRange(userId, start, end);
+    res.json({ days });
+  });
+
   return app;
 };
