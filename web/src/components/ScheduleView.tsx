@@ -4,6 +4,7 @@ import type { Interval, Task } from '@capstone/shared';
 
 import { ScheduleResult, completeTask, getSchedule, skipTask, toErrorMessage } from '../api/client';
 import { addDays, formatDateHeading, minuteToLabel } from '../dateUtils';
+import { MonthCalendar } from './MonthCalendar';
 import { OccurrenceBlock } from './OccurrenceBlock';
 import { TaskForm } from './TaskForm';
 
@@ -18,6 +19,11 @@ export const ScheduleView = ({ date, onDateChange, schedulableDay }: Props) => {
   const [data, setData] = useState<ScheduleResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
+  // Collapsible month-grid navigator (the picture's mini calendar) — collapsed by default so
+  // the day view, UI-01's actual required structure, stays what the screen opens on.
+  const [showMonth, setShowMonth] = useState(false);
+  // Stable identity so memoized MonthCalendar doesn't re-render on unrelated ScheduleView state.
+  const closeMonth = useCallback(() => setShowMonth(false), []);
   const [busyPlacementId, setBusyPlacementId] = useState<string | null>(null);
   // UC-03: placements accepted via the CandidatePicker THIS session. Independent of
   // rescheduleTrigger (a picker accept is a first placement, not a reschedule, so it never
@@ -77,15 +83,43 @@ export const ScheduleView = ({ date, onDateChange, schedulableDay }: Props) => {
 
   return (
     <div className="schedule-view">
+      {showMonth && (
+        <MonthCalendar date={date} onSelect={onDateChange} onClose={closeMonth} />
+      )}
+
       <div className="schedule-view__nav">
-        <button type="button" onClick={() => onDateChange(addDays(date, -1))} aria-label="Previous day">
+        <button
+          type="button"
+          className="icon-button icon-button--filled icon-button--lg"
+          onClick={() => onDateChange(addDays(date, -1))}
+          aria-label="Previous day"
+        >
           ◄
         </button>
-        <h2>{formatDateHeading(date)}</h2>
-        <button type="button" onClick={() => onDateChange(addDays(date, 1))} aria-label="Next day">
+        <div className="schedule-view__date-wrap">
+          <h2>{formatDateHeading(date)}</h2>
+          {/* Only an OPEN affordance — once expanded, MonthCalendar carries its own close control. */}
+          {!showMonth && (
+            <button
+              type="button"
+              className="icon-button icon-button--ghost icon-button--md"
+              aria-label="Show month view"
+              aria-expanded={false}
+              onClick={() => setShowMonth(true)}
+            >
+              ▼
+            </button>
+          )}
+        </div>
+        <button
+          type="button"
+          className="icon-button icon-button--filled icon-button--lg"
+          onClick={() => onDateChange(addDays(date, 1))}
+          aria-label="Next day"
+        >
           ►
         </button>
-        <button type="button" onClick={() => setShowForm(true)}>
+        <button type="button" className="schedule-view__add-task" onClick={() => setShowForm(true)}>
           + Add Task
         </button>
       </div>
@@ -116,7 +150,7 @@ export const ScheduleView = ({ date, onDateChange, schedulableDay }: Props) => {
       )}
 
       <div className="schedule-view__timeline">
-        <span className="schedule-view__axis-label">{minuteToLabel(schedulableDay.start)}</span>
+        <span className="schedule-view__axis-label">Day Start: {minuteToLabel(schedulableDay.start)}</span>
         {placements.length === 0 && <p className="schedule-view__free">(free)</p>}
         {placements.map((p) => (
           <OccurrenceBlock
@@ -129,7 +163,7 @@ export const ScheduleView = ({ date, onDateChange, schedulableDay }: Props) => {
             onSkip={() => onSkip(p.id, p.taskId)}
           />
         ))}
-        <span className="schedule-view__axis-label">{minuteToLabel(schedulableDay.end)}</span>
+        <span className="schedule-view__axis-label">Day End: {minuteToLabel(schedulableDay.end)}</span>
       </div>
 
       {unplacedTasks.length > 0 && (

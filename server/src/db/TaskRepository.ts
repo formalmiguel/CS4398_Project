@@ -146,6 +146,18 @@ const matchesDate = (doc: TaskDocument, date: IsoDate): boolean => {
   return (doc.recurrence.daysOfWeek ?? []).includes(isoWeekday(date));
 };
 
+/** Every `IsoDate` from `start` to `end` inclusive, UTC. Range length is the caller's concern. */
+const datesBetween = (start: IsoDate, end: IsoDate): readonly IsoDate[] => {
+  const dates: IsoDate[] = [];
+  const cursor = new Date(`${start}T00:00:00.000Z`);
+  const last = new Date(`${end}T00:00:00.000Z`);
+  while (cursor <= last) {
+    dates.push(cursor.toISOString().slice(0, 10));
+    cursor.setUTCDate(cursor.getUTCDate() + 1);
+  }
+  return dates;
+};
+
 // ─── The repository ────────────────────────────────────────────────────────
 
 export class TaskRepository {
@@ -342,6 +354,33 @@ export class TaskRepository {
 
   async completionRecordsForTask(taskId: string): Promise<readonly { completedAt: string }[]> {
     return this.completionRecords.find({ taskId }, { projection: { completedAt: 1 } }).toArray();
+  }
+
+  /**
+   * A calendar-overview read, not a placement query: which of the user's TASKS occur on each
+   * day in `[start, end]`, and what types they are — computed with the same `matchesDate`
+   * predicate `docsForDate` uses for one day, just swept across a range.
+   *
+   * Deliberately NOT sourced from `placements`: FR-RSC-10 evaluates a day only when it's
+   * actually retrieved, so a future day nobody has opened yet has no `Placement` row at all —
+   * a placements-only overview would silently show it as empty even when tasks are defined for
+   * it. This reads task DEFINITIONS (`intendedDate` + `recurrence`) instead: no engine call, no
+   * reschedule sweep, no write. Only dates with at least one matching task are returned. Range
+   * length is bounded by the caller (`app.ts`'s route); this method trusts what it's given.
+   */
+  async taskTypesInRange(
+    userId: string,
+    start: IsoDate,
+    end: IsoDate,
+  ): Promise<readonly { date: IsoDate; types: readonly TaskType[] }[]> {
+    if (!isNonEmptyString(userId)) return [];
+    const docs = await this.tasks.find({ userId }).toArray();
+    const result: { date: IsoDate; types: readonly TaskType[] }[] = [];
+    for (const date of datesBetween(start, end)) {
+      const types = [...new Set(docs.filter((doc) => matchesDate(doc, date)).map((doc) => doc.type))];
+      if (types.length > 0) result.push({ date, types });
+    }
+    return result;
   }
 
   /**
