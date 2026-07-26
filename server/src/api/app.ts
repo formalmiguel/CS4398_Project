@@ -22,6 +22,7 @@ import { Db } from 'mongodb';
 
 import type { Interval, Placement, PlacementStatus, Task } from '@capstone/shared';
 
+import { buildIcsCalendar, IcsExportEvent } from '../calendar/ics';
 import { UserStore } from '../db/UserStore';
 import { TaskRepository } from '../db/TaskRepository';
 import type { Clock, RescheduleService } from '../reschedule/RescheduleService';
@@ -546,6 +547,54 @@ export const buildApp = (deps: AppDependencies): Express => {
     const userId = req.userId!;
     const days = await tasks.taskTypesInRange(userId, start, end);
     res.json({ days });
+  });
+
+  // ── Calendar export (FR-CAL-07, SI-06) ──────────────────────────────────
+  //
+  // Text generation, nothing else: no OAuth, no third-party write, no network (CON-07). It
+  // reads back whatever this System already placed — the same "engine decided, this file only
+  // reports" boundary every other route in this file respects (FR-RSC-03).
+  const MAX_EXPORT_DAYS = 366;
+
+  // A CANCELLED placement is a withdrawn automatic reschedule (FR-RSC-09) — the original
+  // occurrence stayed where it was, so this one was never really "placed" and exporting it
+  // would put a phantom event on the user's calendar. Every other status DID occupy the slot
+  // at some point, including MISSED/SKIPPED, so FR-CAL-07's "each placed task" includes them.
+  const EXPORTABLE_STATUSES: readonly PlacementStatus[] = ['PLANNED', 'COMPLETED', 'MISSED', 'SKIPPED'];
+
+  app.get('/schedule/export', requireAuth(auth), async (req: AuthedRequest, res) => {
+    const { start, end } = req.query;
+    if (!isSafeQueryString(start) || !isSafeQueryString(end)) {
+      res.status(400).json({ error: 'start and end query parameters are required' });
+      return;
+    }
+    if (end < start) {
+      res.status(400).json({ error: 'end must not be before start' });
+      return;
+    }
+    const spanDays =
+      (new Date(`${end}T00:00:00.000Z`).getTime() - new Date(`${start}T00:00:00.000Z`).getTime()) / 86_400_000 + 1;
+    if (spanDays > MAX_EXPORT_DAYS) {
+      res.status(400).json({ error: `range too large — ${MAX_EXPORT_DAYS} days maximum` });
+      return;
+    }
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+    const userId = req.userId!;
+    const placements = (await tasks.placementsInRange(userId, start, end)).filter((p) =>
+      EXPORTABLE_STATUSES.includes(p.status),
+    );
+    const taskById = await tasks.getTasksByIds(placements.map((p) => p.taskId));
+    const events: IcsExportEvent[] = placements.map((p) => ({
+      uid: p.id,
+      title: taskById.get(p.taskId)?.title ?? 'Untitled',
+      date: p.date,
+      start: p.start,
+      end: p.end,
+    }));
+    const ics = buildIcsCalendar(events, new Date());
+    res.setHeader('Content-Type', 'text/calendar; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="schedule-${start}-to-${end}.ics"`);
+    res.send(ics);
   });
 
   return app;

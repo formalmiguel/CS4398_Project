@@ -148,6 +148,29 @@ export interface MonthOverviewDay {
 export const getMonthOverview = (start: string, end: string): Promise<{ days: readonly MonthOverviewDay[] }> =>
   request(`/schedule/overview?start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}`);
 
+// ─── Calendar export (FR-CAL-07, SI-06) ───────────────────────────────────
+
+/**
+ * Not `request()` — the response is `text/calendar`, not JSON, so this is the second (and
+ * only other) place this app calls `fetch` directly, for the same reason `request` exists:
+ * SI-04 still holds, this is still the REST API, just a binary/file response instead of JSON.
+ */
+export const exportScheduleIcs = async (start: string, end: string): Promise<Blob> => {
+  const token = getToken();
+  const headers: Record<string, string> = {};
+  if (token !== null) headers.Authorization = `Bearer ${token}`;
+  const res = await fetch(
+    `/api/schedule/export?start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}`,
+    { headers },
+  );
+  if (!res.ok) {
+    const body = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+    const message = typeof body.error === 'string' ? body.error : 'Could not export the schedule.';
+    throw new ApiError(message, res.status);
+  }
+  return res.blob();
+};
+
 /** NFR-USE-03: the one-line ternary every component's catch block was repeating. */
 export const toErrorMessage = (err: unknown, fallback: string): string =>
   err instanceof ApiError ? err.message : fallback;

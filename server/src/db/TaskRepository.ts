@@ -247,6 +247,24 @@ export class TaskRepository {
     return docs.map(toPlacement);
   }
 
+  /**
+   * FR-CAL-07: every placement in `[start, end]`, inclusive, for the `.ics` export. Range
+   * length is bounded by the caller (`app.ts`'s route), same convention as `taskTypesInRange`.
+   */
+  async placementsInRange(userId: string, start: IsoDate, end: IsoDate): Promise<readonly Placement[]> {
+    if (!isNonEmptyString(userId)) return [];
+    const docs = await this.placements.find({ userId, date: { $gte: start, $lte: end } }).toArray();
+    return docs.map(toPlacement);
+  }
+
+  /** FR-CAL-07: task titles for a set of placements, one round trip. Invalid ids are dropped. */
+  async getTasksByIds(taskIds: readonly string[]): Promise<ReadonlyMap<string, Task>> {
+    const validIds = [...new Set(taskIds)].filter(isValidObjectIdString);
+    if (validIds.length === 0) return new Map();
+    const docs = await this.tasks.find({ _id: { $in: validIds.map((id) => new ObjectId(id)) } }).toArray();
+    return new Map(docs.map((doc) => [doc._id.toHexString(), toTask(doc)]));
+  }
+
   /** FR-USR-07: wake/sleep as `Minute`. The engine is told, never asked. */
   async schedulableDay(userId: string, _date: IsoDate): Promise<Interval> {
     const day = await this.users.schedulableDay(userId);
