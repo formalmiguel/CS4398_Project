@@ -291,3 +291,57 @@ describe('TaskRepository — NFR-SEC-06', () => {
     expect(await repo.getTask(theirs.id)).toBeDefined();
   });
 });
+
+describe('TaskRepository — FR-CAL-07 export support', () => {
+  it('placementsInRange returns every placement with a date in [start, end], inclusive, for that user only', async () => {
+    const other = await users.create({ email: 'range-other@x.com', passwordHash: 'h', wakeMinute: 0, sleepMinute: 1 });
+    const task = await repo.createTask({
+      userId,
+      intendedDate: '2026-07-23',
+      title: 'Ranged',
+      type: 'HABIT',
+      durationMinutes: 30,
+      priority: 3,
+      preferredWindow: { start: 600, end: 700 },
+      flexibility: 'FLEXIBLE',
+    });
+    await repo.savePlacement(makePlacement('before', task.id, { date: '2026-07-09' }));
+    await repo.savePlacement(makePlacement('start-edge', task.id, { date: '2026-07-10' }));
+    await repo.savePlacement(makePlacement('inside', task.id, { date: '2026-07-15' }));
+    await repo.savePlacement(makePlacement('end-edge', task.id, { date: '2026-07-20' }));
+    await repo.savePlacement(makePlacement('after', task.id, { date: '2026-07-21' }));
+    const otherTask = await repo.createTask({
+      userId: other.id,
+      intendedDate: '2026-07-15',
+      title: 'Not mine',
+      type: 'HABIT',
+      durationMinutes: 30,
+      priority: 3,
+      preferredWindow: { start: 600, end: 700 },
+      flexibility: 'FLEXIBLE',
+    });
+    await repo.savePlacement(makePlacement('other-user', otherTask.id, { date: '2026-07-15' }));
+
+    const found = await repo.placementsInRange(userId, '2026-07-10', '2026-07-20');
+
+    expect(new Set(found.map((p) => p.id))).toEqual(new Set(['start-edge', 'inside', 'end-edge']));
+  });
+
+  it('getTasksByIds returns a map keyed by id, skipping ids that do not exist', async () => {
+    const task = await repo.createTask({
+      userId,
+      intendedDate: '2026-07-23',
+      title: 'Lookup Me',
+      type: 'HABIT',
+      durationMinutes: 30,
+      priority: 3,
+      preferredWindow: { start: 600, end: 700 },
+      flexibility: 'FLEXIBLE',
+    });
+
+    const found = await repo.getTasksByIds([task.id, '000000000000000000000000', 'not-an-object-id']);
+
+    expect(found.size).toBe(1);
+    expect(found.get(task.id)?.title).toBe('Lookup Me');
+  });
+});
