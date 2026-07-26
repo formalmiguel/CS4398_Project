@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import type { Interval, Task } from '@capstone/shared';
 
-import { ScheduleResult, completeTask, getSchedule, skipTask, toErrorMessage } from '../api/client';
+import { ScheduleResult, completeTask, exportScheduleIcs, getSchedule, skipTask, toErrorMessage } from '../api/client';
 import { addDays, formatDateHeading, minuteToLabel } from '../dateUtils';
 import { MonthCalendar } from './MonthCalendar';
 import { OccurrenceBlock } from './OccurrenceBlock';
@@ -69,6 +69,21 @@ export const ScheduleView = ({ date, onDateChange, schedulableDay }: Props) => {
   const onSkip = (placementId: string, taskId: string): Promise<void> =>
     runAction(placementId, taskId, skipTask, 'Could not skip the task.');
 
+  /** FR-CAL-07: exports just the day currently on screen — a single-day range is still a range. */
+  const onExport = async (): Promise<void> => {
+    try {
+      const blob = await exportScheduleIcs(date, date);
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `schedule-${date}.ics`;
+      link.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      setError(toErrorMessage(err, 'Could not export the schedule.'));
+    }
+  };
+
   const { taskById, placements, unplacedTasks, awaitingChoiceCount } = useMemo(() => {
     const byId = new Map<string, Task>((data?.tasks ?? []).map((t) => [t.id, t]));
     const sortedPlacements = [...(data?.placements ?? [])].sort((a, b) => a.start - b.start);
@@ -119,9 +134,14 @@ export const ScheduleView = ({ date, onDateChange, schedulableDay }: Props) => {
         >
           ►
         </button>
-        <button type="button" className="schedule-view__add-task" onClick={() => setShowForm(true)}>
-          + Add Task
-        </button>
+        <div className="schedule-view__nav-actions">
+          <button type="button" className="schedule-view__export" onClick={() => void onExport()}>
+            Export .ics
+          </button>
+          <button type="button" className="schedule-view__add-task" onClick={() => setShowForm(true)}>
+            + Add Task
+          </button>
+        </div>
       </div>
 
       {error !== null && <p className="error">{error}</p>}

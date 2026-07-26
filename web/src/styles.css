@@ -288,11 +288,29 @@ label {
   white-space: nowrap;
 }
 
-.schedule-view__add-task {
+.schedule-view__nav-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
   margin-left: auto;
+}
+
+.schedule-view__add-task {
   background: var(--accent);
   color: var(--accent-ink);
   border: none;
+  border-radius: 999px;
+  padding: 0.5rem 1rem;
+  font-weight: 600;
+  font-size: 0.85rem;
+  white-space: nowrap;
+}
+
+/* FR-CAL-07: a secondary action next to the primary "+ Add Task" CTA — outlined, not filled. */
+.schedule-view__export {
+  background: transparent;
+  color: var(--ink);
+  border: 1px solid var(--border);
   border-radius: 999px;
   padding: 0.5rem 1rem;
   font-weight: 600;
