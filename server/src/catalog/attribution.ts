@@ -1,9 +1,11 @@
 /**
- * 🔴 RED (packet 11) — FR-LIB-10. The recorded licence and attribution for any seeded dataset.
+ * 🟢 GREEN (packet 11b) — FR-LIB-10. The recorded licence and attribution for every seeded dataset.
  *
- * THROWS in RED. Packet 11b (GREEN) records the `free-exercise-db` provenance here (or points this
- * at a committed `ATTRIBUTION.md`) — the source name and the licence (The Unlicense, decision A),
- * satisfying FR-LIB-10's "licence and attribution recorded in the repository".
+ * Only the WORKOUT library is seeded from an external dataset — `free-exercise-db` (decision A),
+ * released under The Unlicense (public domain), which permits the storage and redistribution the
+ * vendored `data/free-exercise-db.subset.json` relies on. The full notice is in
+ * `data/ATTRIBUTION.md`. The MEAL library is hand-authored (§4.2), has no external source, and so
+ * carries no entry here.
  */
 
 /** The provenance of one seeded dataset — the source it came from and the licence it is used under. */
@@ -13,5 +15,5 @@ export interface SeedAttribution {
 }
 
 export function seedAttribution(): readonly SeedAttribution[] {
-  throw new Error('not implemented');
+  return [{ source: 'free-exercise-db', licence: 'The Unlicense' }];
 }
