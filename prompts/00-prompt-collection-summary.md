@@ -81,7 +81,7 @@ Each prompt follows the required formatting techniques with **Sandwich Method**,
 | 13 | `frontend/13-frontend-schedule-dashboard.md` | BUILD | ✅ Written and run, 23 Jul — `npm run verify` green, live smoke test passed, `docs/P13-REPORT.md` |
 | 14a | `frontend/14a-wellness-backend-endpoints.md` | BUILD | ✅ Written 27 Jul — wellness read surface + UC-01 registration capture (`GET /wellness`, metric injection, baseline/dietary-pref capture). Composes packets 08/10/11. Not yet run. |
 | 14b | `frontend/14b-frontend-wellness-view.md` | BUILD | ✅ Written + built 27 Jul — `WellnessView` renders `GET /wellness`; Schedule/Wellness nav (UI-03); verify 460 green, build clean. Browser render not yet observed. Not committed. (`docs/P14B-REPORT.md`) |
-| 15a | `frontend/15a-analytics-computation-RED.md` | 🔴 RED | ✅ Authored 27 Jul — surface `server/src/analytics/HabitAnalytics.ts` (pure `analyzeHabit`), 10 enumerated FR-ANL cases. **RED tests to be written in a FRESH session + second-human gate (§4.6).** Not yet run. |
+| 15a | `frontend/15a-analytics-computation-RED.md` | 🔴 RED | ✅ RED run 27 Jul on `wp-15-analytics` — 13 tests, all red at the `Error('15b')` stub (`server/src/analytics/HabitAnalytics.ts` pure `analyzeHabit`). **Pre-freeze: awaiting the second-human gate (§8.3); GREEN is a separate session (§4.6).** 2 gate escalations (SUPERSEDED, PLANNED). `docs/P15A-RED-REPORT.md`. |
 | 15b | `frontend/15b-analytics-computation-GREEN.md` | 🟢 GREEN | ⬜ Not yet written — impl + `GET /analytics` |
 | 15c | `frontend/15c-frontend-analytics-view.md` | BUILD | ⬜ Not yet written — FR-ANL-04, UI-04 *(FR-ANL-05 trend chart is Conditional → out, 26 Jul)* |
 | 16a | `verification/16a-guards-placement-purity.md` | GUARD | ✅ Written *(24 Jul, immediately before its run)* |
