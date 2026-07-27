@@ -28,6 +28,18 @@ irrelevant, UC-11); CANCELLED (FR-RSC-09) not double-counted; skipped-never-comp
 inescapable from the denominator (FR-ANL-06); skipped-then-completed = completed; the distinct-date
 invariant; SUPERSEDED; and a property test (completed ≤ scheduled, rate is their quotient, 200 trials).
 
+## ✅ Escalations — RATIFIED (SRS v2.31, decision log 27 Jul)
+
+Both were checked against the SRS and ratified into FR-ANL before the freeze, so the frozen suite
+encodes stated requirements, not a RED run's guess (§0.1):
+- **GATE-1 → new FR-ANL-07:** a `SUPERSEDED` occurrence counts as **neither completed nor missed**
+  (excluded from both terms, not a streak-breaker) — extends FR-ANL-03's principle. The suite's
+  SUPERSEDED test already matches this.
+- **GATE-2 → FR-ANL-02 amended:** the denominator counts only occurrences whose window has **elapsed**;
+  a future `PLANNED` occurrence is in neither term.
+
+*Original escalation notes, for the record:*
+
 ## ⚠️ Escalations for the gate (decide, then the freeze ratifies them)
 
 - **GATE-1 — SUPERSEDED.** A `SUPERSEDED` occurrence (a workout the recommender replaced, FR-REC-02 —
