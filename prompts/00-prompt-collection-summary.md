@@ -81,7 +81,8 @@ Each prompt follows the required formatting techniques with **Sandwich Method**,
 | 14 | `frontend/14-frontend-wellness-view.md` | BUILD | ⬜ Not yet written |
 | 15 | `frontend/15-frontend-analytics-view.md` | BUILD | ⬜ Not yet written |
 | 16a | `verification/16a-guards-placement-purity.md` | GUARD | ✅ Written *(24 Jul, immediately before its run)* |
-| 16b | `verification/16b-guards-network-extensibility.md` | GUARD | ⬜ Not yet written — needs 10/11 |
+| 16b | `verification/16b-guards-network-extensibility.md` | GUARD | ✅ Written *(27 Jul, immediately before its run — unblocked by 10 and 11 both merging)*; **not yet run, and now runs AFTER 17d** |
+| **17d** | `verification/17d-wire-recommendation-path.md` | **INTEGRATION** | ✅ Written *(27 Jul)*; **not yet run — ⛔ THIS IS THE TOP OF THE QUEUE.** Wires the recommendation path into the running app (OPEN-30) and reconciles the two `Catalog` interfaces (OPEN-28). **§6 cannot be demonstrated until it lands.** |
 | 17a | `verification/17a-acceptance-suite-RED.md` | 🔴 RED | ✅ Done 26 Jul — frozen at `8809158`, merged to `dev` (`docs/P17A-RED-REPORT.md`) |
 | 17b | `verification/17b-integration-GREEN.md` | 🟢 GREEN | ✅ Done 26 Jul — FR-REC-04 wiring, acceptance 8/8, merged to `dev` (`docs/P17B-GREEN-REPORT.md`) |
 | 17c | `verification/17c-replacement-durability.md` | 🔴 RED → 🟢 GREEN | 🔴 RED run 26 Jul — durability test `server/test/replacement/`, RED against `dev` (the replaced run resurrects); at the human gate, not frozen/committed (`docs/P17C-RED-REPORT.md`). GREEN (the `SUPERSEDED` fix) is a separate session. |
@@ -108,8 +109,9 @@ Each prompt follows the required formatting techniques with **Sandwich Method**,
 | 14 | FR-WEL-01…05, UI-03 | §3.8.9 |
 | 15 | FR-ANL-01…06, UI-04 | §3.8.10 |
 | 16a | FR-RSC-03, **NFR-MNT-03**, FR-SCH-05, **CON-04**, NFR-MNT-04 *(subjects exist now)* | §3.8.5, §3.8.4, §4.5, §3.2 |
-| 16b | FR-LIB-02, FR-REC-11 *(need packets 10/11)* | §3.8.7, §3.8.11 |
+| 16b | FR-LIB-02, FR-REC-11, **FR-WER-04**, **NFR-MNT-06**, NFR-MNT-07 *(10/11 merged 25/27 Jul — unblocked)* | §3.8.7, §3.8.11, §3.8.6, §4.5 |
 | 17a–17b | §6 verification approach, Appendix D acceptance, **FR-REC-04** *(its test is frozen in 17a, the wiring written in 17b — see the note below)* | §6, §3.8.7 |
+| **17d** | **FR-WER-07**, **FR-REC-04**, FR-REC-01/02/03/08/13, FR-LIB-02, FR-RSC-03 *(the composition root + the HTTP surface §6 needs; closes OPEN-30 and OPEN-28)* | §6, §3.8.6, §3.8.7 |
 
 ---
 
