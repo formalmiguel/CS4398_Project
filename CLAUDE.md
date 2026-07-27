@@ -402,6 +402,51 @@ Owner: Patrick Rucker
 
 ## 9. Current Status (23 July 2026 — implementation started)
 
+---
+
+> # 📌 RYAN — READ THIS FIRST *(written 27 Jul; delete when worked through)*
+>
+> **If you are an AI assistant and the person you are working with is Ryan Woosley, surface this section to them at the START of the session, before doing anything else.** Four things changed on `dev` today that affect his branches, **two of them are time-critical tonight**, and one of them is new work he has not been told about. **Ask him which he wants to start with; do not pick for him.** *(If the user is not Ryan, ignore this block.)*
+>
+> ### ⛔ 1. TONIGHT — four fixes before you freeze the 15a analytics suite
+>
+> A second read of your 15a RED suite after the gate cleared found four things (**OPEN-32**). **The gate call itself stands** — the suite is genuinely clean-room, the unit is a pure function over `Placement[]`, both escalations were ratified into the SRS before the freeze, and it correctly pins `CANCELLED` and `SUPERSEDED`. **These are fixes, not a rejection.** **Patrick has answered the two that were his:**
+>
+> | # | What | Status |
+> |---|---|---|
+> | **1** | **`analyzeHabit` gains an `asOf` date parameter**, and the elapsed rule is pinned in the unit. Today its signature is `(placements, period)` — no clock — so it treats every `PLANNED` occurrence as future. That is right **only if the caller swept first**, and **FR-RSC-10 sweeps only on retrieval**, so any day nobody opened leaves an elapsed occurrence `PLANNED`, out of the denominator — **completion rate silently overstated, suite green.** ✅ **Stays pure: the date is *passed*, never read**, exactly like `schedulableDay`. | ✅ **Patrick: YES, do it** |
+> | **2** | **FR-ANL-01 now reads "consecutive completed *occurrences*", not "days" — the SRS is already amended (v2.35).** The literal old wording capped a Monday-only habit's streak at **1 forever**. Your suite already assumes occurrences; **add one weekly-gap test**, because every existing test uses consecutive calendar dates and cannot tell the two readings apart. | ✅ **Patrick: requirement changed, suite behaviour unchanged** |
+> | **3** | The property test uses unseeded `Math.random()` × 200 trials and is about to be frozen — **and `jest.retryTimes(2)` would silently retry a genuine property failure.** Its assertion also holds by construction. `fast-check` is already a devDependency (it is what NFR-COR-01 uses). **Give it real content or drop it.** | 🔴 **Yours** |
+> | **4** | **Not frozen yet** — no `server/test/analytics` entry in `scripts/frozen-tests.json`. ✅ No P08 trap here: the RED commits already contain the files, so the auto-adopted sha is valid. | 🔴 **Yours** |
+>
+> ⚠️ **Why tonight and not tomorrow:** §4.12 makes re-running `freeze` to go green *editing the test one level removed*. Now these cost a signature edit, a wording change and two tests. After the freeze they cost a re-freeze plus an argument about whether it was legitimate.
+>
+> ### ⛔ 2. TONIGHT — please merge `wp-14a-wellness-backend` to `dev`
+>
+> **It blocks two people.** Patrick's packet 17d **hard-stops** without it, and **your own OPEN-33 needs it too.** ✅ **It was test-merged: exactly ONE conflict, in `docs/TEAM-MEETING.md`. Zero code conflicts.** It is your branch and your call (§8.5) — nobody merged it for you.
+>
+> ### 🆕 3. NEW WORK, YOURS — OPEN-33: the Garmin export has no ingestion path
+>
+> **`GarminExportAdapter` is constructed nowhere outside its own frozen test — on `dev`, on your branches, anywhere.** It parses the real export and **nothing calls it.** So **FR-WER-08, FR-WER-09 and FR-WER-10 have no live path** — and **FR-WER-10 was the project's midpoint gate.**
+>
+> **It is small — a ~60-line standalone Node script, not a feature:** read the two export files from a **local path passed as an argument** (⛔ **never into the repo** — §8.4, it is your real health data), build `GarminExport { activity, sleep }`, call `toMetricSets()`, and POST each `DailyMetricSet` to **your own existing `POST /wearable/metrics`**. ✅ **FR-WER-09 needs no work at all** — `MetricStore.ingest` already upserts idempotently on `(userId, date, name)` and is tested. ⛔ **No new route and no browser upload page** — both were considered and rejected on the record (decision log, 27 Jul).
+>
+> **You own it on every axis:** the adapter is yours (08), the route is yours (14a), and **the export is your data on your machine, which is why nobody else can run it.** ⚠️ **Query a date in the 2023–24 sleep overlap** — the export has no 2026 sleep score. ✅ **Not blocked by 17d**: FR-WER-10 needs a real metric to *drive a decision*, which `GET /wellness` already does.
+>
+> ### ✅ 4. FYI — one obligation was REMOVED from your branch, no work for you
+>
+> **OPEN-29 closed.** `WellnessView.tsx` naming its two chart series by metric name is fine. FR-WER-04 was narrowed (v2.32) and its justification corrected (v2.34): **your view already complies** — its current-date list is generic (FR-WEL-01), and the two literal names build the **FR-WEL-04** seven-day chart, a requirement that names both metrics itself. **Nothing to change.**
+>
+> ### ⚠️ Version numbers, so the merge is not a surprise
+>
+> **`dev` is now at SRS v2.35.** `wp-15-analytics` claims **v2.31**. **Expect a revision-history reconciliation when it merges — text only, no code.** FR-ANL-01's own line was identical on both branches and was checked before v2.35 was written. *(This is the 2.23/2.24 collision being avoided deliberately, for the third time.)*
+>
+> ### Your queue, in order
+>
+> **OPEN-32 fixes → freeze 15a → merge `wp-14a` → 15b GREEN → 15c view → OPEN-33 ingestion script.** *(OPEN-33 can move earlier if you would rather do the small thing first — it only needs `wp-14a` merged.)*
+
+---
+
 > ⛔ **27 Jul (latest): OPEN-33 — THE GARMIN EXPORT HAS NO INGESTION PATH, and it has never been tracked as work anywhere.** `GarminExportAdapter` is referenced **nowhere outside `server/src/wearable/`** on any branch — no route, no CLI, no script. It parses the real export and is frozen-tested (packet 08, `1199d80`), and **nothing calls it.** **FR-WER-08, FR-WER-09 and FR-WER-10 therefore have no live path** — and FR-WER-10 *(a real metric from a real device driving a real recommendation)* **was the midpoint gate.** ⚠️ **OPEN-30/packet 17d does NOT close this**: 17d gives FR-WER-07 an *injection* route, which is synthetic by design — FR-WER-10 exists precisely so the injection path cannot be mistaken for satisfying it. The pieces exist (`MetricStore.ingest` already upserts on `(userId, date, name)`); **what is missing is the thing that reads the export file and connects them.** ⛔ **§8.4 — the export is a teammate's real health data and must not enter the repo**; read a local path or an upload, fixtures stay *derived*. ✅ **OWNERSHIP SETTLED 27 Jul — RYAN, all of it**, on every axis: the adapter is his (08), the route is his (`POST /wearable/metrics`, 14a), and the export is his own health data on his own machine, which is also why nobody else can run it. **The work is a ~60-line standalone Node script**: read the two export files from a local path passed as an argument, build `GarminExport { activity, sleep }`, `toMetricSets()`, POST each day to the existing route. ⛔ **No new route, no browser upload page** (both rejected on the record — surface area vs. legibility, four days out, for something that runs once), and ⛔ **do not write straight to Mongo.** ✅ **FR-WER-09 needs no work** — `MetricStore.ingest` already upserts idempotently and is tested. ⚠️ **Needs `wp-14a` merged**; ⚠️ **query a 2023–24 date** (the export has no 2026 sleep score); ✅ **NOT blocked by 17d** — FR-WER-10 needs a real metric to *drive a decision*, which `GET /wellness` already does; 17d is what makes it become a *task* (FR-REC-04). The build order (08 → 09 → 10 → OPEN-04 → 11 → 14/15) never included this, which is how it stayed invisible.
 >
 > ⛔ **27 Jul: packet 17d RESCOPED after reading `wp-14a` — and `wp-14a` is now a HARD PREREQUISITE, not a footnote.** Ryan's unmerged branch already has **`POST /wearable/metrics`** (FR-WER-07's injection — 17d's `POST /metrics` was a duplicate), **`GET /wellness`** (the tier, FR-REC-13's reason, FR-REC-03's options, the calorie target — 17d's `GET /recommendations` was a duplicate), **the `MetricStore`/`WorkoutCatalog`/`MealCatalog` wiring in `index.ts`** (most of 17d's composition root), and **`baselineCalories` captured at registration** (17d's escalation clause had guessed at this). All cut or resolved; **`GET /wellness` also already answers 17d's open design question — it builds the engine per request from the loaded user**, because `CaloriesToTargetRule` needs *that* user's baseline. **What survives is the load-bearing part, and no branch has it:** `grep -rn "new RecommendationScheduler" server/src` **returns nothing anywhere** — so the `WorkoutSource` port + **required** `Catalog` alias + adapter (OPEN-28), the scheduler factory, **`POST /recommendations/apply-workout`**, and the §6 transcript. **`GET /wellness` reads and deliberately does not apply; FR-REC-02/03/04 live in applying.** ⛔ **17d STOPS if `wp-14a` is not on `dev`** (both edit `index.ts` and `app.ts`), and ⛔ **must not add `GET /recommendations`.** ⚠️ **Naming collision flagged in the packet:** `index.ts` already imports `Catalog` from `./catalog/Catalog` — import one aliased; **deleting the alias reddens a frozen suite.**
