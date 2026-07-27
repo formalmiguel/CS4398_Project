@@ -221,7 +221,16 @@ export type PlacementStatus =
    * occurrence complete (FR-RSC-09). DR-06 requires a cancelled reschedule to stay
    * distinguishable from one that never happened — so it is marked, never deleted.
    */
-  | 'CANCELLED';
+  | 'CANCELLED'
+  /**
+   * This occurrence was REPLACED by a recommendation (FR-REC-02) — a higher-tier workout
+   * swapped for a warranted-tier one for this date only. Terminal, like MISSED/SKIPPED, but it
+   * records neither a user event nor an FR-RSC-09 withdrawal: nothing happened at the old time,
+   * the plan was overtaken. It occupies no time (excluded from the busy set) AND, unlike a task
+   * with no placement at all, it is NOT re-attempted by FR-RSC-05's sweep — that is what stops
+   * the replaced workout resurrecting. Per-occurrence: a recurring task's other dates are untouched.
+   */
+  | 'SUPERSEDED';
 
 export interface Placement {
   readonly id: string;
