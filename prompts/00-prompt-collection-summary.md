@@ -75,7 +75,7 @@ Each prompt follows the required formatting techniques with **Sandwich Method**,
 | 08 | `wearable/08-wearable-adapter-RED.md` + `08b-wearable-adapter-GREEN.md` | 🔴/🟢 | ✅ Done 25 Jul — merged to `dev`, frozen at `1199d80` |
 | 09 | `wearable/09-recommendation-rules-RED.md` | 🔴 RED | ✅ Done 25 Jul — frozen at `59f4e8a`, merged to `dev` |
 | 10 | `wearable/10-recommendation-rules-GREEN.md` | 🟢 GREEN | ✅ Done 25 Jul — `npm run verify` green (294), merged to `dev` |
-| 11 | `wearable/11-catalog-and-seeded-libraries-RED.md` + `11b-…-GREEN.md` | 🔴/🟢 | 🟡 RED **authored 27 Jul** (not yet run/frozen); 11b GREEN authored after the RED freeze |
+| 11 | `wearable/11-catalog-and-seeded-libraries-RED.md` + `11b-…-GREEN.md` | 🔴/🟢 | 🟡 RED **frozen 27 Jul at `4b1fd4e`** (134 tests, `wp-11-libraries`); 11b GREEN next (authored after the freeze, per §4.11) |
 | 12 | `backend/12-backend-api.md` | 🔴/🟢 | ✅ Written and run, 22 Jul — `npm run verify` green, `docs/P12-REPORT.md` |
 | 13 | `frontend/13-frontend-schedule-dashboard.md` | BUILD | ✅ Written and run, 23 Jul — `npm run verify` green, live smoke test passed, `docs/P13-REPORT.md` |
 | 14 | `frontend/14-frontend-wellness-view.md` | BUILD | ⬜ Not yet written |
