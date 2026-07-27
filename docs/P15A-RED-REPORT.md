@@ -11,7 +11,7 @@ test is a **pure** function over `Placement[]`, so all of FR-ANL is pinned in me
 clock), the way the engine's correctness is.
 
 - **Surface (throwing stub):** `server/src/analytics/HabitAnalytics.ts` — `analyzeHabit(placements, period) → { streak, completed, scheduled, completionRate }`.
-- **Suite:** `server/test/analytics/HabitAnalytics.test.ts` — **13 tests, all RED**, every failure at `Error('15b')` (0 assertion-against-real-code, 0 compile errors after the property-test index fix). `typecheck`/`lint` clean.
+- **Suite:** `server/test/analytics/HabitAnalytics.test.ts` — **14 tests, all RED**, every failure at `Error('15b')` (0 assertion-against-real-code, 0 compile errors after the property-test index fix). `typecheck`/`lint` clean.
 
 ## The resolution rules pinned (RED author's reading of the SRS)
 

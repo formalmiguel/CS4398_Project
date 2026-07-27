@@ -89,6 +89,18 @@ describe('FR-ANL-02 — completion rate', () => {
     expect(result.completed).toBe(0);
     expect(result.completionRate).toBe(0);
   });
+
+  it('excludes a not-yet-resolved PLANNED occurrence from the denominator (FR-ANL-02, GATE-2)', () => {
+    // FR-ANL-02 (v2.31): "occurrence scheduled" = one whose window has ELAPSED. A PLANNED-only date
+    // has no completion outcome yet, so it is in NEITHER term — a habit is not penalised for a day
+    // that has not happened. (The /analytics endpoint sweeps elapsed occurrences to MISSED first,
+    // so a past date the analytics sees is already resolved; a still-PLANNED date is treated as future.)
+    const placements = [p(day(0), 'COMPLETED'), p(day(1), 'PLANNED')];
+    const result = analyzeHabit(placements, YEAR);
+    expect(result.scheduled).toBe(1); // only the resolved (COMPLETED) date
+    expect(result.completed).toBe(1);
+    expect(result.completionRate).toBe(1);
+  });
 });
 
 describe('FR-ANL-03 — rescheduled then completed counts as completed', () => {
