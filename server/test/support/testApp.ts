@@ -8,7 +8,11 @@ import { Express } from 'express';
 
 import { UserStore } from '../../src/db/UserStore';
 import { TaskRepository } from '../../src/db/TaskRepository';
+import { MetricStore } from '../../src/db/MetricStore';
 import { RescheduleService } from '../../src/reschedule/RescheduleService';
+import { WorkoutCatalog } from '../../src/catalog/WorkoutCatalog';
+import { MealCatalog } from '../../src/catalog/MealCatalog';
+import type { Catalog } from '../../src/catalog/Catalog';
 import { AuthService } from '../../src/api/auth';
 import { buildApp } from '../../src/api/app';
 import { TestableClock } from './TestableClock';
@@ -18,6 +22,7 @@ export interface TestApp {
   readonly app: Express;
   readonly users: UserStore;
   readonly tasks: TaskRepository;
+  readonly metrics: MetricStore;
   readonly clock: TestableClock;
   readonly auth: AuthService;
   readonly stop: () => Promise<void>;
@@ -31,11 +36,20 @@ export const buildTestApp = async (
   const users = new UserStore(testDb.db);
   await users.ensureIndexes();
   const tasks = new TaskRepository(testDb.db, users);
+  const metrics = new MetricStore(testDb.db);
+  await metrics.ensureIndexes();
   const clock = new TestableClock(startMinute, startDate);
   const reschedule = new RescheduleService(findCandidateSlots, tasks, clock);
   const auth = new AuthService('test-jwt-secret');
 
-  const app = buildApp({ db: testDb.db, users, tasks, reschedule, clock, auth });
+  const workouts = new WorkoutCatalog();
+  const meals = new MealCatalog();
+  const catalog: Catalog = {
+    findWorkouts: workouts.findWorkouts.bind(workouts),
+    findMeals: meals.findMeals.bind(meals),
+  };
 
-  return { app, users, tasks, clock, auth, stop: testDb.stop };
+  const app = buildApp({ db: testDb.db, users, tasks, reschedule, clock, auth, metrics, catalog });
+
+  return { app, users, tasks, metrics, clock, auth, stop: testDb.stop };
 };

@@ -76,4 +76,31 @@ export class MetricStore {
     for (const doc of docs) metrics[doc.name] = toMetric(doc);
     return { date, metrics };
   }
+
+  /**
+   * FR-WEL-04: the stored metrics across the inclusive `[start, end]` date range, one
+   * `DailyMetricSet` per date that HAS at least one record — built in a single query rather than
+   * N single-date round trips. A date with no metric document is simply ABSENT from the result
+   * (FR-WEL-05 / NFR-ROB-01: no record is "no data", never a fabricated zero — the caller must
+   * decide how to present a gap, and cannot mistake absence for a measured value). Ascending by
+   * date, so the caller renders a left-to-right 7-day series without re-sorting. The DR-05 stored
+   * shape is untouched — this only reads it.
+   */
+  async getMetricsInRange(
+    userId: string,
+    start: IsoDate,
+    end: IsoDate,
+  ): Promise<readonly DailyMetricSet[]> {
+    const docs = await this.metrics
+      .find({ userId, date: { $gte: start, $lte: end } })
+      .sort({ date: 1 })
+      .toArray();
+    const byDate = new Map<IsoDate, Record<string, Metric>>();
+    for (const doc of docs) {
+      const metrics = byDate.get(doc.date) ?? {};
+      metrics[doc.name] = toMetric(doc);
+      byDate.set(doc.date, metrics);
+    }
+    return [...byDate.entries()].map(([date, metrics]) => ({ date, metrics }));
+  }
 }
