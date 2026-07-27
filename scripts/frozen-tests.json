@@ -102,6 +102,16 @@
         "server/test/acceptance/support/harness.ts": "5552390b62189bfe7d58e2dba31a5b544fa9bde51cddcadc85b4dc00437a2804"
       },
       "sha": "8809158"
+    },
+    {
+      "packet": "17c",
+      "path": "server/test/replacement",
+      "frozenOn": "2026-07-27",
+      "tests": 1,
+      "files": {
+        "server/test/replacement/replacement-durability.test.ts": "e415fcf7c2a6048e880475401c8df5cc966875768d37979f52a88e077d5435e2"
+      },
+      "sha": "47bb301"
     }
   ]
 }
