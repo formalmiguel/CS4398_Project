@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { AuthResult, Profile, clearToken, getProfile, getToken, setToken } from './api/client';
 import { AuthScreen } from './components/AuthScreen';
 import { ScheduleView } from './components/ScheduleView';
+import { WellnessView } from './components/WellnessView';
 import { todayIso } from './dateUtils';
 import { Theme, applyTheme, getStoredTheme, systemTheme } from './theme';
 
@@ -10,6 +11,7 @@ export const App = () => {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [checkedSession, setCheckedSession] = useState(false);
   const [date, setDate] = useState(todayIso());
+  const [view, setView] = useState<'schedule' | 'wellness'>('schedule');
   const [theme, setThemeState] = useState<Theme>(systemTheme);
 
   useEffect(() => {
@@ -75,8 +77,22 @@ export const App = () => {
     <div className="app">
       <header className="app__header">
         <h1>Adaptive Scheduler</h1>
-        <nav>
-          <span>Schedule</span>
+        <nav className="app__nav">
+          {/* UI-03: the wellness view is one action from the schedule. */}
+          <button
+            type="button"
+            className={view === 'schedule' ? 'app__nav-tab app__nav-tab--active' : 'app__nav-tab'}
+            onClick={() => setView('schedule')}
+          >
+            Schedule
+          </button>
+          <button
+            type="button"
+            className={view === 'wellness' ? 'app__nav-tab app__nav-tab--active' : 'app__nav-tab'}
+            onClick={() => setView('wellness')}
+          >
+            Wellness
+          </button>
         </nav>
         <button
           type="button"
@@ -90,11 +106,15 @@ export const App = () => {
           Log out
         </button>
       </header>
-      <ScheduleView
-        date={date}
-        onDateChange={setDate}
-        schedulableDay={{ start: profile.wakeMinute, end: profile.sleepMinute }}
-      />
+      {view === 'schedule' ? (
+        <ScheduleView
+          date={date}
+          onDateChange={setDate}
+          schedulableDay={{ start: profile.wakeMinute, end: profile.sleepMinute }}
+        />
+      ) : (
+        <WellnessView date={date} />
+      )}
     </div>
   );
 };

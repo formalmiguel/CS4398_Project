@@ -2,7 +2,7 @@
  * SI-04: the only place this app calls `fetch`. The frontend consumes the REST API exclusively
  * — no direct database access, no direct third-party calls.
  */
-import type { DietaryFlag, Flexibility, IntensityTier, Interval, Minute, Placement, PlacementResult, Recurrence, Slot, Task, TaskType } from '@capstone/shared';
+import type { DailyMetricSet, DietaryFlag, Flexibility, IntensityTier, Interval, Meal, MealType, Minute, Placement, PlacementResult, Recurrence, Slot, Task, TaskType, Workout } from '@capstone/shared';
 
 const TOKEN_KEY = 'capstone.token';
 
@@ -155,6 +155,58 @@ export interface MonthOverviewDay {
 
 export const getMonthOverview = (start: string, end: string): Promise<{ days: readonly MonthOverviewDay[] }> =>
   request(`/schedule/overview?start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}`);
+
+// ─── Wellness (FR-WEL-01…05, UI-03) ───────────────────────────────────────
+
+/** FR-REC-13's machine-readable reason (the sentence is built in the view). */
+export interface WellnessReason {
+  readonly metricName: string;
+  readonly metricValue: number | null;
+  readonly usedFallback: boolean;
+}
+
+export interface WellnessWorkout {
+  readonly tier: IntensityTier;
+  readonly recommended: Workout | null;
+  readonly alternatives: readonly Workout[];
+  readonly reason: WellnessReason | null;
+  readonly satisfiable: boolean;
+}
+
+export interface WellnessMealSlot {
+  readonly mealType: MealType;
+  readonly slotTarget: number;
+  readonly meal: Meal | null;
+  readonly relaxed: readonly string[];
+  readonly satisfiable: boolean;
+}
+
+export interface WellnessMeals {
+  readonly baseline: number;
+  readonly activity: number;
+  readonly target: number;
+  readonly planTotalCalories: number;
+  /** FR-WEL-05 / FR-REC-06: the target fell back to the baseline (no current active-calorie data). */
+  readonly madeWithoutCurrentData: boolean;
+  readonly plan: readonly WellnessMealSlot[];
+}
+
+/**
+ * The `GET /wellness` response — a frontend-only shape (like `ScheduleResult`), NOT a
+ * `shared/src/contract.ts` type. `metrics` and `history` carry the `DailyMetricSet` verbatim so
+ * the view renders whatever metrics the set holds (FR-WEL-01) with each metric's availability
+ * and the set's date intact (FR-WEL-05).
+ */
+export interface WellnessResult {
+  readonly date: string;
+  readonly metrics: DailyMetricSet;
+  readonly history: readonly DailyMetricSet[];
+  readonly workout: WellnessWorkout;
+  readonly meals: WellnessMeals;
+}
+
+export const getWellness = (date: string): Promise<WellnessResult> =>
+  request(`/wellness?date=${encodeURIComponent(date)}`);
 
 // ─── Calendar export (FR-CAL-07, SI-06) ───────────────────────────────────
 

@@ -672,3 +672,177 @@ label {
 .type-dot--OTHER {
   background: var(--type-other);
 }
+
+/* ─── Navigation tabs (UI-03) ─────────────────────────────────────────── */
+.app__nav {
+  display: flex;
+  gap: 0.25rem;
+}
+.app__nav-tab {
+  border: none;
+  background: transparent;
+  color: var(--ink-secondary);
+  border-radius: 999px;
+  padding: 0.45rem 1rem;
+  font-weight: 600;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+.app__nav-tab:hover {
+  color: var(--accent);
+}
+.app__nav-tab--active {
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+/* ─── Wellness view (FR-WEL) ──────────────────────────────────────────── */
+.wellness {
+  display: grid;
+  gap: 1rem;
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 1.5rem;
+}
+.wellness__panel {
+  background: var(--surface);
+  border: 1px solid var(--gridline);
+  border-radius: 12px;
+  padding: 1.1rem 1.25rem;
+}
+.wellness__panel h2 {
+  font-size: 0.95rem;
+  font-weight: 700;
+  margin: 0 0 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+.wellness__panel-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.75rem;
+}
+.wellness__panel-head h2 {
+  margin: 0;
+}
+.wellness__meta,
+.wellness__tier {
+  font-size: 0.8rem;
+  color: var(--ink-muted);
+  white-space: nowrap;
+}
+.wellness__tier {
+  font-weight: 600;
+  color: var(--ink-secondary);
+}
+.wellness__muted {
+  color: var(--ink-muted);
+  font-size: 0.9rem;
+  margin: 0;
+}
+.wellness__metrics,
+.wellness__meals {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.5rem;
+}
+.wellness__metric {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+}
+.wellness__metric-name {
+  font-weight: 600;
+}
+.wellness__metric-value {
+  font-variant-numeric: tabular-nums;
+}
+.wellness__metric-value em {
+  color: var(--ink-muted);
+  font-style: normal;
+  font-size: 0.85rem;
+}
+.wellness__metric-value--unavailable {
+  color: var(--ink-muted);
+  font-style: italic;
+}
+.wellness__history {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+  font-variant-numeric: tabular-nums;
+}
+.wellness__history th,
+.wellness__history td {
+  text-align: right;
+  padding: 0.35rem 0.5rem;
+  border-bottom: 1px solid var(--gridline);
+}
+.wellness__history th:first-child,
+.wellness__history td:first-child {
+  text-align: left;
+  color: var(--ink-secondary);
+}
+.wellness__history th {
+  color: var(--ink-muted);
+  font-weight: 600;
+}
+.wellness__reason {
+  margin: 0 0 0.85rem;
+  font-size: 0.9rem;
+  color: var(--ink-secondary);
+}
+.wellness__workouts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
+.wellness__workout {
+  flex: 1 1 8rem;
+  border: 1px solid var(--gridline);
+  border-radius: 10px;
+  padding: 0.7rem 0.85rem;
+  display: grid;
+  gap: 0.15rem;
+}
+.wellness__workout span {
+  font-size: 0.8rem;
+  color: var(--ink-muted);
+}
+.wellness__workout--selected {
+  border-color: var(--accent);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+.wellness__meal {
+  display: grid;
+  grid-template-columns: 6rem 1fr auto;
+  align-items: baseline;
+  gap: 0.75rem;
+  font-size: 0.9rem;
+}
+.wellness__meal-type {
+  color: var(--ink-muted);
+  text-transform: capitalize;
+  font-size: 0.8rem;
+}
+.wellness__meal-kcal {
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-secondary);
+}
+.wellness__flags {
+  grid-column: 2 / -1;
+  color: var(--type-habit);
+  font-size: 0.78rem;
+}
+.wellness__meal--total {
+  border-top: 1px solid var(--gridline);
+  padding-top: 0.5rem;
+  margin-top: 0.15rem;
+  font-weight: 700;
+}
+
