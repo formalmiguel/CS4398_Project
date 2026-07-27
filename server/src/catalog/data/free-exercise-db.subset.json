@@ -1,0 +1,362 @@
+[
+  {
+    "id": "3_4_Sit-Up",
+    "name": "3/4 Sit-Up",
+    "category": "strength",
+    "level": "beginner",
+    "equipment": "body only",
+    "primaryMuscles": [
+      "abdominals"
+    ]
+  },
+  {
+    "id": "90_90_Hamstring",
+    "name": "90/90 Hamstring",
+    "category": "stretching",
+    "level": "beginner",
+    "equipment": "body only",
+    "primaryMuscles": [
+      "hamstrings"
+    ]
+  },
+  {
+    "id": "Adductor",
+    "name": "Adductor",
+    "category": "stretching",
+    "level": "intermediate",
+    "equipment": "foam roll",
+    "primaryMuscles": [
+      "adductors"
+    ]
+  },
+  {
+    "id": "Adductor_Groin",
+    "name": "Adductor/Groin",
+    "category": "stretching",
+    "level": "intermediate",
+    "equipment": null,
+    "primaryMuscles": [
+      "adductors"
+    ]
+  },
+  {
+    "id": "Air_Bike",
+    "name": "Air Bike",
+    "category": "strength",
+    "level": "beginner",
+    "equipment": "body only",
+    "primaryMuscles": [
+      "abdominals"
+    ]
+  },
+  {
+    "id": "All_Fours_Quad_Stretch",
+    "name": "All Fours Quad Stretch",
+    "category": "stretching",
+    "level": "intermediate",
+    "equipment": "body only",
+    "primaryMuscles": [
+      "quadriceps"
+    ]
+  },
+  {
+    "id": "Alternate_Hammer_Curl",
+    "name": "Alternate Hammer Curl",
+    "category": "strength",
+    "level": "beginner",
+    "equipment": "dumbbell",
+    "primaryMuscles": [
+      "biceps"
+    ]
+  },
+  {
+    "id": "Alternate_Heel_Touchers",
+    "name": "Alternate Heel Touchers",
+    "category": "strength",
+    "level": "beginner",
+    "equipment": "body only",
+    "primaryMuscles": [
+      "abdominals"
+    ]
+  },
+  {
+    "id": "Alternate_Incline_Dumbbell_Curl",
+    "name": "Alternate Incline Dumbbell Curl",
+    "category": "strength",
+    "level": "beginner",
+    "equipment": "dumbbell",
+    "primaryMuscles": [
+      "biceps"
+    ]
+  },
+  {
+    "id": "Alternating_Cable_Shoulder_Press",
+    "name": "Alternating Cable Shoulder Press",
+    "category": "strength",
+    "level": "beginner",
+    "equipment": "cable",
+    "primaryMuscles": [
+      "shoulders"
+    ]
+  },
+  {
+    "id": "Alternating_Deltoid_Raise",
+    "name": "Alternating Deltoid Raise",
+    "category": "strength",
+    "level": "beginner",
+    "equipment": "dumbbell",
+    "primaryMuscles": [
+      "shoulders"
+    ]
+  },
+  {
+    "id": "Alternating_Floor_Press",
+    "name": "Alternating Floor Press",
+    "category": "strength",
+    "level": "beginner",
+    "equipment": "kettlebells",
+    "primaryMuscles": [
+      "chest"
+    ]
+  },
+  {
+    "id": "Ab_Crunch_Machine",
+    "name": "Ab Crunch Machine",
+    "category": "strength",
+    "level": "intermediate",
+    "equipment": "machine",
+    "primaryMuscles": [
+      "abdominals"
+    ]
+  },
+  {
+    "id": "Ab_Roller",
+    "name": "Ab Roller",
+    "category": "strength",
+    "level": "intermediate",
+    "equipment": "other",
+    "primaryMuscles": [
+      "abdominals"
+    ]
+  },
+  {
+    "id": "Advanced_Kettlebell_Windmill",
+    "name": "Advanced Kettlebell Windmill",
+    "category": "strength",
+    "level": "intermediate",
+    "equipment": "kettlebells",
+    "primaryMuscles": [
+      "abdominals"
+    ]
+  },
+  {
+    "id": "Alternating_Hang_Clean",
+    "name": "Alternating Hang Clean",
+    "category": "strength",
+    "level": "intermediate",
+    "equipment": "kettlebells",
+    "primaryMuscles": [
+      "hamstrings"
+    ]
+  },
+  {
+    "id": "Alternating_Kettlebell_Press",
+    "name": "Alternating Kettlebell Press",
+    "category": "strength",
+    "level": "intermediate",
+    "equipment": "kettlebells",
+    "primaryMuscles": [
+      "shoulders"
+    ]
+  },
+  {
+    "id": "Alternating_Kettlebell_Row",
+    "name": "Alternating Kettlebell Row",
+    "category": "strength",
+    "level": "intermediate",
+    "equipment": "kettlebells",
+    "primaryMuscles": [
+      "middle back"
+    ]
+  },
+  {
+    "id": "Arnold_Dumbbell_Press",
+    "name": "Arnold Dumbbell Press",
+    "category": "strength",
+    "level": "intermediate",
+    "equipment": "dumbbell",
+    "primaryMuscles": [
+      "shoulders"
+    ]
+  },
+  {
+    "id": "Around_The_Worlds",
+    "name": "Around The Worlds",
+    "category": "strength",
+    "level": "intermediate",
+    "equipment": "dumbbell",
+    "primaryMuscles": [
+      "chest"
+    ]
+  },
+  {
+    "id": "Atlas_Stone_Trainer",
+    "name": "Atlas Stone Trainer",
+    "category": "strongman",
+    "level": "intermediate",
+    "equipment": "other",
+    "primaryMuscles": [
+      "lower back"
+    ]
+  },
+  {
+    "id": "Axle_Deadlift",
+    "name": "Axle Deadlift",
+    "category": "strongman",
+    "level": "intermediate",
+    "equipment": "other",
+    "primaryMuscles": [
+      "lower back"
+    ]
+  },
+  {
+    "id": "Barbell_Ab_Rollout",
+    "name": "Barbell Ab Rollout",
+    "category": "strength",
+    "level": "intermediate",
+    "equipment": "barbell",
+    "primaryMuscles": [
+      "abdominals"
+    ]
+  },
+  {
+    "id": "Barbell_Deadlift",
+    "name": "Barbell Deadlift",
+    "category": "strength",
+    "level": "intermediate",
+    "equipment": "barbell",
+    "primaryMuscles": [
+      "lower back"
+    ]
+  },
+  {
+    "id": "Alternate_Leg_Diagonal_Bound",
+    "name": "Alternate Leg Diagonal Bound",
+    "category": "plyometrics",
+    "level": "beginner",
+    "equipment": null,
+    "primaryMuscles": [
+      "quadriceps"
+    ]
+  },
+  {
+    "id": "Alternating_Renegade_Row",
+    "name": "Alternating Renegade Row",
+    "category": "strength",
+    "level": "expert",
+    "equipment": "kettlebells",
+    "primaryMuscles": [
+      "middle back"
+    ]
+  },
+  {
+    "id": "Atlas_Stones",
+    "name": "Atlas Stones",
+    "category": "strongman",
+    "level": "expert",
+    "equipment": "other",
+    "primaryMuscles": [
+      "lower back"
+    ]
+  },
+  {
+    "id": "Backward_Medicine_Ball_Throw",
+    "name": "Backward Medicine Ball Throw",
+    "category": "plyometrics",
+    "level": "beginner",
+    "equipment": "medicine ball",
+    "primaryMuscles": [
+      "shoulders"
+    ]
+  },
+  {
+    "id": "Barbell_Ab_Rollout_-_On_Knees",
+    "name": "Barbell Ab Rollout - On Knees",
+    "category": "strength",
+    "level": "expert",
+    "equipment": "barbell",
+    "primaryMuscles": [
+      "abdominals"
+    ]
+  },
+  {
+    "id": "Barbell_Squat_To_A_Bench",
+    "name": "Barbell Squat To A Bench",
+    "category": "strength",
+    "level": "expert",
+    "equipment": "barbell",
+    "primaryMuscles": [
+      "quadriceps"
+    ]
+  },
+  {
+    "id": "Bench_Jump",
+    "name": "Bench Jump",
+    "category": "plyometrics",
+    "level": "intermediate",
+    "equipment": "body only",
+    "primaryMuscles": [
+      "quadriceps"
+    ]
+  },
+  {
+    "id": "Bench_Press_with_Chains",
+    "name": "Bench Press with Chains",
+    "category": "powerlifting",
+    "level": "expert",
+    "equipment": "barbell",
+    "primaryMuscles": [
+      "triceps"
+    ]
+  },
+  {
+    "id": "Bench_Sprint",
+    "name": "Bench Sprint",
+    "category": "plyometrics",
+    "level": "beginner",
+    "equipment": "other",
+    "primaryMuscles": [
+      "quadriceps"
+    ]
+  },
+  {
+    "id": "Bent_Press",
+    "name": "Bent Press",
+    "category": "strength",
+    "level": "expert",
+    "equipment": "kettlebells",
+    "primaryMuscles": [
+      "abdominals"
+    ]
+  },
+  {
+    "id": "Box_Jump_Multiple_Response",
+    "name": "Box Jump (Multiple Response)",
+    "category": "plyometrics",
+    "level": "beginner",
+    "equipment": "other",
+    "primaryMuscles": [
+      "hamstrings"
+    ]
+  },
+  {
+    "id": "Box_Skip",
+    "name": "Box Skip",
+    "category": "plyometrics",
+    "level": "beginner",
+    "equipment": "other",
+    "primaryMuscles": [
+      "hamstrings"
+    ]
+  }
+]
