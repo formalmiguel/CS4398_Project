@@ -1,5 +1,7 @@
 import { useState } from 'react';
 
+import type { DietaryFlag } from '@capstone/shared';
+
 import { AuthResult, login, register, toErrorMessage } from '../api/client';
 import { timeToMinute } from '../dateUtils';
 
@@ -7,15 +9,32 @@ interface Props {
   readonly onAuthenticated: (result: AuthResult) => void;
 }
 
-/** FR-USR-01/02/07: register (which defines the schedulable day) or log in to an existing one. */
+/** FR-REC-05: the five dietary preferences the user may declare at registration (UC-01). */
+const DIETARY_OPTIONS: readonly { value: DietaryFlag; label: string }[] = [
+  { value: 'VEGETARIAN', label: 'Vegetarian' },
+  { value: 'VEGAN', label: 'Vegan' },
+  { value: 'GLUTEN_FREE', label: 'Gluten-free' },
+  { value: 'DAIRY_FREE', label: 'Dairy-free' },
+  { value: 'NUT_FREE', label: 'Nut-free' },
+];
+
+/** FR-USR-01/02/07, FR-REC-09, FR-REC-05: register (defining the schedulable day, baseline calorie
+ * target, and dietary preferences per UC-01) or log in to an existing account. */
 export const AuthScreen = ({ onAuthenticated }: Props) => {
   const [mode, setMode] = useState<'login' | 'register'>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [wakeTime, setWakeTime] = useState('07:00');
   const [sleepTime, setSleepTime] = useState('23:00');
+  const [baselineCalories, setBaselineCalories] = useState('2000');
+  const [dietaryPreferences, setDietaryPreferences] = useState<readonly DietaryFlag[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+
+  const toggleDietary = (flag: DietaryFlag): void =>
+    setDietaryPreferences((prev) =>
+      prev.includes(flag) ? prev.filter((f) => f !== flag) : [...prev, flag],
+    );
 
   const submit = async (e: React.FormEvent): Promise<void> => {
     e.preventDefault();
@@ -30,6 +49,8 @@ export const AuthScreen = ({ onAuthenticated }: Props) => {
               password,
               wakeMinute: timeToMinute(wakeTime),
               sleepMinute: timeToMinute(sleepTime),
+              baselineCalories: Number(baselineCalories),
+              dietaryPreferences,
             });
       onAuthenticated(result);
     } catch (err) {
@@ -61,6 +82,30 @@ export const AuthScreen = ({ onAuthenticated }: Props) => {
               Sleep time
               <input type="time" value={sleepTime} onChange={(e) => setSleepTime(e.target.value)} required />
             </label>
+            <label>
+              Baseline calorie target (kcal/day)
+              <input
+                type="number"
+                min={500}
+                max={10000}
+                value={baselineCalories}
+                onChange={(e) => setBaselineCalories(e.target.value)}
+                required
+              />
+            </label>
+            <fieldset className="dietary-preferences">
+              <legend>Dietary preferences</legend>
+              {DIETARY_OPTIONS.map((option) => (
+                <label key={option.value} className="checkbox">
+                  <input
+                    type="checkbox"
+                    checked={dietaryPreferences.includes(option.value)}
+                    onChange={() => toggleDietary(option.value)}
+                  />
+                  {option.label}
+                </label>
+              ))}
+            </fieldset>
           </>
         )}
         {error !== null && <p className="error">{error}</p>}

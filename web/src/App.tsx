@@ -50,7 +50,14 @@ export const App = () => {
 
   const onAuthenticated = (result: AuthResult): void => {
     setToken(result.token);
-    setProfile({ userId: result.userId, email: '', wakeMinute: result.wakeMinute, sleepMinute: result.sleepMinute });
+    setProfile({
+      userId: result.userId,
+      email: '',
+      wakeMinute: result.wakeMinute,
+      sleepMinute: result.sleepMinute,
+      baselineCalories: result.baselineCalories,
+      dietaryPreferences: result.dietaryPreferences,
+    });
   };
 
   const logOut = (): void => {

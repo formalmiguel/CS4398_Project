@@ -2,7 +2,7 @@
  * SI-04: the only place this app calls `fetch`. The frontend consumes the REST API exclusively
  * — no direct database access, no direct third-party calls.
  */
-import type { Flexibility, IntensityTier, Interval, Minute, Placement, PlacementResult, Recurrence, Slot, Task, TaskType } from '@capstone/shared';
+import type { DietaryFlag, Flexibility, IntensityTier, Interval, Minute, Placement, PlacementResult, Recurrence, Slot, Task, TaskType } from '@capstone/shared';
 
 const TOKEN_KEY = 'capstone.token';
 
@@ -48,6 +48,10 @@ export interface AuthResult {
   readonly token: string;
   readonly wakeMinute: Minute;
   readonly sleepMinute: Minute;
+  /** FR-REC-09 / UC-01: the baseline the user set at registration. */
+  readonly baselineCalories: number;
+  /** FR-REC-05 / UC-01: the user's stated dietary preferences. */
+  readonly dietaryPreferences: readonly DietaryFlag[];
 }
 
 export const register = (input: {
@@ -55,6 +59,8 @@ export const register = (input: {
   password: string;
   wakeMinute: Minute;
   sleepMinute: Minute;
+  baselineCalories: number;
+  dietaryPreferences: readonly DietaryFlag[];
 }): Promise<AuthResult> => request('/auth/register', { method: 'POST', body: JSON.stringify(input) });
 
 export const login = (input: { email: string; password: string }): Promise<AuthResult> =>
@@ -65,6 +71,8 @@ export interface Profile {
   readonly email: string;
   readonly wakeMinute: Minute;
   readonly sleepMinute: Minute;
+  readonly baselineCalories: number;
+  readonly dietaryPreferences: readonly DietaryFlag[];
 }
 
 export const getProfile = (): Promise<Profile> => request('/user/me');
