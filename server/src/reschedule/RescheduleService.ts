@@ -61,6 +61,7 @@ import {
   dayAlreadyOverExplanation,
   displacedReason,
   editedReason,
+  firstPlacementReason,
   missedReason,
   nextDayReason,
   reattemptReason,
@@ -515,15 +516,18 @@ export class RescheduleService {
       } else {
         // The re-attempt is stamped with what it descends from — and with NOTHING where the
         // store holds no evidence it descends from anything (v2.20). This branch is also a
-        // brand-new task's first-ever placement, which is not a reschedule at all.
+        // brand-new task's first-ever placement, which is not a reschedule at all — so its stored
+        // reason must not claim a failed earlier attempt (OPEN-24, v2.27). Where the store holds a
+        // row (a MISSED occurrence whose own re-placement found no room) the day genuinely had no
+        // room earlier and `reattemptReason` is true; where it holds nothing, only a plain
+        // `firstPlacementReason` is honest. The distinction is a REASON choice, not a placement
+        // one — the engine still decides where the task goes (FR-RSC-03).
+        const reason: (start: Minute) => string =
+          item.history.length === 0
+            ? (start) => firstPlacementReason(item.task, start)
+            : (start) => reattemptReason(item.task, start);
         outcomes.push(
-          await this.placeFresh(
-            userId,
-            item.task,
-            date,
-            triggerFromHistory(item.history),
-            (start) => reattemptReason(item.task, start),
-          ),
+          await this.placeFresh(userId, item.task, date, triggerFromHistory(item.history), reason),
         );
       }
     }

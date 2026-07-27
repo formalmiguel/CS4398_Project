@@ -60,11 +60,32 @@ export const editedReason = (task: Task, to: Minute): string =>
   `"${task.title}" moved to ${clockLabel(to)} — you changed its duration or preferred window.`;
 
 /**
- * FR-RSC-05. A task that had no placement at all when the schedule was retrieved: the day had
- * no room for it earlier, and now it does.
+ * FR-RSC-05. A task that had no placement at all when the schedule was retrieved, AND whose stored
+ * rows are evidence the day genuinely had no room for it earlier — a MISSED occurrence whose own
+ * re-placement could find no slot, so it is re-attempted on the next retrieval. Here "no room
+ * earlier today" is TRUE.
+ *
+ * ⚠️ NOT for a first-ever placement — see `firstPlacementReason`. `sweepElapsed` chooses between
+ * the two on whether the store holds any row for the task (OPEN-24, v2.27).
  */
 export const reattemptReason = (task: Task, to: Minute): string =>
   `"${task.title}" placed at ${clockLabel(to)} — your day had no room for it earlier today.`;
+
+/**
+ * FR-RSC-05 / OPEN-24 (DR-03, FR-DSH-05, DR-06). A task placed on retrieval that the store holds
+ * NO row for — overwhelmingly a brand-new task's FIRST-EVER placement (the API's `POST /tasks`
+ * reaches `sweepElapsed`'s re-attempt branch for one deliberately). A first placement had no
+ * earlier attempt that failed for want of room, so it must not CLAIM one: `reattemptReason`'s
+ * "your day had no room for it earlier today" was FALSE for exactly this — the commonest case —
+ * and would have had FR-DSH-05 render a failed attempt over a task that was simply created. A
+ * placement's stored reason must be TRUE (DR-03); plain and true is all this can honestly say.
+ *
+ * *(A displaced/edited occurrence whose `PLANNED` row `moveInPlace` hard-deleted also reaches
+ * this with no rows — provenance is genuinely lost there, v2.16 E11 — and a plain reason is the
+ * only honest option for it too. Saying less beats saying something false.)*
+ */
+export const firstPlacementReason = (task: Task, to: Minute): string =>
+  `"${task.title}" placed at ${clockLabel(to)}.`;
 
 /** FR-RSC-05, the accepted offer. */
 export const nextDayReason = (task: Task, to: Minute): string =>
