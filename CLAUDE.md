@@ -254,6 +254,8 @@ The SRS classifies every requirement **Essential / Conditional / Optional** (IEE
 
 **Deliberately NOT started until all Essential work is verified:** FR-SCH-07/08 (priority displacement — *the most seductive way to lose a week*), FR-WER-11 (live API), FR-REC-12 (extensibility proof), FR-LIB-09 (external content API).
 
+> ⛔ **26 Jul — NO Conditional work will be undertaken at all.** The presentation is imminent and the remaining Essential work leaves no room for it, so every Conditional above (plus FR-REC-10, FR-ANL-05, NFR-MNT-02, NFR-MNT-09) is **definitively out** — OPEN-05 and OPEN-06 close unattempted, "having lost nothing." **All remaining work is Essential.** ⚠️ **The two Conditionals already shipped stay** — FR-CAL-07 (`.ics`) and FR-DSH-08 (month nav) are merged, tested, working; a forward-looking scope cut does not un-build sunk work. Full decision + reasoning: `docs/TEAM-MEETING.md` decision log, 26 Jul.
+
 ---
 
 ## 7. Working Agreements (Agentic Development)
