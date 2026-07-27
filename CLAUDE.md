@@ -410,7 +410,7 @@ Owner: Patrick Rucker
 | Owner | Queue, in order |
 |---|---|
 | **Patrick** | 04 RED → **human gate** → freeze → 05 GREEN → author 06 → gate → 07 GREEN → **16a (FR-RSC-03 + FR-SCH-05 guards, runnable now)** → **17a RED (acceptance suite, incl. FR-REC-04) → gate → freeze** → *(after 10/11)* **16b (FR-LIB-02 + FR-REC-11 guards)** → **17b GREEN (the wiring)** → rehearsals |
-| **Ryan** | ✅ OPEN-01 → ✅ 08 adapter + Daily Metric Set → ✅ 09 RED → ✅ **10 GREEN** *(all merged to `dev` 25 Jul; **FR-WER-10 code-complete — real-metric → recommendation path exists and is tested; the (D) demonstration on the real export is still to be shown**)* → **OPEN-04 → 11 libraries → 14/15 (frontend views, per OPEN-09)** |
+| **Ryan** | ✅ OPEN-01 → ✅ 08 adapter + Daily Metric Set → ✅ 09 RED → ✅ **10 GREEN** *(all merged to `dev` 25 Jul; **FR-WER-10 code-complete — real-metric → recommendation path exists and is tested; the (D) demonstration on the real export is still to be shown**)* → **OPEN-04** *(🟡 exercise dataset chosen 27 Jul — `free-exercise-db`, Unlicense; FR-LIB-04 mapping + per-tier duration rule in the decision log; meal library still to author)* **→ 11 libraries → 14/15 (frontend views, per OPEN-09)** |
 | **Miguel** | ✅ 12 backend (done — `docs/P12-REPORT.md`) → ✅ 13 dashboard (done — `docs/P13-REPORT.md`) → queue ends here per OPEN-09 (agreed 23 Jul) unless something else comes up |
 
 **Cross-person blocks — the only ones:** every RED gate needs **a second human**; packet **16** waits on **07 and 10**; **FR-REC-04** needs **05 + 10 + 12**; packet **17** waits on everything.
