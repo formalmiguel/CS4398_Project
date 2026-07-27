@@ -84,7 +84,7 @@ Each prompt follows the required formatting techniques with **Sandwich Method**,
 | 16b | `verification/16b-guards-network-extensibility.md` | GUARD | ⬜ Not yet written — needs 10/11 |
 | 17a | `verification/17a-acceptance-suite-RED.md` | 🔴 RED | ✅ Done 26 Jul — frozen at `8809158`, merged to `dev` (`docs/P17A-RED-REPORT.md`) |
 | 17b | `verification/17b-integration-GREEN.md` | 🟢 GREEN | ✅ Done 26 Jul — FR-REC-04 wiring, acceptance 8/8, merged to `dev` (`docs/P17B-GREEN-REPORT.md`) |
-| 17c | `verification/17c-replacement-durability.md` | 🔴 RED → 🟢 GREEN | ✍️ Authored 26 Jul (OPEN-27, demo-blocker) — RED+GREEN stages not yet run |
+| 17c | `verification/17c-replacement-durability.md` | 🔴 RED → 🟢 GREEN | 🔴 RED run 26 Jul — durability test `server/test/replacement/`, RED against `dev` (the replaced run resurrects); at the human gate, not frozen/committed (`docs/P17C-RED-REPORT.md`). GREEN (the `SUPERSEDED` fix) is a separate session. |
 
 > **CRITICAL**: Prompts **08–17** are **enumerated but not yet authored.** Their scope, phase, and requirement IDs are fixed below and derived from the SRS; their detailed text is written when the packet is run. **This is deliberate.** A prompt authored weeks before its module is designed encodes guesses, and an agent will implement a guess as faithfully as a requirement. **A prompt that does not exist is visibly missing; a prompt written from speculation is invisibly wrong.**
 
