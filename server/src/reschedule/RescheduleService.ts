@@ -231,9 +231,10 @@ export interface CompletionOutcome {
 
 /**
  * The statuses that OCCUPY time on the day, and therefore make a busy interval for the engine.
- * A `MISSED`, `SKIPPED` or `CANCELLED` row records something about the past; it holds nothing.
- * FR-RSC-09's "free the interval it held" is this set and nothing else — a withdrawn reschedule
- * becomes `CANCELLED` and drops out of every subsequent busy set automatically.
+ * A `MISSED`, `SKIPPED`, `CANCELLED` or `SUPERSEDED` row records something about the past; it
+ * holds nothing. FR-RSC-09's "free the interval it held" is this set and nothing else — a
+ * withdrawn reschedule becomes `CANCELLED`, and a replaced workout becomes `SUPERSEDED`
+ * (FR-REC-02), and each drops out of every subsequent busy set automatically.
  */
 const OCCUPIES_TIME: readonly PlacementStatus[] = ['PLANNED', 'COMPLETED'];
 
@@ -495,6 +496,13 @@ export class RescheduleService {
 
       const plannedRows = mine.filter((p) => p.status === 'PLANNED');
       if (plannedRows.length === 0) {
+        // ⛔ FR-REC-02 / OPEN-27: a `SUPERSEDED` occurrence was DELIBERATELY vacated when a
+        // recommendation replaced this workout for the day (RecommendationScheduler). Unlike a
+        // genuinely unplaced task it must NOT be re-attempted — the FR-RSC-05 self-heal below
+        // would otherwise resurrect the replaced run beside the recovery session on the next
+        // retrieval, silently undoing the replacement. Per-occurrence: only THIS date is
+        // superseded, so a recurring task's other dates still self-heal normally.
+        if (mine.some((p) => p.status === 'SUPERSEDED')) continue;
         // FR-RSC-05: unplaced is the ABSENCE of a placement, and the offer is re-derived rather
         // than stored — so a task with no `PLANNED` row is re-attempted on every retrieval, and
         // "free the day up and the next retrieval places the task" needs nothing cleaned up.

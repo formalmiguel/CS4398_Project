@@ -173,9 +173,14 @@ export class RecommendationScheduler {
     });
 
     // Step 5 — vacate the replaced occurrence. FR-REC-02 "replace" means the above-tier run is no
-    // longer on the calendar: marked CANCELLED, not deleted, so it stays distinguishable from one
-    // that never happened (DR-06) and drops out of every busy set (CANCELLED is not OCCUPIES_TIME).
-    await this.repo.savePlacement({ ...replaced.placement, status: 'CANCELLED' });
+    // longer on the calendar: marked SUPERSEDED, not deleted, so it stays distinguishable from one
+    // that never happened (DR-06) and drops out of every busy set (SUPERSEDED is not OCCUPIES_TIME).
+    // ⛔ NOT CANCELLED (OPEN-27): CANCELLED is an FR-RSC-09 *withdrawal*, and — being neither a
+    // PLANNED row nor an occupying one — it leaves the replaced task with no PLANNED placement, so
+    // sweepElapsed's FR-RSC-05 re-attempt would resurrect the run beside the recovery session on the
+    // next retrieval. SUPERSEDED frees the slot identically but is excluded from that re-attempt,
+    // which is what makes the replacement durable. Per-occurrence: only this date is superseded.
+    await this.repo.savePlacement({ ...replaced.placement, status: 'SUPERSEDED' });
 
     // Step 6 — PLACED BY THE ENGINE (FR-REC-02, FR-SCH-01, FR-RSC-03). The busy set is read AFTER
     // the vacate, so the run's old slot is free; the engine's answer is used verbatim.
@@ -225,7 +230,7 @@ export class RecommendationScheduler {
    * ⛔ THE ONE ENGINE CALL. The recovery task is placed by `findCandidateSlots` (injected), used
    * verbatim (FR-RSC-03) — this method asks where the task fits and takes the rank-1 answer; it
    * computes no time. The busy set is every occupying placement on the day (the vacated run is
-   * already CANCELLED, so it is not among them).
+   * already SUPERSEDED, so it is not among them).
    */
   private async placeViaEngine(
     userId: string,
