@@ -112,6 +112,19 @@
         "server/test/replacement/replacement-durability.test.ts": "e415fcf7c2a6048e880475401c8df5cc966875768d37979f52a88e077d5435e2"
       },
       "sha": "47bb301"
+    },
+    {
+      "packet": "11",
+      "path": "server/test/catalog",
+      "frozenOn": "2026-07-27",
+      "files": {
+        "server/test/catalog/MealCatalog.test.ts": "4424e59c77ba44784d7411aecaee9c7efd748d1a84f70b8935a9ad1bdb22c52a",
+        "server/test/catalog/WorkoutCatalog.test.ts": "8c1474507f18df80808357a03befecf9163d82c4deae40f6ed746bbcd4135e40",
+        "server/test/catalog/_support.ts": "03c06123ce62ec713828c246fe48ec4ccd8cc7473a66dc995b4fb5804cf9060f",
+        "server/test/catalog/attribution.test.ts": "3f2c8502c863e3961efcbfe1567e5767971e290ca12db9aef332bc49e67fd1b5",
+        "server/test/catalog/intensityTierMapping.test.ts": "00fb7edf56bc4791c680229982d0dbe2145b2a3ce98c08f2b90cb6e4ae7d69f3"
+      },
+      "sha": "4b1fd4e"
     }
   ]
 }
