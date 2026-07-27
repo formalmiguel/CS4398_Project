@@ -308,6 +308,14 @@ export class TaskRepository {
 
   // ── Application-level methods this packet's routes need, beyond the ratified port ──────────
 
+  /**
+   * `source` defaults to `'USER'` — the only creator until FR-REC-04. A recommended workout is
+   * created as a `source: 'SYSTEM'` task (packet 17b's `RecommendationScheduler`), which is the
+   * ONLY caller that passes `'SYSTEM'`. Per FR-REC-04 a SYSTEM task is otherwise identical to a
+   * user one — placed by the same engine, defended by the same rescheduling — so this parameter
+   * changes only who is recorded as author, never how the task is placed (FR-RSC-03 untouched:
+   * this method still stores a task and computes no placement).
+   */
   async createTask(input: {
     userId: string;
     intendedDate: IsoDate;
@@ -317,6 +325,7 @@ export class TaskRepository {
     priority: number;
     preferredWindow: Interval;
     flexibility: Flexibility;
+    source?: TaskSource;
     recurrence?: Recurrence;
     intensityTier?: IntensityTier;
   }): Promise<Task> {
@@ -330,7 +339,7 @@ export class TaskRepository {
       priority: input.priority,
       preferredWindow: input.preferredWindow,
       flexibility: input.flexibility,
-      source: 'USER',
+      source: input.source ?? 'USER',
       createdAt: new Date().toISOString(),
       awaitingChoice: false,
       ...(input.recurrence === undefined ? {} : { recurrence: input.recurrence }),

@@ -89,6 +89,19 @@
         "server/test/recommendation/SleepToIntensityRule.test.ts": "fd706efa3593d404dce7f02621b880707d3a0b579b2a9f6f49f22dffb7b26f22"
       },
       "sha": "59f4e8a"
+    },
+    {
+      "packet": "17a",
+      "path": "server/test/acceptance",
+      "frozenOn": "2026-07-26",
+      "owner": "Patrick Rucker",
+      "tests": 8,
+      "files": {
+        "server/test/acceptance/reattempt-provenance.test.ts": "adfc0a5a7065e41ba91f0c51278bfd404d31207d934773ea3db685ee1022b104",
+        "server/test/acceptance/recommendation-to-calendar.test.ts": "62571320aa74985d157d6a1e23f89d9488c7dc7d071616ba3c42ef4abe359739",
+        "server/test/acceptance/support/harness.ts": "5552390b62189bfe7d58e2dba31a5b544fa9bde51cddcadc85b4dc00437a2804"
+      },
+      "sha": "8809158"
     }
   ]
 }
