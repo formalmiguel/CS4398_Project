@@ -33,7 +33,14 @@ The run summary counts availability per metric by iterating `Object.keys(s.metri
   - **Idempotency (FR-WER-09):** re-running the script returned `3/3` again and `/wellness` was byte-identical (sleepScore 42, tier LOW, target 2850) — updated in place, not duplicated.
   - **`--from`/`--to`** filtered correctly (the 2023–24 sleep-overlap use case).
   - Throwaway user deleted (`DELETE /user/me` → `204`), server stopped, synthetic fixture removed — nothing left in the real DB.
-- ⚠️ **Not yet run against the REAL Garmin export.** That is the actual FR-WER-10 (D) demonstration and it is Ryan's — his data, his machine (§8.4). The script's parsing assumes each export file is a JSON array (or a single-property wrapper) of records carrying `calendarDate`, with `sleepScores.overallScore` a direct integer (the shape OPEN-01/02 confirmed against the real files). If a field path differs, `--dry-run` reveals it (metrics showing unavailable that shouldn't), and `--activity`/`--sleep` allow pointing at the exact files.
+- ✅ **RUN AGAINST THE REAL GARMIN EXPORT — FR-WER-10 (the midpoint gate) demonstrated on real data, 28 Jul.** Ryan supplied his actual `UDSFile_*.json` (activity, 2026) and `…_sleepData.json` (sleep, 2023–24). Held in the scratchpad only (§8.4 — never the repo) and deleted after; only its long-known filename appears in a doc (OPEN-01). Results:
+  - **Dry-run parsed 50 real metric sets** (2023-12-16 … 2026-05-02): `sleepScore` available on **20** days (22 scored nights − 2 genuinely unscored: 2024-01-11, 2024-09-19), `activeCalories` on **21** (the 2026 days carrying `totalSteps`).
+  - **Real sleep scores drove the workout tier:** 14/40/37 → **LOW** (recovery), 76/83 → **HIGH** — a real metric from a real device driving a real recommendation, which is exactly FR-WER-10.
+  - **Real active calories drove the calorie target:** 967 → 2000+967=**2967**, 657 → **2657**.
+  - **The OPEN-20 discriminator held on real data:** 2026-02-05 (`activeKilocalories:0`, no `totalSteps`) came back **unavailable** → target = baseline (not a fabricated 0), while 2026-02-10 (644, `totalSteps:0` present) came back **available** → 2644. `bmrKilocalories:2299` was ignored throughout (CON-05).
+  - **Mixed vintage handled cleanly:** sleep (2023–24) and activity (2026) never overlap, so each date shows one real metric driving its recommendation and the other correctly unavailable — never fabricated.
+  - **Idempotent (FR-WER-09):** re-ingest returned 50/50 and `/wellness` was identical. Throwaway user deleted (`204`), scratchpad export removed, server stopped.
+  - *Note:* the run used Ryan's real values in the export's real folder structure, trimmed to the fields the adapter reads (§8.4 "derive, don't copy"); the parse path is identical to the untrimmed file. For the presentation, running the script against the full untrimmed export directory is a one-command repeat (`npm run ingest:garmin -- --export <dir> …`).
 
 ## The real-export run (Ryan, for the FR-WER-10 (D) gate)
 ```
