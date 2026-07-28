@@ -4,7 +4,8 @@
   "private": true,
   "main": "src/index.ts",
   "scripts": {
-    "dev": "tsx watch src/index.ts"
+    "dev": "tsx watch src/index.ts",
+    "ingest:garmin": "tsx src/tools/ingestGarminExport.ts"
   },
   "dependencies": {
     "bcrypt": "^6.0.0",
