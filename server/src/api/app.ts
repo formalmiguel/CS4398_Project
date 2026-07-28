@@ -20,11 +20,25 @@ import cors from 'cors';
 import express, { Express, Response } from 'express';
 import { Db } from 'mongodb';
 
-import type { Interval, Placement, PlacementStatus, Task } from '@capstone/shared';
+import type {
+  DailyMetricSet,
+  DietaryFlag,
+  IntensityTier,
+  Interval,
+  Placement,
+  PlacementStatus,
+  Task,
+} from '@capstone/shared';
 
 import { buildIcsCalendar, IcsExportEvent } from '../calendar/ics';
 import { UserStore } from '../db/UserStore';
 import { TaskRepository } from '../db/TaskRepository';
+import { MetricStore } from '../db/MetricStore';
+import type { Catalog } from '../catalog/Catalog';
+import { RecommendationEngine } from '../recommendation/RecommendationEngine';
+import { SleepToIntensityRule } from '../recommendation/SleepToIntensityRule';
+import { CaloriesToTargetRule } from '../recommendation/CaloriesToTargetRule';
+import { analyzeHabit } from '../analytics/HabitAnalytics';
 import type { Clock, RescheduleService } from '../reschedule/RescheduleService';
 import { clockLabel, dayAlreadyOverExplanation } from '../reschedule/reasons';
 import { AuthedRequest, AuthService, requireAuth } from './auth';
@@ -37,7 +51,46 @@ export interface AppDependencies {
   readonly reschedule: RescheduleService;
   readonly clock: Clock;
   readonly auth: AuthService;
+  /** FR-WEL-01/04/05, FR-WER-07: the Daily Metric Set store (packet 08). */
+  readonly metrics: MetricStore;
+  /** FR-WEL-02/03: the seeded workout + meal libraries (packet 11), behind the §3.6 `Catalog` seam. */
+  readonly catalog: Catalog;
 }
+
+/** The five dietary flags (FR-REC-05). A local guard so the register route can validate input. */
+const DIETARY_FLAGS: readonly DietaryFlag[] = [
+  'VEGETARIAN',
+  'VEGAN',
+  'GLUTEN_FREE',
+  'DAIRY_FREE',
+  'NUT_FREE',
+];
+const isDietaryFlag = (v: unknown): v is DietaryFlag =>
+  typeof v === 'string' && (DIETARY_FLAGS as readonly string[]).includes(v);
+
+/** FR-REC-09: a baseline the user actually set — positive and within a sane human range. */
+const isValidBaselineCalories = (v: unknown): v is number =>
+  typeof v === 'number' && Number.isFinite(v) && v >= 500 && v <= 10000;
+
+/** `YYYY-MM-DD` shifted by whole days. Lexicographic order stays chronological (contract §IsoDate). */
+const shiftIsoDate = (date: string, deltaDays: number): string => {
+  const d = new Date(`${date}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + deltaDays);
+  return d.toISOString().slice(0, 10);
+};
+
+/**
+ * FR-WEL-03 / FR-LIB-07: a day plan is BREAKFAST + LUNCH + DINNER, the daily calorie target split
+ * in these FIXED proportions and each slot found INDEPENDENTLY within ±10% of its OWN slot target.
+ * The catalog is a library, not a planner (packet 11) — `findMeals` takes a PER-SLOT target, so
+ * this layer owns the split. These are the ratified proportions (SRS v2.30); under them per-slot
+ * ±10% yields whole-day ±10% by construction, so the assembler needs no cross-slot optimisation.
+ */
+const DAY_PLAN_SPLIT: Readonly<Record<'BREAKFAST' | 'LUNCH' | 'DINNER', number>> = {
+  BREAKFAST: 0.3,
+  LUNCH: 0.35,
+  DINNER: 0.35,
+};
 
 /** FR-CAL-01's fixed-commitment placement reason — the user's own statement, not the engine's. */
 const commitmentReason = (title: string, start: number, end: number): string =>
@@ -85,7 +138,7 @@ const askedAbout = (task: Task, window: Interval, date: string, clock: Clock): T
 };
 
 export const buildApp = (deps: AppDependencies): Express => {
-  const { users, tasks, reschedule, clock, auth } = deps;
+  const { users, tasks, reschedule, clock, auth, metrics, catalog } = deps;
   const app = express();
   app.use(cors());
   app.use(express.json());
@@ -94,7 +147,7 @@ export const buildApp = (deps: AppDependencies): Express => {
 
   app.post('/auth/register', async (req, res) => {
     const body = req.body as Record<string, unknown>;
-    const { email, password, wakeMinute, sleepMinute } = body;
+    const { email, password, wakeMinute, sleepMinute, baselineCalories, dietaryPreferences } = body;
     if (typeof email !== 'string' || email.length === 0) {
       res.status(400).json({ error: 'email is required' });
       return;
@@ -113,17 +166,39 @@ export const buildApp = (deps: AppDependencies): Express => {
       res.status(400).json({ error: 'wakeMinute/sleepMinute must define a valid schedulable day' });
       return;
     }
+    // FR-REC-09 / UC-01: the user sets a baseline calorie target at account creation. The System
+    // asks — it never estimates BMR (§4.9), so this is required input, not a derived default.
+    if (!isValidBaselineCalories(baselineCalories)) {
+      res.status(400).json({ error: 'baselineCalories must be a number between 500 and 10000' });
+      return;
+    }
+    // FR-REC-05 / UC-01: dietary preferences, an optional array (empty = no restriction) whose
+    // every element must be a known flag — an unknown flag is rejected rather than silently dropped.
+    const prefs = dietaryPreferences ?? [];
+    if (!Array.isArray(prefs) || !prefs.every(isDietaryFlag)) {
+      res.status(400).json({ error: 'dietaryPreferences must be an array of dietary flags' });
+      return;
+    }
     if ((await users.findByEmail(email)) !== undefined) {
       res.status(409).json({ error: 'an account with that email already exists' });
       return;
     }
     const passwordHash = await auth.hashPassword(password);
-    const user = await users.create({ email, passwordHash, wakeMinute, sleepMinute });
+    const user = await users.create({
+      email,
+      passwordHash,
+      wakeMinute,
+      sleepMinute,
+      baselineCalories,
+      dietaryPreferences: prefs,
+    });
     res.status(201).json({
       userId: user.id,
       token: auth.signSession(user.id),
       wakeMinute: user.wakeMinute,
       sleepMinute: user.sleepMinute,
+      baselineCalories: user.baselineCalories,
+      dietaryPreferences: user.dietaryPreferences,
     });
   });
 
@@ -148,6 +223,8 @@ export const buildApp = (deps: AppDependencies): Express => {
       token: auth.signSession(user.id),
       wakeMinute: user.wakeMinute,
       sleepMinute: user.sleepMinute,
+      baselineCalories: user.baselineCalories,
+      dietaryPreferences: user.dietaryPreferences,
     });
   });
 
@@ -163,7 +240,14 @@ export const buildApp = (deps: AppDependencies): Express => {
       res.status(404).json({ error: 'not found' });
       return;
     }
-    res.json({ userId: user.id, email: user.email, wakeMinute: user.wakeMinute, sleepMinute: user.sleepMinute });
+    res.json({
+      userId: user.id,
+      email: user.email,
+      wakeMinute: user.wakeMinute,
+      sleepMinute: user.sleepMinute,
+      baselineCalories: user.baselineCalories,
+      dietaryPreferences: user.dietaryPreferences,
+    });
   });
 
   app.patch('/user/schedulable-day', requireAuth(auth), async (req: AuthedRequest, res) => {
@@ -595,6 +679,152 @@ export const buildApp = (deps: AppDependencies): Express => {
     res.setHeader('Content-Type', 'text/calendar; charset=utf-8');
     res.setHeader('Content-Disposition', `attachment; filename="schedule-${start}-to-${end}.ics"`);
     res.send(ics);
+  });
+
+  // ── Wearable metric ingestion (FR-WER-07 injection, FR-WER-09 idempotent) ─
+  //
+  // Exposes MetricStore.ingest over HTTP so the Daily Metric Set has data for the wellness view.
+  // Idempotency and the DR-05 stored shape are MetricStore's — this route does not re-implement
+  // them. A JSON injection path (FR-WER-07/UC-12) is all the wellness demo needs; a raw Garmin
+  // export FILE upload is deliberately out of scope (packet 14a).
+  app.post('/wearable/metrics', requireAuth(auth), async (req: AuthedRequest, res) => {
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+    const userId = req.userId!;
+    const set = req.body as DailyMetricSet;
+    if (typeof set?.date !== 'string' || typeof set?.metrics !== 'object' || set.metrics === null) {
+      res.status(400).json({ error: 'a DailyMetricSet { date, metrics } is required' });
+      return;
+    }
+    await metrics.ingest(userId, set);
+    res.status(204).end();
+  });
+
+  // ── Wellness read surface (FR-WEL-01…05, UI-03 data) ────────────────────
+  //
+  // ⛔ READ ONLY. This composes MetricStore + RecommendationEngine + Catalog for display. It must
+  // NOT call RecommendationScheduler.applyWorkoutRecommendation, which PLACES a task (FR-REC-02/04):
+  // opening the wellness tab must never mutate the schedule. The tier + reason come from
+  // RecommendationEngine.recommend (the read path); the options come from Catalog.findWorkouts.
+  app.get('/wellness', requireAuth(auth), async (req: AuthedRequest, res) => {
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+    const userId = req.userId!;
+    const user = await users.findById(userId);
+    if (user === undefined) {
+      res.status(404).json({ error: 'not found' });
+      return;
+    }
+    const dateParam = req.query.date;
+    const date = isSafeQueryString(dateParam) ? dateParam : clock.today();
+
+    // FR-WEL-01: the metric set for the date, rendered by whatever it contains (not a fixed list).
+    // FR-WEL-04: the previous 7 days (inclusive) as raw DailyMetricSets — the view extracts the
+    // sleep-score and active-calorie series, so a metric added under FR-WER-04 needs no change here.
+    const [metricSet, history] = await Promise.all([
+      metrics.getDailyMetricSet(userId, date),
+      metrics.getMetricsInRange(userId, shiftIsoDate(date, -6), date),
+    ]);
+
+    // The recommendation engine is built PER REQUEST from the loaded user, because
+    // CaloriesToTargetRule needs THIS user's baseline (FR-REC-09) — never a boot-time constant.
+    const engine = new RecommendationEngine();
+    engine.register(new SleepToIntensityRule());
+    engine.register(new CaloriesToTargetRule(user.baselineCalories));
+    const recommendations = engine.recommend(metricSet);
+
+    // Narrow the union by kind (both rules are always registered, so both decisions are present).
+    let tier: IntensityTier = 'MODERATE';
+    let workoutReason = recommendations[0]?.reason;
+    let target = user.baselineCalories;
+    let calorieUsedFallback = true;
+    for (const rec of recommendations) {
+      if (rec.decision.kind === 'WORKOUT_INTENSITY') {
+        tier = rec.decision.tier;
+        workoutReason = rec.reason;
+      } else {
+        target = rec.decision.calorieTarget;
+        calorieUsedFallback = rec.reason.usedFallback;
+      }
+    }
+
+    // FR-WEL-02: today's recommended workout + its tier + the two alternatives from FR-REC-03.
+    const workouts = catalog.findWorkouts(tier, {}, 3);
+    // FR-WEL-03: the meal PLAN — one meal per slot — and the calorie target it was built against,
+    // with baseline and the activity contribution shown SEPARATELY. activity = target − baseline
+    // (0 when no active-calorie metric is available, in which case usedFallback flags that the
+    // target is not a measured figure). The daily target is split per DAY_PLAN_SPLIT and each slot
+    // is queried independently; the catalog already applied the dietary/tolerance constraints.
+    const activity = target - user.baselineCalories;
+    const plan = (['BREAKFAST', 'LUNCH', 'DINNER'] as const).map((mealType) => {
+      const slotTarget = Math.round(DAY_PLAN_SPLIT[mealType] * target);
+      const result = catalog.findMeals(slotTarget, user.dietaryPreferences, mealType);
+      // The meal closest to the slot target, from what findMeals already filtered (dietary flags are
+      // HARD and never relaxed — FR-REC-05). null when even full relaxation yields no candidate.
+      const meal =
+        result.items.length > 0
+          ? result.items.reduce((a, b) =>
+              Math.abs(a.calories - slotTarget) <= Math.abs(b.calories - slotTarget) ? a : b,
+            )
+          : null;
+      return { mealType, slotTarget, meal, relaxed: result.relaxed, satisfiable: result.satisfiable };
+    });
+    const planTotalCalories = plan.reduce((sum, slot) => sum + (slot.meal?.calories ?? 0), 0);
+
+    res.json({
+      date,
+      metrics: metricSet, // FR-WEL-01 / FR-WEL-05: carries each metric's availability + the set's date
+      history, // FR-WEL-04
+      workout: {
+        tier,
+        recommended: workouts.items[0] ?? null,
+        alternatives: workouts.items.slice(1, 3),
+        reason: workoutReason ?? null, // FR-REC-13 (the machine-readable reason; the sentence is a view concern)
+        satisfiable: workouts.satisfiable,
+      },
+      meals: {
+        baseline: user.baselineCalories, // FR-WEL-03: shown separately from…
+        activity, // …the activity contribution
+        target,
+        planTotalCalories,
+        // FR-WEL-05 / FR-REC-06 / UC-08 alt flow: true = the target fell back to the baseline
+        // because active calories were unavailable. The view must not present it as measured.
+        madeWithoutCurrentData: calorieUsedFallback,
+        plan,
+      },
+    });
+  });
+
+  // FR-ANL-01/02/04 (UI-04): a streak and completion rate for each of the user's HABIT tasks.
+  // Read-only, exactly like /wellness — opening the analytics tab must never mutate the schedule,
+  // so this reads placements and never touches RescheduleService or the engine.
+  //
+  // The window is the trailing year ending today, bounded so the placement query stays cheap
+  // (same convention as /schedule/overview and /schedule/export). `asOf` is the request instant
+  // from the injected clock: the ROUTE may read the clock, but it hands the instant to the PURE
+  // analyzeHabit, which may not (§4.7). That instant is what lets an elapsed-but-unswept PLANNED
+  // day count as a miss — FR-RSC-10 sweeps elapsed→MISSED only on retrieval, so a day the user
+  // never opened is still PLANNED and would otherwise silently inflate the completion rate.
+  app.get('/analytics', requireAuth(auth), async (req: AuthedRequest, res) => {
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+    const userId = req.userId!;
+    const user = await users.findById(userId);
+    if (user === undefined) {
+      res.status(404).json({ error: 'not found' });
+      return;
+    }
+    const asOf = clock.today();
+    const from = shiftIsoDate(asOf, -364);
+    const to = asOf;
+
+    const habits = await tasks.habitsForUser(userId);
+    const analytics = await Promise.all(
+      habits.map(async (habit) => {
+        const placements = await tasks.placementsForTaskInRange(userId, habit.id, from, to);
+        const stats = analyzeHabit(placements, { start: from, end: to }, asOf);
+        return { taskId: habit.id, title: habit.title, ...stats };
+      }),
+    );
+
+    res.json({ from, to, asOf, habits: analytics });
   });
 
   return app;

@@ -37,7 +37,8 @@ Each prompt follows the required formatting techniques with **Sandwich Method**,
 | `engine/` | 04–07 | **Patrick Rucker** | FR-SCH, FR-RSC |
 | `wearable/` | 08–11 | **Ryan Woosley** | FR-WER, FR-REC, FR-LIB |
 | `backend/` | 12 | **Miguel Alvarez** | FR-USR, FR-TSK, FR-CAL |
-| `frontend/` | 13–15 | **Miguel Alvarez** | FR-DSH, FR-WEL, FR-ANL |
+| `frontend/` | 13 | **Miguel Alvarez** | FR-DSH |
+| `frontend/` | 14a–15c | **Ryan Woosley** *(per OPEN-09, 23 Jul)* | FR-WEL, FR-ANL |
 | `verification/` | 16–17 | **Patrick Rucker** | the **(I)** guards, integration |
 
 > **⛔ CRITICAL: Run packets in NUMERICAL order — `01` through `17` — regardless of folder.** A folder is not a work queue. `wearable/08` runs after `engine/07` is available, not whenever Ryan gets to it. *(Parallelism is real and documented in `docs/AGENTIC-TDD-WORKFLOW.md` §9 — but it is described there in terms of what each packet is BLOCKED BY, not by folder.)*
@@ -78,8 +79,11 @@ Each prompt follows the required formatting techniques with **Sandwich Method**,
 | 11 | `wearable/11-catalog-and-seeded-libraries-RED.md` + `11b-…-GREEN.md` | 🔴/🟢 | ✅ **Done 27 Jul — RED frozen `4b1fd4e` (134 tests), 11b GREEN `a40d46d`, merged to `dev`, `verify` 453 green** (`docs/P11B-GREEN-REPORT.md`) |
 | 12 | `backend/12-backend-api.md` | 🔴/🟢 | ✅ Written and run, 22 Jul — `npm run verify` green, `docs/P12-REPORT.md` |
 | 13 | `frontend/13-frontend-schedule-dashboard.md` | BUILD | ✅ Written and run, 23 Jul — `npm run verify` green, live smoke test passed, `docs/P13-REPORT.md` |
-| 14 | `frontend/14-frontend-wellness-view.md` | BUILD | ⬜ Not yet written |
-| 15 | `frontend/15-frontend-analytics-view.md` | BUILD | ⬜ Not yet written |
+| 14a | `frontend/14a-wellness-backend-endpoints.md` | BUILD | ✅ Written 27 Jul — wellness read surface + UC-01 registration capture (`GET /wellness`, metric injection, baseline/dietary-pref capture). Composes packets 08/10/11. Not yet run. |
+| 14b | `frontend/14b-frontend-wellness-view.md` | BUILD | ✅ Written + built 27 Jul — `WellnessView` renders `GET /wellness`; Schedule/Wellness nav (UI-03); verify 460 green, build clean. Browser render not yet observed. Not committed. (`docs/P14B-REPORT.md`) |
+| 15a | `frontend/15a-analytics-computation-RED.md` | 🔴 RED | ✅ RED run 27 Jul on `wp-15-analytics` — 14 tests, all red at the `Error('15b')` stub (`server/src/analytics/HabitAnalytics.ts` pure `analyzeHabit`). **Pre-freeze: awaiting the second-human gate (§8.3); GREEN is a separate session (§4.6).** 2 gate escalations (SUPERSEDED, PLANNED). `docs/P15A-RED-REPORT.md`. |
+| 15b | `frontend/15b-analytics-computation-GREEN.md` | 🟢 GREEN | ⬜ Not yet written — impl + `GET /analytics` |
+| 15c | `frontend/15c-frontend-analytics-view.md` | BUILD | ⬜ Not yet written — FR-ANL-04, UI-04 *(FR-ANL-05 trend chart is Conditional → out, 26 Jul)* |
 | 16a | `verification/16a-guards-placement-purity.md` | GUARD | ✅ Written *(24 Jul, immediately before its run)* |
 | 16b | `verification/16b-guards-network-extensibility.md` | GUARD | ✅ Written *(27 Jul, immediately before its run — unblocked by 10 and 11 both merging)*; **not yet run, and now runs AFTER 17d** |
 | **17d** | `verification/17d-wire-recommendation-path.md` | **INTEGRATION** | ✅ Written *(27 Jul)*; **not yet run — ⛔ THIS IS THE TOP OF THE QUEUE.** Wires the recommendation path into the running app (OPEN-30) and reconciles the two `Catalog` interfaces (OPEN-28). **§6 cannot be demonstrated until it lands.** |
@@ -106,8 +110,10 @@ Each prompt follows the required formatting techniques with **Sandwich Method**,
 | 11 | FR-LIB-01…08, FR-LIB-10 | §3.8.11 |
 | 12 | FR-USR, FR-TSK *(**except FR-TSK-04's mechanism**, which is 06–07 — packet 12 **calls** `onTaskEdited`)*, FR-CAL, NFR-SEC, NFR-PERF-02, **the task-creation placement path incl. FR-SCH-10 ordering (OPEN-17)** | §3.8.1–3.8.3 |
 | 13 | FR-DSH-01…07, UI-01, UI-05, UI-07 | §3.8.8, §3.9.1 |
-| 14 | FR-WEL-01…05, UI-03 | §3.8.9 |
-| 15 | FR-ANL-01…06, UI-04 | §3.8.10 |
+| 14a | FR-WEL-01…05, FR-REC-08/09, FR-REC-05, FR-WER-07/09, UI-03 *(data)* · UC-01/UC-08 | §3.8.9, §3.8.7, §3.8.6 |
+| 14b | FR-WEL-01…05, UI-03 *(view)* | §3.8.9 |
+| 15a/15b | FR-ANL-01/02/03/06 **(T)** | §3.8.10 |
+| 15c | FR-ANL-04, UI-04 *(FR-ANL-05 Conditional → out)* | §3.8.10 |
 | 16a | FR-RSC-03, **NFR-MNT-03**, FR-SCH-05, **CON-04**, NFR-MNT-04 *(subjects exist now)* | §3.8.5, §3.8.4, §4.5, §3.2 |
 | 16b | FR-LIB-02, FR-REC-11, **FR-WER-04**, **NFR-MNT-06**, NFR-MNT-07 *(10/11 merged 25/27 Jul — unblocked)* | §3.8.7, §3.8.11, §3.8.6, §4.5 |
 | 17a–17b | §6 verification approach, Appendix D acceptance, **FR-REC-04** *(its test is frozen in 17a, the wiring written in 17b — see the note below)* | §6, §3.8.7 |

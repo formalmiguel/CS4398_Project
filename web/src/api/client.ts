@@ -2,7 +2,7 @@
  * SI-04: the only place this app calls `fetch`. The frontend consumes the REST API exclusively
  * — no direct database access, no direct third-party calls.
  */
-import type { Flexibility, IntensityTier, Interval, Minute, Placement, PlacementResult, Recurrence, Slot, Task, TaskType } from '@capstone/shared';
+import type { DailyMetricSet, DietaryFlag, Flexibility, IntensityTier, Interval, Meal, MealType, Minute, Placement, PlacementResult, Recurrence, Slot, Task, TaskType, Workout } from '@capstone/shared';
 
 const TOKEN_KEY = 'capstone.token';
 
@@ -48,6 +48,10 @@ export interface AuthResult {
   readonly token: string;
   readonly wakeMinute: Minute;
   readonly sleepMinute: Minute;
+  /** FR-REC-09 / UC-01: the baseline the user set at registration. */
+  readonly baselineCalories: number;
+  /** FR-REC-05 / UC-01: the user's stated dietary preferences. */
+  readonly dietaryPreferences: readonly DietaryFlag[];
 }
 
 export const register = (input: {
@@ -55,6 +59,8 @@ export const register = (input: {
   password: string;
   wakeMinute: Minute;
   sleepMinute: Minute;
+  baselineCalories: number;
+  dietaryPreferences: readonly DietaryFlag[];
 }): Promise<AuthResult> => request('/auth/register', { method: 'POST', body: JSON.stringify(input) });
 
 export const login = (input: { email: string; password: string }): Promise<AuthResult> =>
@@ -65,6 +71,8 @@ export interface Profile {
   readonly email: string;
   readonly wakeMinute: Minute;
   readonly sleepMinute: Minute;
+  readonly baselineCalories: number;
+  readonly dietaryPreferences: readonly DietaryFlag[];
 }
 
 export const getProfile = (): Promise<Profile> => request('/user/me');
@@ -147,6 +155,94 @@ export interface MonthOverviewDay {
 
 export const getMonthOverview = (start: string, end: string): Promise<{ days: readonly MonthOverviewDay[] }> =>
   request(`/schedule/overview?start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}`);
+
+// ─── Wellness (FR-WEL-01…05, UI-03) ───────────────────────────────────────
+
+/** FR-REC-13's machine-readable reason (the sentence is built in the view). */
+export interface WellnessReason {
+  readonly metricName: string;
+  readonly metricValue: number | null;
+  readonly usedFallback: boolean;
+}
+
+export interface WellnessWorkout {
+  readonly tier: IntensityTier;
+  readonly recommended: Workout | null;
+  readonly alternatives: readonly Workout[];
+  readonly reason: WellnessReason | null;
+  readonly satisfiable: boolean;
+}
+
+export interface WellnessMealSlot {
+  readonly mealType: MealType;
+  readonly slotTarget: number;
+  readonly meal: Meal | null;
+  readonly relaxed: readonly string[];
+  readonly satisfiable: boolean;
+}
+
+export interface WellnessMeals {
+  readonly baseline: number;
+  readonly activity: number;
+  readonly target: number;
+  readonly planTotalCalories: number;
+  /** FR-WEL-05 / FR-REC-06: the target fell back to the baseline (no current active-calorie data). */
+  readonly madeWithoutCurrentData: boolean;
+  readonly plan: readonly WellnessMealSlot[];
+}
+
+/**
+ * The `GET /wellness` response — a frontend-only shape (like `ScheduleResult`), NOT a
+ * `shared/src/contract.ts` type. `metrics` and `history` carry the `DailyMetricSet` verbatim so
+ * the view renders whatever metrics the set holds (FR-WEL-01) with each metric's availability
+ * and the set's date intact (FR-WEL-05).
+ */
+export interface WellnessResult {
+  readonly date: string;
+  readonly metrics: DailyMetricSet;
+  readonly history: readonly DailyMetricSet[];
+  readonly workout: WellnessWorkout;
+  readonly meals: WellnessMeals;
+}
+
+export const getWellness = (date: string): Promise<WellnessResult> =>
+  request(`/wellness?date=${encodeURIComponent(date)}`);
+
+// ─── Analytics (FR-ANL-01/02/03/04, UI-04) ────────────────────────────────
+
+/**
+ * One habit's row in the analytics table. Every number is `analyzeHabit`'s (server/src/analytics/
+ * HabitAnalytics.ts) — a frozen, property-tested PURE function (packets 15a/15b). The view renders
+ * these verbatim and never re-derives `completionRate`: the frozen function owns FR-ANL-02's math,
+ * so a second division in the view would be a second, un-pinned implementation of the rate.
+ */
+export interface HabitStat {
+  readonly taskId: string;
+  readonly title: string;
+  /** FR-ANL-01: consecutive completed occurrences ending at the most recent resolved one. */
+  readonly streak: number;
+  /** FR-ANL-02 numerator: distinct dates whose occurrence resolved COMPLETED. */
+  readonly completed: number;
+  /** FR-ANL-02 denominator: distinct dates whose occurrence has ELAPSED and resolved (v2.31). */
+  readonly scheduled: number;
+  /** completed / scheduled; exactly 0 when scheduled === 0 (never NaN). */
+  readonly completionRate: number;
+}
+
+/**
+ * The `GET /analytics` response — a frontend-only shape (like `WellnessResult`), NOT a
+ * `shared/src/contract.ts` type. The window (`from`/`to`/`asOf`) is chosen SERVER-SIDE — a fixed
+ * trailing year — so there is no query parameter and no client period selector (docs/TEAM-MEETING.md,
+ * 28 Jul); the view states the window the server returned.
+ */
+export interface AnalyticsResult {
+  readonly from: string;
+  readonly to: string;
+  readonly asOf: string;
+  readonly habits: readonly HabitStat[];
+}
+
+export const getAnalytics = (): Promise<AnalyticsResult> => request('/analytics');
 
 // ─── Calendar export (FR-CAL-07, SI-06) ───────────────────────────────────
 

@@ -12,7 +12,11 @@ import { findCandidateSlots } from '@capstone/engine';
 import { connectMongo } from './db/mongo';
 import { UserStore } from './db/UserStore';
 import { TaskRepository } from './db/TaskRepository';
+import { MetricStore } from './db/MetricStore';
 import { RescheduleService } from './reschedule/RescheduleService';
+import { WorkoutCatalog } from './catalog/WorkoutCatalog';
+import { MealCatalog } from './catalog/MealCatalog';
+import type { Catalog } from './catalog/Catalog';
 import { AuthService } from './api/auth';
 import { SystemClock } from './api/SystemClock';
 import { buildApp } from './api/app';
@@ -30,11 +34,23 @@ const main = async (): Promise<void> => {
   const users = new UserStore(db);
   await users.ensureIndexes();
   const tasks = new TaskRepository(db, users);
+  const metrics = new MetricStore(db);
+  await metrics.ensureIndexes();
   const clock = new SystemClock();
   const reschedule = new RescheduleService(findCandidateSlots, tasks, clock);
   const auth = new AuthService(jwtSecret);
 
-  const app = buildApp({ db, users, tasks, reschedule, clock, auth });
+  // The §3.6 `Catalog` seam is one port; the two seeded libraries each implement half of it
+  // (WorkoutCatalog → findWorkouts, MealCatalog → findMeals). Compose them into a single Catalog
+  // so the wellness route depends on the interface, not on which class serves which method.
+  const workouts = new WorkoutCatalog();
+  const meals = new MealCatalog();
+  const catalog: Catalog = {
+    findWorkouts: workouts.findWorkouts.bind(workouts),
+    findMeals: meals.findMeals.bind(meals),
+  };
+
+  const app = buildApp({ db, users, tasks, reschedule, clock, auth, metrics, catalog });
 
   app.listen(PORT, () => {
     // eslint-disable-next-line no-console

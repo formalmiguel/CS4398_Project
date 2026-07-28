@@ -125,6 +125,15 @@
         "server/test/catalog/intensityTierMapping.test.ts": "00fb7edf56bc4791c680229982d0dbe2145b2a3ce98c08f2b90cb6e4ae7d69f3"
       },
       "sha": "4b1fd4e"
+    },
+    {
+      "packet": "15a",
+      "path": "server/test/analytics",
+      "frozenOn": "2026-07-28",
+      "files": {
+        "server/test/analytics/HabitAnalytics.test.ts": "52ab395e8f4c578959b764939b976ffaf1aac6c029a175a1c81ab43e642b5a42"
+      },
+      "sha": "3fd6371"
     }
   ]
 }

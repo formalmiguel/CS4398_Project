@@ -221,6 +221,17 @@ export class TaskRepository {
   }
 
   /**
+   * FR-ANL-01/02: every HABIT task this user owns — the recurring commitments the analytics view
+   * reports a streak and completion rate for. Type-filtered in the query so a CLASS or MEETING is
+   * never analysed as a habit; mapping reuses `toTask` (no duplicated shape logic).
+   */
+  async habitsForUser(userId: string): Promise<readonly Task[]> {
+    if (!isNonEmptyString(userId)) return [];
+    const docs = await this.tasks.find({ userId, type: 'HABIT' }).toArray();
+    return docs.map(toTask);
+  }
+
+  /**
    * Task ids currently awaiting a UC-03 choice for this date — what the frontend re-offers a
    * picker for.
    *
@@ -254,6 +265,26 @@ export class TaskRepository {
   async placementsInRange(userId: string, start: IsoDate, end: IsoDate): Promise<readonly Placement[]> {
     if (!isNonEmptyString(userId)) return [];
     const docs = await this.placements.find({ userId, date: { $gte: start, $lte: end } }).toArray();
+    return docs.map(toPlacement);
+  }
+
+  /**
+   * FR-ANL-01/02: every placement of ONE task in `[start, end]`, inclusive — the full per-date
+   * history `analyzeHabit` folds into a streak and a rate. Scoped by `userId` as well as `taskId`
+   * so ownership is enforced at the boundary (OPEN-12), same as every other read here. Range is
+   * bounded by the caller's route, same convention as `placementsInRange`. Mapping reuses
+   * `toPlacement`.
+   */
+  async placementsForTaskInRange(
+    userId: string,
+    taskId: string,
+    start: IsoDate,
+    end: IsoDate,
+  ): Promise<readonly Placement[]> {
+    if (!isNonEmptyString(userId) || !isNonEmptyString(taskId)) return [];
+    const docs = await this.placements
+      .find({ userId, taskId, date: { $gte: start, $lte: end } })
+      .toArray();
     return docs.map(toPlacement);
   }
 

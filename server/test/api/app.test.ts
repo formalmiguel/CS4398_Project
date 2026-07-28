@@ -10,7 +10,14 @@ afterEach(async () => {
 
 const register = async (
   app: TestApp['app'],
-  overrides: Partial<{ email: string; password: string; wakeMinute: number; sleepMinute: number }> = {},
+  overrides: Partial<{
+    email: string;
+    password: string;
+    wakeMinute: number;
+    sleepMinute: number;
+    baselineCalories: number;
+    dietaryPreferences: string[];
+  }> = {},
 ): Promise<{ userId: string; token: string }> => {
   const res = await request(app)
     .post('/auth/register')
@@ -19,6 +26,8 @@ const register = async (
       password: overrides.password ?? 'a-decent-password',
       wakeMinute: overrides.wakeMinute ?? 360,
       sleepMinute: overrides.sleepMinute ?? 1380,
+      baselineCalories: overrides.baselineCalories ?? 2000,
+      dietaryPreferences: overrides.dietaryPreferences ?? [],
     });
   expect(res.status).toBe(201);
   return { userId: res.body.userId, token: res.body.token };
@@ -49,7 +58,7 @@ describe('Auth — FR-USR-01/02/03', () => {
     await register(ta.app, { email });
     const res = await request(ta.app)
       .post('/auth/register')
-      .send({ email, password: 'another-password', wakeMinute: 0, sleepMinute: 1 });
+      .send({ email, password: 'another-password', wakeMinute: 0, sleepMinute: 1, baselineCalories: 2000, dietaryPreferences: [] });
     expect(res.status).toBe(409);
   });
 

@@ -33,7 +33,7 @@ beforeEach(async () => {
   await db.collection('tasks').deleteMany({});
   await db.collection('placements').deleteMany({});
   await db.collection('completionRecords').deleteMany({});
-  const user = await users.create({ email: `u-${Date.now()}@x.com`, passwordHash: 'h', wakeMinute: 420, sleepMinute: 1380 });
+  const user = await users.create({ email: `u-${Date.now()}@x.com`, passwordHash: 'h', wakeMinute: 420, sleepMinute: 1380, baselineCalories: 2000, dietaryPreferences: [] });
   userId = user.id;
 });
 
@@ -263,7 +263,7 @@ describe('TaskRepository — FR-TSK-03/07, DR-01', () => {
 
 describe('TaskRepository — NFR-SEC-06', () => {
   it('deleteAllForUser removes tasks, placements, and completion records for that user only', async () => {
-    const other = await users.create({ email: 'other@x.com', passwordHash: 'h', wakeMinute: 0, sleepMinute: 1 });
+    const other = await users.create({ email: 'other@x.com', passwordHash: 'h', wakeMinute: 0, sleepMinute: 1, baselineCalories: 2000, dietaryPreferences: [] });
     const mine = await repo.createTask({
       userId,
       intendedDate: '2026-07-23',
@@ -294,7 +294,7 @@ describe('TaskRepository — NFR-SEC-06', () => {
 
 describe('TaskRepository — FR-CAL-07 export support', () => {
   it('placementsInRange returns every placement with a date in [start, end], inclusive, for that user only', async () => {
-    const other = await users.create({ email: 'range-other@x.com', passwordHash: 'h', wakeMinute: 0, sleepMinute: 1 });
+    const other = await users.create({ email: 'range-other@x.com', passwordHash: 'h', wakeMinute: 0, sleepMinute: 1, baselineCalories: 2000, dietaryPreferences: [] });
     const task = await repo.createTask({
       userId,
       intendedDate: '2026-07-23',

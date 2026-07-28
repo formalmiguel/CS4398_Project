@@ -16,6 +16,8 @@ const register = async (): Promise<{ userId: string; token: string }> => {
       password: 'a-decent-password',
       wakeMinute: 360,
       sleepMinute: 1380,
+      baselineCalories: 2000,
+      dietaryPreferences: [],
     });
   expect(res.status).toBe(201);
   return { userId: res.body.userId, token: res.body.token };
