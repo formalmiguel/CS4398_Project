@@ -21,7 +21,6 @@ import express, { Express, Response } from 'express';
 import { Db } from 'mongodb';
 
 import type {
-  DailyMetricSet,
   DietaryFlag,
   IntensityTier,
   Interval,
@@ -44,7 +43,12 @@ import { analyzeHabit } from '../analytics/HabitAnalytics';
 import type { Clock, RescheduleService } from '../reschedule/RescheduleService';
 import { clockLabel, dayAlreadyOverExplanation } from '../reschedule/reasons';
 import { AuthedRequest, AuthService, requireAuth } from './auth';
-import { isSafeQueryString, isValidSchedulableDay, validateTaskInput } from './validation';
+import {
+  isSafeQueryString,
+  isValidSchedulableDay,
+  validateDailyMetricSet,
+  validateTaskInput,
+} from './validation';
 
 export interface AppDependencies {
   readonly db: Db;
@@ -700,12 +704,16 @@ export const buildApp = (deps: AppDependencies): Express => {
   app.post('/wearable/metrics', requireAuth(auth), async (req: AuthedRequest, res) => {
     // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
     const userId = req.userId!;
-    const set = req.body as DailyMetricSet;
-    if (typeof set?.date !== 'string' || typeof set?.metrics !== 'object' || set.metrics === null) {
-      res.status(400).json({ error: 'a DailyMetricSet { date, metrics } is required' });
+    // FR-WER-06: every metric is checked against the `Metric` union at runtime, not just the
+    // envelope. The body arrives as `unknown`, so the union constrains nothing until something
+    // does this — see `validateDailyMetricSet`. Errors are returned as a list, matching POST
+    // /tasks, so a caller fixes every field at once rather than one per round trip.
+    const validated = validateDailyMetricSet(req.body);
+    if (!validated.ok) {
+      res.status(400).json({ errors: validated.errors });
       return;
     }
-    await metrics.ingest(userId, set);
+    await metrics.ingest(userId, validated.value);
     res.status(204).end();
   });
 
