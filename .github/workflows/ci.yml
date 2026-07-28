@@ -64,6 +64,25 @@ jobs:
       - name: Single placement function guard (FR-RSC-03)
         run: npm run guard:single-placement
 
+      # FR-LIB-02: no component of the recommendation path
+      # (server/src/{recommendation,catalog,wearable}) imports a network client, calls an
+      # ambient network global, or pulls in an HTTP-client dependency. The workouts are
+      # VENDORED on disk (§4.2) and the metrics are in our own database, so 31 July does not
+      # depend on a conference-room network. This is the INSPECTION half only — the
+      # requirement's other half is a rehearsal with outbound access disabled, which no
+      # static scan performs.
+      - name: Offline recommendation path guard (FR-LIB-02)
+        run: npm run guard:offline-recommendation
+
+      # FR-REC-11 / FR-WER-04 / NFR-MNT-06: the engine evaluates registered rules without
+      # knowledge of any rule's content, rules are independent of each other, and a metric
+      # name appears only in the rule that consumes it and the adapter that produces it — so
+      # adding a metric is two additions and no modifications. The metric names and Decision
+      # kinds are DERIVED from source, never hard-coded, so a third rule is covered with no
+      # edit to the script.
+      - name: Metric extensibility guard (FR-REC-11, FR-WER-04)
+        run: npm run guard:metric-extensibility
+
       # RED/GREEN boundary (CLAUDE.md §8.3): frozen test suites may not change. Added
       # after this workflow was first written; enforced until now only when a human
       # remembered to run `verify` locally. Requires fetch-depth: 0 above for its

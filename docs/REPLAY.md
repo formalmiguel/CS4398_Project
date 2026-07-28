@@ -17,9 +17,13 @@
 |---|---|---|
 | **The requirements** | `docs/SRS-v2.md` | It is the specification. Obviously. |
 | **The domain contract** | `shared/src/contract.ts`, given verbatim in `prompts/foundation/03-shared-contract-types.md` | Three sessions produce three locally-reasonable, mutually incompatible `Task` types, each passing its own tests, and integration becomes a rewrite. *(`CLAUDE.md` §4.7)* |
-| **The guards and the freeze** | `scripts/`, `.eslintrc.cjs`'s `engine/**` overrides — given verbatim in `prompts/foundation/02b-executable-guards.md` | **A regenerated safety net can come back weaker, and a weaker check passes.** Nothing fails, nobody is told, and the guard still prints its success line. **You cannot verify a verifier with the thing it verifies.** *(SRS NFR-MNT-09)* |
+| **The guards and the freeze** | **The toolchain's guards** — `guard-engine-deps`, `guard-tests-frozen`, the `freeze` helper, and `.eslintrc.cjs`'s `engine/**` overrides — given verbatim in `prompts/foundation/02b-executable-guards.md` | **A regenerated safety net can come back weaker, and a weaker check passes.** Nothing fails, nobody is told, and the guard still prints its success line. **You cannot verify a verifier with the thing it verifies.** *(SRS NFR-MNT-09)* |
 
 Everything under `engine/src/`, `server/src/`, `web/src/`, `engine/test/` and `server/test/` is **output**, and is expected to differ between runs.
+
+> ⚠️ **Not all of `scripts/` is transcribed — corrected 27 Jul (SRS v2.33).** *The row above used to name `scripts/` wholesale. **It is the 02b guards that are transcribed**; the later guard packets — **16a** (`guard-single-placement`, `guard-engine-purity`) and **16b** (`guard-offline-recommendation`, `guard-metric-extensibility`, `lib/strip-code.mjs`) — are **derived by a packet from a human-authored specification**, and they earn the same exemption by a different route: **every individual check in them is watched to fail on a deliberately introduced violation before the packet closes**, with the failing output recorded in that packet's report.*
+>
+> *For a replay this means: **the 16a and 16b guards ARE regenerated**, like any other packet's output — and the must-fail exercise is what makes that safe. **A replay that skips it has not reproduced the guards, only the files.** The exemption is not "a human typed it"; it is **"no check enters the build until someone has seen it fail."** (`CLAUDE.md` §4.12(a), SRS NFR-MNT-07.)*
 
 ---
 
@@ -122,7 +126,7 @@ When a single session writes the test and the code, it writes the test *after* w
 | Comes back identical | Comes back equivalent | Does not come back |
 |---|---|---|
 | `shared/src/contract.ts` — transcribed verbatim | The module seams, the endpoints, the screens | The implementation, line for line |
-| `scripts/` and the `engine/**` lint overrides — transcribed verbatim | The requirements satisfied, and the (I) guards enforcing them | The test suite — different count, names, and assertions |
+| The **02b** guards and the `engine/**` lint overrides — transcribed verbatim | The requirements satisfied, and the (I) guards enforcing them — **including the 16a/16b guards, which are regenerated and re-proven, not transcribed** *(v2.33)* | The test suite — different count, names, and assertions |
 | | Engine coverage ≥ 90%; property test ≥ 1,000 cases | The freeze digests, which are that run's |
 
 **Environmental preconditions are not produced by any packet and never will be:** a reachable MongoDB (`server/.env`, gitignored, holding a connection string — `CLAUDE.md` §8.4 keeps credentials out of the repository), Node ≥ 20, and a browser for the packet 13 check. If `server/.env` is absent, packets 12 and 13 build and test green and have nothing to connect to.
