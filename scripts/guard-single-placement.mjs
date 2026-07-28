@@ -28,58 +28,11 @@ import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { stripCommentsAndStrings } from './lib/strip-code.mjs';
+
 const ROOT = resolve(fileURLToPath(new URL('..', import.meta.url)));
 const rel = (file) => relative(ROOT, file).split('\\').join('/');
 const underEngineSrc = (relPath) => relPath.startsWith('engine/src/');
-
-/** Blank comments and string/template bodies to spaces, keeping length and newlines so line
- *  numbers survive. Template interpolations are re-entered as code, brace depth tracked. */
-function stripCommentsAndStrings(src) {
-  let out = '';
-  let state = 'code';
-  const tplBraces = [];
-  let i = 0;
-  const keepNl = (c) => (c === '\n' || c === '\r' ? c : ' ');
-  while (i < src.length) {
-    const c = src[i];
-    const c2 = src[i + 1];
-    if (state === 'code') {
-      if (c === '/' && c2 === '/') { state = 'line'; out += '  '; i += 2; continue; }
-      if (c === '/' && c2 === '*') { state = 'block'; out += '  '; i += 2; continue; }
-      if (c === "'") { state = 'sq'; out += ' '; i += 1; continue; }
-      if (c === '"') { state = 'dq'; out += ' '; i += 1; continue; }
-      if (c === '`') { state = 'tpl'; out += ' '; i += 1; continue; }
-      if (tplBraces.length > 0) {
-        if (c === '{') { tplBraces[tplBraces.length - 1] += 1; out += c; i += 1; continue; }
-        if (c === '}') {
-          if (tplBraces[tplBraces.length - 1] === 0) { tplBraces.pop(); state = 'tpl'; out += ' '; i += 1; continue; }
-          tplBraces[tplBraces.length - 1] -= 1; out += c; i += 1; continue;
-        }
-      }
-      out += c; i += 1; continue;
-    }
-    if (state === 'line') {
-      if (c === '\n') { state = 'code'; out += '\n'; i += 1; continue; }
-      out += (c === '\r' ? c : ' '); i += 1; continue;
-    }
-    if (state === 'block') {
-      if (c === '*' && c2 === '/') { state = 'code'; out += '  '; i += 2; continue; }
-      out += keepNl(c); i += 1; continue;
-    }
-    if (state === 'sq' || state === 'dq') {
-      const q = state === 'sq' ? "'" : '"';
-      if (c === '\\') { out += '  '; i += 2; continue; }
-      if (c === q) { state = 'code'; out += ' '; i += 1; continue; }
-      out += keepNl(c); i += 1; continue;
-    }
-    // tpl
-    if (c === '\\') { out += '  '; i += 2; continue; }
-    if (c === '`') { state = 'code'; out += ' '; i += 1; continue; }
-    if (c === '$' && c2 === '{') { tplBraces.push(0); state = 'code'; out += '  '; i += 2; continue; }
-    out += keepNl(c); i += 1; continue;
-  }
-  return out;
-}
 
 function walk(dir, out = []) {
   let entries;

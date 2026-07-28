@@ -17,9 +17,11 @@
     "guard:engine-deps": "node scripts/guard-engine-deps.mjs",
     "guard:engine-purity": "node scripts/guard-engine-purity.mjs",
     "guard:single-placement": "node scripts/guard-single-placement.mjs",
+    "guard:offline-recommendation": "node scripts/guard-offline-recommendation.mjs",
+    "guard:metric-extensibility": "node scripts/guard-metric-extensibility.mjs",
     "guard:tests-frozen": "node scripts/guard-tests-frozen.mjs",
     "freeze": "node scripts/freeze-tests.mjs",
-    "verify": "npm run typecheck && npm run lint && npm run guard:engine-deps && npm run guard:engine-purity && npm run guard:single-placement && npm run guard:tests-frozen && npm run test:coverage"
+    "verify": "npm run typecheck && npm run lint && npm run guard:engine-deps && npm run guard:engine-purity && npm run guard:single-placement && npm run guard:offline-recommendation && npm run guard:metric-extensibility && npm run guard:tests-frozen && npm run test:coverage"
   },
   "engines": {
     "node": ">=20"
