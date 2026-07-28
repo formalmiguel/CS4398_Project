@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 
 import { AuthResult, Profile, clearToken, getProfile, getToken, setToken } from './api/client';
+import { AnalyticsView } from './components/AnalyticsView';
 import { AuthScreen } from './components/AuthScreen';
 import { ScheduleView } from './components/ScheduleView';
 import { WellnessView } from './components/WellnessView';
@@ -11,7 +12,7 @@ export const App = () => {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [checkedSession, setCheckedSession] = useState(false);
   const [date, setDate] = useState(todayIso());
-  const [view, setView] = useState<'schedule' | 'wellness'>('schedule');
+  const [view, setView] = useState<'schedule' | 'wellness' | 'analytics'>('schedule');
   const [theme, setThemeState] = useState<Theme>(systemTheme);
 
   useEffect(() => {
@@ -93,6 +94,14 @@ export const App = () => {
           >
             Wellness
           </button>
+          {/* UI-04: the analytics view is one action from the schedule. */}
+          <button
+            type="button"
+            className={view === 'analytics' ? 'app__nav-tab app__nav-tab--active' : 'app__nav-tab'}
+            onClick={() => setView('analytics')}
+          >
+            Analytics
+          </button>
         </nav>
         <button
           type="button"
@@ -106,15 +115,15 @@ export const App = () => {
           Log out
         </button>
       </header>
-      {view === 'schedule' ? (
+      {view === 'schedule' && (
         <ScheduleView
           date={date}
           onDateChange={setDate}
           schedulableDay={{ start: profile.wakeMinute, end: profile.sleepMinute }}
         />
-      ) : (
-        <WellnessView date={date} />
       )}
+      {view === 'wellness' && <WellnessView date={date} />}
+      {view === 'analytics' && <AnalyticsView />}
     </div>
   );
 };

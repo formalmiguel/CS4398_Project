@@ -208,6 +208,42 @@ export interface WellnessResult {
 export const getWellness = (date: string): Promise<WellnessResult> =>
   request(`/wellness?date=${encodeURIComponent(date)}`);
 
+// ─── Analytics (FR-ANL-01/02/03/04, UI-04) ────────────────────────────────
+
+/**
+ * One habit's row in the analytics table. Every number is `analyzeHabit`'s (server/src/analytics/
+ * HabitAnalytics.ts) — a frozen, property-tested PURE function (packets 15a/15b). The view renders
+ * these verbatim and never re-derives `completionRate`: the frozen function owns FR-ANL-02's math,
+ * so a second division in the view would be a second, un-pinned implementation of the rate.
+ */
+export interface HabitStat {
+  readonly taskId: string;
+  readonly title: string;
+  /** FR-ANL-01: consecutive completed occurrences ending at the most recent resolved one. */
+  readonly streak: number;
+  /** FR-ANL-02 numerator: distinct dates whose occurrence resolved COMPLETED. */
+  readonly completed: number;
+  /** FR-ANL-02 denominator: distinct dates whose occurrence has ELAPSED and resolved (v2.31). */
+  readonly scheduled: number;
+  /** completed / scheduled; exactly 0 when scheduled === 0 (never NaN). */
+  readonly completionRate: number;
+}
+
+/**
+ * The `GET /analytics` response — a frontend-only shape (like `WellnessResult`), NOT a
+ * `shared/src/contract.ts` type. The window (`from`/`to`/`asOf`) is chosen SERVER-SIDE — a fixed
+ * trailing year — so there is no query parameter and no client period selector (docs/TEAM-MEETING.md,
+ * 28 Jul); the view states the window the server returned.
+ */
+export interface AnalyticsResult {
+  readonly from: string;
+  readonly to: string;
+  readonly asOf: string;
+  readonly habits: readonly HabitStat[];
+}
+
+export const getAnalytics = (): Promise<AnalyticsResult> => request('/analytics');
+
 // ─── Calendar export (FR-CAL-07, SI-06) ───────────────────────────────────
 
 /**
