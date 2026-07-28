@@ -12,7 +12,13 @@ import { MetricStore } from '../../src/db/MetricStore';
 import { RescheduleService } from '../../src/reschedule/RescheduleService';
 import { WorkoutCatalog } from '../../src/catalog/WorkoutCatalog';
 import { MealCatalog } from '../../src/catalog/MealCatalog';
-import type { Catalog } from '../../src/catalog/Catalog';
+import type { Catalog as LibraryCatalog } from '../../src/catalog/Catalog';
+import type { UserRecord } from '../../src/db/UserStore';
+import { RecommendationEngine } from '../../src/recommendation/RecommendationEngine';
+import { SleepToIntensityRule } from '../../src/recommendation/SleepToIntensityRule';
+import { CaloriesToTargetRule } from '../../src/recommendation/CaloriesToTargetRule';
+import { RecommendationScheduler } from '../../src/recommendation/RecommendationScheduler';
+import { workoutSourceFrom } from '../../src/recommendation/WorkoutSource';
 import { AuthService } from '../../src/api/auth';
 import { buildApp } from '../../src/api/app';
 import { TestableClock } from './TestableClock';
@@ -44,12 +50,42 @@ export const buildTestApp = async (
 
   const workouts = new WorkoutCatalog();
   const meals = new MealCatalog();
-  const catalog: Catalog = {
+  const catalog: LibraryCatalog = {
     findWorkouts: workouts.findWorkouts.bind(workouts),
     findMeals: meals.findMeals.bind(meals),
   };
 
-  const app = buildApp({ db: testDb.db, users, tasks, reschedule, clock, auth, metrics, catalog });
+  // Mirrors the production composition root exactly (packet 17d): per-user, because
+  // `CaloriesToTargetRule` needs THIS user's baseline (FR-REC-09), and over the SAME engine,
+  // reschedule service, repository and clock the rest of the app uses — so the transport tests
+  // exercise the real wiring rather than a test-only arrangement of it.
+  const workoutSource = workoutSourceFrom(catalog);
+  const recommendationSchedulerFor = (user: UserRecord): RecommendationScheduler => {
+    const recommendations = new RecommendationEngine();
+    recommendations.register(new SleepToIntensityRule());
+    recommendations.register(new CaloriesToTargetRule(user.baselineCalories));
+    return new RecommendationScheduler(
+      findCandidateSlots,
+      reschedule,
+      recommendations,
+      workoutSource,
+      metrics,
+      tasks,
+      clock,
+    );
+  };
+
+  const app = buildApp({
+    db: testDb.db,
+    users,
+    tasks,
+    reschedule,
+    clock,
+    auth,
+    metrics,
+    catalog,
+    recommendationSchedulerFor,
+  });
 
   return { app, users, tasks, metrics, clock, auth, stop: testDb.stop };
 };

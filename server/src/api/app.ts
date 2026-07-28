@@ -32,9 +32,11 @@ import type {
 
 import { buildIcsCalendar, IcsExportEvent } from '../calendar/ics';
 import { UserStore } from '../db/UserStore';
+import type { UserRecord } from '../db/UserStore';
 import { TaskRepository } from '../db/TaskRepository';
 import { MetricStore } from '../db/MetricStore';
 import type { Catalog } from '../catalog/Catalog';
+import type { RecommendationScheduler } from '../recommendation/RecommendationScheduler';
 import { RecommendationEngine } from '../recommendation/RecommendationEngine';
 import { SleepToIntensityRule } from '../recommendation/SleepToIntensityRule';
 import { CaloriesToTargetRule } from '../recommendation/CaloriesToTargetRule';
@@ -55,6 +57,13 @@ export interface AppDependencies {
   readonly metrics: MetricStore;
   /** FR-WEL-02/03: the seeded workout + meal libraries (packet 11), behind the §3.6 `Catalog` seam. */
   readonly catalog: Catalog;
+  /**
+   * FR-REC-04 (packet 17d): builds the apply-workout scheduler for ONE user. A factory, not an
+   * instance, because `CaloriesToTargetRule` needs THIS user's baseline (FR-REC-09) — the same
+   * reason `GET /wellness` builds its engine per request. The composition root owns which rules
+   * exist; this layer only asks for a scheduler and calls it.
+   */
+  readonly recommendationSchedulerFor: (user: UserRecord) => RecommendationScheduler;
 }
 
 /** The five dietary flags (FR-REC-05). A local guard so the register route can validate input. */
@@ -138,7 +147,8 @@ const askedAbout = (task: Task, window: Interval, date: string, clock: Clock): T
 };
 
 export const buildApp = (deps: AppDependencies): Express => {
-  const { users, tasks, reschedule, clock, auth, metrics, catalog } = deps;
+  const { users, tasks, reschedule, clock, auth, metrics, catalog, recommendationSchedulerFor } =
+    deps;
   const app = express();
   app.use(cors());
   app.use(express.json());
@@ -791,6 +801,51 @@ export const buildApp = (deps: AppDependencies): Express => {
         plan,
       },
     });
+  });
+
+  // ── Apply a recommendation (FR-REC-02, FR-REC-03, FR-REC-04) ───────────
+  //
+  // ⚠️ THIS ROUTE MUTATES THE SCHEDULE, and that is the whole point — it is the counterpart to
+  // read-only `GET /wellness`. FR-REC-04 (`CLAUDE.md` §5, the load-bearing requirement) is what
+  // makes this one integrated System rather than a scheduler and a fitness app sharing a login:
+  // the recommended workout becomes a REAL task on the REAL calendar, placed by the SAME engine
+  // and defended by the SAME rescheduling as anything the user typed in.
+  //
+  // ⛔ This route decides NOTHING. It loads the user, builds their scheduler, and calls one
+  // method. The replacement policy, the tier comparison, the catalog draw and the placement are
+  // `RecommendationScheduler`'s, pinned by the frozen acceptance (`8809158`) and replacement
+  // (`47bb301`) suites. FR-RSC-03 holds: no placement is computed here.
+  app.post('/recommendations/apply-workout', requireAuth(auth), async (req: AuthedRequest, res) => {
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+    const userId = req.userId!;
+    const user = await users.findById(userId);
+    if (user === undefined) {
+      res.status(404).json({ error: 'not found' });
+      return;
+    }
+
+    // The date defaults to today, matching /wellness — §6 applies the recommendation for the day
+    // whose metrics were just injected.
+    const { date: bodyDate } = req.body as Record<string, unknown>;
+    const date = isSafeQueryString(bodyDate) ? bodyDate : clock.today();
+
+    const scheduler = recommendationSchedulerFor(user);
+    try {
+      const result = await scheduler.applyWorkoutRecommendation(userId, date);
+      res.json(result);
+    } catch (err: unknown) {
+      // The scheduler throws for the four "nothing to apply" preconditions — no workout above the
+      // warranted tier, no candidate in the catalog, the engine could not place, no recommendation
+      // for the day. Those are 409s, not faults: the request was well-formed and the System simply
+      // has nothing to replace. Every one of them is prefixed by the method name, which is a stable
+      // property of that frozen-tested class.
+      //
+      // ⚠️ Anything else RETHROWS. Blanket-catching here would turn a genuine defect into a tidy
+      // 409 and hide it — precisely the failure this project keeps finding the hard way.
+      const message = err instanceof Error ? err.message : String(err);
+      if (!message.startsWith('applyWorkoutRecommendation:')) throw err;
+      res.status(409).json({ error: message.replace('applyWorkoutRecommendation: ', '') });
+    }
   });
 
   // FR-ANL-01/02/04 (UI-04): a streak and completion rate for each of the user's HABIT tasks.
