@@ -38,6 +38,7 @@ import type { Catalog } from '../catalog/Catalog';
 import { RecommendationEngine } from '../recommendation/RecommendationEngine';
 import { SleepToIntensityRule } from '../recommendation/SleepToIntensityRule';
 import { CaloriesToTargetRule } from '../recommendation/CaloriesToTargetRule';
+import { analyzeHabit } from '../analytics/HabitAnalytics';
 import type { Clock, RescheduleService } from '../reschedule/RescheduleService';
 import { clockLabel, dayAlreadyOverExplanation } from '../reschedule/reasons';
 import { AuthedRequest, AuthService, requireAuth } from './auth';
@@ -790,6 +791,40 @@ export const buildApp = (deps: AppDependencies): Express => {
         plan,
       },
     });
+  });
+
+  // FR-ANL-01/02/04 (UI-04): a streak and completion rate for each of the user's HABIT tasks.
+  // Read-only, exactly like /wellness — opening the analytics tab must never mutate the schedule,
+  // so this reads placements and never touches RescheduleService or the engine.
+  //
+  // The window is the trailing year ending today, bounded so the placement query stays cheap
+  // (same convention as /schedule/overview and /schedule/export). `asOf` is the request instant
+  // from the injected clock: the ROUTE may read the clock, but it hands the instant to the PURE
+  // analyzeHabit, which may not (§4.7). That instant is what lets an elapsed-but-unswept PLANNED
+  // day count as a miss — FR-RSC-10 sweeps elapsed→MISSED only on retrieval, so a day the user
+  // never opened is still PLANNED and would otherwise silently inflate the completion rate.
+  app.get('/analytics', requireAuth(auth), async (req: AuthedRequest, res) => {
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+    const userId = req.userId!;
+    const user = await users.findById(userId);
+    if (user === undefined) {
+      res.status(404).json({ error: 'not found' });
+      return;
+    }
+    const asOf = clock.today();
+    const from = shiftIsoDate(asOf, -364);
+    const to = asOf;
+
+    const habits = await tasks.habitsForUser(userId);
+    const analytics = await Promise.all(
+      habits.map(async (habit) => {
+        const placements = await tasks.placementsForTaskInRange(userId, habit.id, from, to);
+        const stats = analyzeHabit(placements, { start: from, end: to }, asOf);
+        return { taskId: habit.id, title: habit.title, ...stats };
+      }),
+    );
+
+    res.json({ from, to, asOf, habits: analytics });
   });
 
   return app;

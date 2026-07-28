@@ -12,7 +12,7 @@
  * not the placement — is the unit of a streak and of a completion rate. Getting that fold right is
  * the whole of FR-ANL-03/06 and FR-RSC-09, and it is exactly what the frozen suite pins.
  */
-import type { IsoDate, Placement } from '@capstone/shared';
+import type { IsoDate, Placement, PlacementStatus } from '@capstone/shared';
 
 export interface HabitAnalytics {
   /** FR-ANL-01: consecutive completed occurrences ending at the most recent resolved occurrence. */
@@ -42,9 +42,66 @@ export interface HabitAnalytics {
  * shape, one layer down).
  */
 export function analyzeHabit(
-  _placements: readonly Placement[],
-  _period: { readonly start: IsoDate; readonly end: IsoDate },
-  _asOf: IsoDate,
+  placements: readonly Placement[],
+  period: { readonly start: IsoDate; readonly end: IsoDate },
+  asOf: IsoDate,
 ): HabitAnalytics {
-  throw new Error('15b');
+  // FOLD: one entry per calendar date in the period, carrying the set of statuses seen on it.
+  // The date — not the placement — is the unit of a streak and a completion rate, so an original
+  // and its reschedule (and any withdrawn/superseded rows) collapse onto a single date here.
+  // Dates are `YYYY-MM-DD`, so lexical comparison is calendar comparison — no clock, no parsing.
+  const statusesByDate = new Map<IsoDate, Set<PlacementStatus>>();
+  for (const placement of placements) {
+    if (placement.date < period.start || placement.date > period.end) continue;
+    const seen = statusesByDate.get(placement.date) ?? new Set<PlacementStatus>();
+    seen.add(placement.status);
+    statusesByDate.set(placement.date, seen);
+  }
+
+  // RESOLVE each date to exactly one outcome, then keep only the resolved ones in date order. An
+  // UNRESOLVED date (a not-yet-elapsed PLANNED, or a CANCELLED/SUPERSEDED-only date) is absent
+  // from the walk entirely: it neither counts toward a rate nor breaks a streak.
+  const resolvedInOrder = [...statusesByDate.entries()]
+    .map(([date, statuses]) => ({ date, resolution: resolveDate(statuses, date < asOf) }))
+    .filter((entry): entry is ResolvedDate => entry.resolution !== 'UNRESOLVED')
+    .sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
+
+  const scheduled = resolvedInOrder.length;
+  const completed = resolvedInOrder.filter((entry) => entry.resolution === 'COMPLETED').length;
+  // Guarded so an empty period yields 0, never 0/0 = NaN (FR-ANL-02).
+  const completionRate = scheduled === 0 ? 0 : completed / scheduled;
+
+  // STREAK: from the latest resolved occurrence backward, count consecutive COMPLETED until the
+  // first NOT_COMPLETED. The walk is over resolved *occurrences*, not calendar days — a weekly
+  // habit has no occurrence on the six intervening days, so nothing there can break the run
+  // (FR-ANL-01 read with FR-ANL-07).
+  let streak = 0;
+  for (const entry of [...resolvedInOrder].reverse()) {
+    if (entry.resolution !== 'COMPLETED') break;
+    streak++;
+  }
+
+  return { streak, completed, scheduled, completionRate };
 }
+
+type DateResolution = 'COMPLETED' | 'NOT_COMPLETED' | 'UNRESOLVED';
+interface ResolvedDate {
+  readonly date: IsoDate;
+  readonly resolution: 'COMPLETED' | 'NOT_COMPLETED';
+}
+
+/**
+ * Fold one date's statuses to a single outcome. The ladder is strict and its order is the whole
+ * of FR-ANL-03/06 + FR-RSC-09 + FR-ANL-07:
+ *   COMPLETED wins over everything (a rescheduled-then-completed date is completed; a withdrawn
+ *   CANCELLED next to it cannot un-complete it) → else a terminal MISSED/SKIPPED is a miss → else
+ *   a PLANNED whose window has ELAPSED as of `asOf` is a miss even if FR-RSC-10 has not swept it
+ *   → else UNRESOLVED. CANCELLED and SUPERSEDED never appear here, so they are inert: they can
+ *   neither add a scheduled date nor change one's outcome.
+ */
+const resolveDate = (statuses: ReadonlySet<PlacementStatus>, elapsed: boolean): DateResolution => {
+  if (statuses.has('COMPLETED')) return 'COMPLETED';
+  if (statuses.has('MISSED') || statuses.has('SKIPPED')) return 'NOT_COMPLETED';
+  if (statuses.has('PLANNED') && elapsed) return 'NOT_COMPLETED';
+  return 'UNRESOLVED';
+};
