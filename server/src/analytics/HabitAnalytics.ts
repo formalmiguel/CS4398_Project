@@ -19,7 +19,12 @@ export interface HabitAnalytics {
   readonly streak: number;
   /** FR-ANL-02 numerator: distinct dates in the period whose occurrence resolved COMPLETED. */
   readonly completed: number;
-  /** FR-ANL-02 denominator: distinct dates in the period whose occurrence RESOLVED (done or not). */
+  /**
+   * FR-ANL-02 denominator: distinct dates in the period whose occurrence has RESOLVED as of `asOf` —
+   * a date is resolved if it carries a terminal outcome (COMPLETED / MISSED / SKIPPED) OR is a
+   * still-PLANNED date whose window has already ELAPSED (v2.31). A not-yet-elapsed PLANNED date is
+   * excluded (it has not happened); an elapsed-but-not-yet-swept PLANNED date is a miss and IS counted.
+   */
   readonly scheduled: number;
   /** completed / scheduled; exactly 0 when scheduled === 0 (never NaN). */
   readonly completionRate: number;
@@ -27,11 +32,19 @@ export interface HabitAnalytics {
 
 /**
  * Analyze ONE recurring habit from all of its placements (every date, every status) over an inclusive
- * period. Pure and total. 15b GREEN implements; this stub throws.
+ * period, as observed at the instant `asOf`. Pure and total. 15b GREEN implements; this stub throws.
+ *
+ * `asOf` is the reference "now" for FR-ANL-02's "window has ELAPSED" test. It is PASSED IN and never
+ * read from a clock — the same purity discipline as `schedulableDay` and `Task.createdAt` (§4.7). It
+ * exists because FR-RSC-10 sweeps elapsed occurrences to MISSED only on retrieval, so a day the user
+ * never opened is still PLANNED; without `asOf` the function could not tell that elapsed miss from a
+ * genuinely future occurrence, and would understate the denominator (overstating the rate — OPEN-27's
+ * shape, one layer down).
  */
 export function analyzeHabit(
   _placements: readonly Placement[],
   _period: { readonly start: IsoDate; readonly end: IsoDate },
+  _asOf: IsoDate,
 ): HabitAnalytics {
   throw new Error('15b');
 }
