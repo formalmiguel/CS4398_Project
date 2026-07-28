@@ -38,22 +38,25 @@ import { clockLabel } from '../reschedule/reasons';
 import { TaskRepository } from '../db/TaskRepository';
 import { MetricStore } from '../db/MetricStore';
 import { RecommendationEngine } from './RecommendationEngine';
+import type { WorkoutSource } from './WorkoutSource';
 
 /**
- * The seam to the workout/meal library (§3.6: `Catalog`). Declared as a TYPE only — exactly like
- * `WearableAdapter` in packet 08 — because the REAL catalog is packet 11 (FR-LIB), not yet
- * merged. The acceptance harness supplies a deterministic double.
+ * The seam to the workout library (§3.6: `Catalog`). Packet 17a declared it here as a TYPE only,
+ * because the REAL catalog was packet 11 and not yet merged; the acceptance harness supplies a
+ * deterministic double.
  *
- * ⚠️ ESCALATION (see report): §3.6 draws `findWorkouts(tier, prefs, n)` and
- * `findMeals(calorieTarget, prefs)`. `prefs` has no shape in the contract, and the acceptance
- * demonstration exercises no dietary/workout preference (FR-REC-05 is out of scope here). This
- * minimal port omits `prefs` and `findMeals`; packet 11 owns the full signature. Kept small on
- * purpose so the frozen tests do not pin a shape packet 11 must be free to widen.
+ * ⚠️ PACKET 17d (OPEN-28) — the port MOVED and was RENAMED, and nothing about its shape changed.
+ * It now lives in `./WorkoutSource` as `WorkoutSource`, which is what it always was: the workout
+ * half of the library seam, not the whole `Catalog`. Packet 11's real `Catalog` — which carries a
+ * preference argument and FR-LIB-08's relaxation report — is ADAPTED to it by `workoutSourceFrom`.
+ *
+ * ⛔ `Catalog` REMAINS EXPORTED FROM THIS MODULE AS AN ALIAS, and deleting it is not a tidy-up:
+ * `server/test/acceptance/support/harness.ts` is FROZEN at `8809158` and does
+ * `import type { Catalog } from '.../RecommendationScheduler'`. Removing or widening this name
+ * breaks a frozen suite at compile time (§8.3; `guard:tests-frozen`).
  */
-export interface Catalog {
-  /** Up to `count` workouts at the warranted tier (FR-REC-03's "three options"; FR-LIB-05). */
-  findWorkouts(tier: IntensityTier, count: number): readonly Workout[];
-}
+export type { WorkoutSource } from './WorkoutSource';
+export type Catalog = WorkoutSource;
 
 /**
  * What placing a workout recommendation yields, for the acceptance suite to assert against. The

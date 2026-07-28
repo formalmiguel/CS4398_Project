@@ -11,12 +11,22 @@ import { findCandidateSlots } from '@capstone/engine';
 
 import { connectMongo } from './db/mongo';
 import { UserStore } from './db/UserStore';
+import type { UserRecord } from './db/UserStore';
 import { TaskRepository } from './db/TaskRepository';
 import { MetricStore } from './db/MetricStore';
 import { RescheduleService } from './reschedule/RescheduleService';
 import { WorkoutCatalog } from './catalog/WorkoutCatalog';
 import { MealCatalog } from './catalog/MealCatalog';
-import type { Catalog } from './catalog/Catalog';
+// ⚠️ Two different interfaces are named `Catalog` (OPEN-28). This is packet 11's real library
+// seam; the narrow port `RecommendationScheduler` consumes is `WorkoutSource`. Aliased on import
+// so both can coexist here — ⛔ do NOT resolve the collision by deleting the alias in
+// `RecommendationScheduler.ts`, which a frozen suite imports.
+import type { Catalog as LibraryCatalog } from './catalog/Catalog';
+import { RecommendationEngine } from './recommendation/RecommendationEngine';
+import { SleepToIntensityRule } from './recommendation/SleepToIntensityRule';
+import { CaloriesToTargetRule } from './recommendation/CaloriesToTargetRule';
+import { RecommendationScheduler } from './recommendation/RecommendationScheduler';
+import { workoutSourceFrom } from './recommendation/WorkoutSource';
 import { AuthService } from './api/auth';
 import { SystemClock } from './api/SystemClock';
 import { buildApp } from './api/app';
@@ -45,12 +55,51 @@ const main = async (): Promise<void> => {
   // so the wellness route depends on the interface, not on which class serves which method.
   const workouts = new WorkoutCatalog();
   const meals = new MealCatalog();
-  const catalog: Catalog = {
+  const catalog: LibraryCatalog = {
     findWorkouts: workouts.findWorkouts.bind(workouts),
     findMeals: meals.findMeals.bind(meals),
   };
 
-  const app = buildApp({ db, users, tasks, reschedule, clock, auth, metrics, catalog });
+  // ── FR-REC-04: the apply-workout path (packet 17d) ──────────────────────
+  //
+  // ⛔ A `RecommendationScheduler` CANNOT be a process-level singleton. Its engine must have
+  // `CaloriesToTargetRule(user.baselineCalories)` registered, and that baseline is PER USER
+  // (FR-REC-09; CON-05/§4.9 — the System asks for it, it never estimates one). Building this
+  // once at boot would bake the first user's baseline into every other user's recommendations.
+  //
+  // So it is a FACTORY over the loaded user, mirroring what `GET /wellness` already does per
+  // request. Everything else is the SAME instance the rest of the app uses — the same
+  // `findCandidateSlots` (FR-RSC-03: one placement function), the same `RescheduleService` (so a
+  // placed recommendation is defended identically to a user task), the same repository, metric
+  // store and clock. The workout library reaches the scheduler through the `WorkoutSource`
+  // adapter (OPEN-28).
+  const workoutSource = workoutSourceFrom(catalog);
+  const recommendationSchedulerFor = (user: UserRecord): RecommendationScheduler => {
+    const recommendations = new RecommendationEngine();
+    recommendations.register(new SleepToIntensityRule());
+    recommendations.register(new CaloriesToTargetRule(user.baselineCalories));
+    return new RecommendationScheduler(
+      findCandidateSlots,
+      reschedule,
+      recommendations,
+      workoutSource,
+      metrics,
+      tasks,
+      clock,
+    );
+  };
+
+  const app = buildApp({
+    db,
+    users,
+    tasks,
+    reschedule,
+    clock,
+    auth,
+    metrics,
+    catalog,
+    recommendationSchedulerFor,
+  });
 
   app.listen(PORT, () => {
     // eslint-disable-next-line no-console
