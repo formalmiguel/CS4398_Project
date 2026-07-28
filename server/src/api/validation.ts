@@ -4,7 +4,16 @@
  * rather than coercing it. A `{"$gt": ""}` submitted where a string belongs is a query-operator
  * injection attempt, not a string that needs trimming.
  */
-import type { Flexibility, IntensityTier, Interval, Recurrence, TaskType } from '@capstone/shared';
+import type {
+  DailyMetricSet,
+  Flexibility,
+  IntensityTier,
+  Interval,
+  Metric,
+  MetricOrigin,
+  Recurrence,
+  TaskType,
+} from '@capstone/shared';
 
 export interface ValidationError {
   readonly field: string;
@@ -140,6 +149,94 @@ export const validateTaskInput = (body: unknown): TaskValidationResult => {
 /** NFR-SEC-05: the guard every route applies to a value about to become a query filter. */
 export const isSafeQueryString = (value: unknown): value is string =>
   typeof value === 'string' && value.length > 0;
+
+const METRIC_ORIGINS: readonly MetricOrigin[] = ['EXPORT', 'LIVE_API', 'INJECTED'];
+
+export type MetricSetValidationResult =
+  | { readonly ok: true; readonly value: DailyMetricSet }
+  | { readonly ok: false; readonly errors: readonly ValidationError[] };
+
+/**
+ * FR-WER-06 / NFR-ROB-01, enforced at the transport edge.
+ *
+ * ⚠️ THE POINT OF THIS FUNCTION IS THE `isAvailable` BRANCH, not tidiness. `Metric` is a
+ * discriminated union precisely so a rule cannot read `value` without checking availability
+ * (contract.ts) — but a union only constrains TypeScript, and this route's body arrives as
+ * `unknown` from the network. Without a runtime check, `{"sleepScore": 40}` — a bare number where
+ * a `Metric` belongs — was accepted with a 204, stored, and read back as `isAvailable: false`:
+ * a malformed payload silently became "the watch was on the nightstand." That is exactly the
+ * absent-vs-measured collapse the requirement forbids, and NOTHING failed.
+ *
+ * Two rules are stricter than they may first appear, and both are deliberate:
+ *
+ * 1. `value` is REJECTED on the unavailable branch rather than ignored. The union has no `value`
+ *    there, so `{isAvailable: false, value: 0}` is a contradiction — a caller sending it believes
+ *    something false about what it is recording, and dropping the field would hide that.
+ *
+ * 2. `metric.name` MUST equal its key. `MetricStore.ingest` keys documents on the RECORD KEY and
+ *    never reads `metric.name`, so a mismatch stores under one name while the payload claims
+ *    another — silently, and only visible much later at the read surface.
+ */
+export const validateDailyMetricSet = (body: unknown): MetricSetValidationResult => {
+  if (typeof body !== 'object' || body === null || Array.isArray(body)) {
+    return { ok: false, errors: [{ field: 'body', reason: 'must be an object' }] };
+  }
+  const b = body as Record<string, unknown>;
+  const errors: ValidationError[] = [];
+
+  if (!isString(b.date) || !ISO_DATE.test(b.date)) {
+    errors.push({ field: 'date', reason: 'must be an ISO date YYYY-MM-DD' });
+  }
+  if (typeof b.metrics !== 'object' || b.metrics === null || Array.isArray(b.metrics)) {
+    errors.push({ field: 'metrics', reason: 'must be an object keyed by metric name' });
+    return { ok: false, errors };
+  }
+
+  // DR-05 / FR-WER-04: iterated generically. A metric added later is validated by these same
+  // rules with no edit here — the route never names sleepScore or activeCalories.
+  const metrics: Record<string, Metric> = {};
+  for (const [name, raw] of Object.entries(b.metrics as Record<string, unknown>)) {
+    const at = `metrics.${name}`;
+    if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) {
+      errors.push({ field: at, reason: 'must be a Metric object, not a bare value' });
+      continue;
+    }
+    const m = raw as Record<string, unknown>;
+
+    if (!isString(m.name) || m.name !== name) {
+      errors.push({ field: `${at}.name`, reason: `must be the string "${name}", matching its key` });
+    }
+    if (!isString(m.unit) || m.unit.length < 1) {
+      errors.push({ field: `${at}.unit`, reason: 'must be a non-empty string' });
+    }
+    if (!isString(m.origin) || !METRIC_ORIGINS.includes(m.origin as MetricOrigin)) {
+      errors.push({ field: `${at}.origin`, reason: `must be one of ${METRIC_ORIGINS.join(', ')}` });
+    }
+    if (typeof m.isAvailable !== 'boolean') {
+      errors.push({ field: `${at}.isAvailable`, reason: 'must be a boolean' });
+      continue;
+    }
+    if (m.isAvailable && !isFiniteNumber(m.value)) {
+      errors.push({ field: `${at}.value`, reason: 'an available metric requires a finite number' });
+    }
+    if (!m.isAvailable && m.value !== undefined) {
+      errors.push({
+        field: `${at}.value`,
+        reason: 'an unavailable metric must carry no value (FR-WER-06)',
+      });
+    }
+
+    if (errors.length > 0) continue;
+    metrics[name] = (
+      m.isAvailable
+        ? { name, unit: m.unit as string, origin: m.origin as MetricOrigin, isAvailable: true, value: m.value as number }
+        : { name, unit: m.unit as string, origin: m.origin as MetricOrigin, isAvailable: false }
+    ) satisfies Metric;
+  }
+
+  if (errors.length > 0) return { ok: false, errors };
+  return { ok: true, value: { date: b.date as string, metrics } };
+};
 
 /**
  * FR-USR-07's range/order rule, validated identically at account creation and on later edit.
