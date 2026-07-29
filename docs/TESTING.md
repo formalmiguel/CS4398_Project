@@ -115,15 +115,7 @@ This is what makes the coverage figure and the property test carry information: 
 
 ---
 
-## 7. What we deliberately did not add
-
-**A browser end-to-end framework (Playwright, Cypress, Selenium).** The React frontend has no automated tests. This is a recorded decision, not an oversight: the frontend requirements it would cover — FR-WEL, FR-ANL-04, UI-03, UI-04 — are marked **(D), verified by demonstration**, and were satisfied on 28 July by running the application and observing all three views render in a real browser. Adding a browser automation framework days before the presentation would have cost one to two days against a live database dependency, for requirements already met by their stated verification method.
-
-**A second test runner for the frontend workspace.** Same reasoning. `web/` is a Vite application, so the natural choice would be Vitest rather than Jest, which is a second toolchain to maintain for the same reason above.
-
----
-
-## 8. How to run it
+## 7. How to run it
 
 ```bash
 npm run verify          # everything — typecheck, lint, 6 guards, 498 tests, coverage gates
