@@ -124,4 +124,17 @@ npm run test:coverage   # the suite plus the coverage report
 npm run guard:tests-frozen   # verify no frozen test has been altered
 ```
 
-CI (`.github/workflows/ci.yml`) runs the same checks on every push, as **ten separately named steps** — typecheck, lint, each of the six guards individually, then the suite with coverage — so a failure reports which gate failed rather than only that something did.
+### Continuous integration
+
+`.github/workflows/ci.yml` runs the same gates as **ten separately named steps** — a clean `npm ci` from the lock file, typecheck, lint, each of the six guards individually, then the suite with coverage — so a failure reports *which* gate failed rather than only that something did.
+
+⚠️ **It is triggered by a push to `main`, or by any pull request — not by a push to `dev` or to a work branch.**
+
+```yaml
+on:
+  push:
+    branches: [main]
+  pull_request:
+```
+
+**The primary gate is therefore local, by design** (`CLAUDE.md` §8.5): a branch reaches `dev` only once its owner has run `npm run verify` and read the diff. CI is the backstop that catches what a machine-specific environment hides — a missing lock-file entry, a dependency that only resolves locally, a guard that passes because of an untracked file. **A work branch pushed without an open pull request runs no CI at all**, so a green local `verify` is the only evidence that branch has.
