@@ -78,6 +78,25 @@ export class MetricStore {
   }
 
   /**
+   * The most recent `DailyMetricSet` on or before `date` that HAS at least one metric document,
+   * or undefined if the user has no metrics on or before it. A single indexed query finds the
+   * newest matching date (the `(userId, date, name)` index already covers this ordering), then
+   * `getDailyMetricSet` reassembles that date's documents. Used by the wellness view to fall back
+   * to the last real reading when the requested date itself has no data — the returned set keeps
+   * its OWN `date`, so FR-WEL-05's staleness note ("as of …") stays accurate. Absence is still
+   * absence (FR-WEL-05 / NFR-ROB-01): undefined, never a fabricated set for a date with no record.
+   */
+  async getLatestOnOrBefore(userId: string, date: IsoDate): Promise<DailyMetricSet | undefined> {
+    const newest = await this.metrics
+      .find({ userId, date: { $lte: date } })
+      .sort({ date: -1 })
+      .limit(1)
+      .next();
+    if (newest === null) return undefined;
+    return this.getDailyMetricSet(userId, newest.date);
+  }
+
+  /**
    * FR-WEL-04: the stored metrics across the inclusive `[start, end]` date range, one
    * `DailyMetricSet` per date that HAS at least one record — built in a single query rather than
    * N single-date round trips. A date with no metric document is simply ABSENT from the result
