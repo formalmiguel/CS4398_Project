@@ -148,9 +148,17 @@ export const moveToNextDay = (taskId: string, date: string): Promise<{ outcome: 
  * A day absent from `days` has no matching task; this is a read of task DEFINITIONS, not
  * placements, so it is safe to call for a month nobody has ever opened via `getSchedule`.
  */
+export interface MonthOverviewItem {
+  readonly id: string;
+  readonly title: string;
+  readonly type: TaskType;
+  readonly start: Minute;
+}
+
 export interface MonthOverviewDay {
   readonly date: string;
   readonly types: readonly TaskType[];
+  readonly items: readonly MonthOverviewItem[];
 }
 
 export const getMonthOverview = (start: string, end: string): Promise<{ days: readonly MonthOverviewDay[] }> =>

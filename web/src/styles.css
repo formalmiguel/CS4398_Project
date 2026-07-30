@@ -257,10 +257,52 @@ label {
 
 /* ─── Schedule view ───────────────────────────────────────────────────── */
 
+/* `min(<cap>, <vw>)` rather than a bare pixel cap — a fixed cap stops scaling the instant the
+   window passes it, so on a genuinely large monitor (well past 640px) all the remaining width
+   just sits empty no matter how wide the browser gets. The `vw` term keeps it growing; the `px`
+   term is still there to stop occurrence rows on an ultrawide monitor from stretching into
+   unreadably long lines. */
 .schedule-view {
-  max-width: 640px;
+  max-width: min(900px, 90vw);
   margin: 0 auto;
   padding: 1.5rem 1rem 6rem;
+}
+
+/* FR-DSH-08: the month view is a full-page calendar, not the day column's narrow width — and
+   benefits even more from the extra room than Day view's single-column list does. */
+.schedule-view--month {
+  max-width: min(1600px, 94vw);
+}
+
+/* ─── Day / Month mode toggle (FR-DSH-01/02 vs FR-DSH-08) ────────────────── */
+
+.schedule-view__mode-toggle {
+  display: inline-flex;
+  gap: 0.2rem;
+  padding: 0.2rem;
+  margin-bottom: 1.25rem;
+  background: var(--surface);
+  border: 1px solid var(--gridline);
+  border-radius: 999px;
+}
+
+.schedule-view__mode-tab {
+  border: none;
+  background: transparent;
+  color: var(--ink-secondary);
+  border-radius: 999px;
+  padding: 0.4rem 1.1rem;
+  font-weight: 600;
+  font-size: 0.85rem;
+}
+
+.schedule-view__mode-tab:hover {
+  color: var(--accent);
+}
+
+.schedule-view__mode-tab--active {
+  background: var(--accent);
+  color: var(--accent-ink);
 }
 
 .schedule-view__nav {
@@ -551,7 +593,7 @@ label {
   background: color-mix(in srgb, var(--accent) 8%, var(--surface));
 }
 
-/* ─── Month calendar (collapsible navigator) ─────────────────────────────── */
+/* ─── Month calendar (FR-DSH-08 — full-page month view, docs/full.png) ────── */
 
 .month-calendar {
   background: var(--surface);
@@ -561,9 +603,8 @@ label {
   margin-bottom: 1rem;
 }
 
-.month-calendar__header {
-  display: flex;
-  justify-content: flex-start;
+.month-calendar--full {
+  padding: 1rem 1rem 1.25rem;
 }
 
 .month-calendar__nav {
@@ -571,28 +612,38 @@ label {
   align-items: center;
   justify-content: center;
   gap: 1rem;
-  margin-bottom: 0.6rem;
+  margin-bottom: 0.75rem;
 }
 
 .month-calendar__heading {
   font-weight: 700;
-  font-size: 0.9rem;
-  min-width: 9rem;
+  font-size: 1.05rem;
+  min-width: 10rem;
   text-align: center;
 }
 
 .month-calendar__weekdays {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
-  margin-bottom: 0.2rem;
+  margin-bottom: 0.3rem;
+  /* Matches `.month-calendar__grid--full`'s 1px border so the header's columns land exactly
+     over the date grid's columns beneath it, not just approximately. */
+  padding: 0 1px;
 }
 
 .month-calendar__weekdays span {
+  /* Same `min-width: auto` grid-item trap as `.month-calendar__day--full` — without this a
+     label can't shrink below "WED"'s own width, so squeezing the window narrower than that
+     pushes it into the neighboring column instead of truncating in place. */
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
   text-align: center;
-  font-size: 0.65rem;
+  font-size: 0.78rem;
   font-weight: 600;
   letter-spacing: 0.04em;
   color: var(--ink-muted);
+  padding-bottom: 0.4rem;
 }
 
 .month-calendar__grid {
@@ -605,8 +656,8 @@ label {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 3px;
-  padding: 0.3rem 0 0.35rem;
+  gap: 6px;
+  padding: 0.55rem 0 0.6rem;
   border: none;
   background: none;
   border-radius: 10px;
@@ -622,14 +673,18 @@ label {
   opacity: 0.5;
 }
 
+/* Sized for the compact variant's own cell width — `.schedule-view` (its container) scales with
+   the viewport (`min(900px, 90vw)`), so a size tuned for the old fixed 640px column looked lost
+   once the cell grew wider around it. `.month-calendar__day--full` below overrides this back
+   down for the full-page grid, which packs an events list into the same cell and needs the room. */
 .month-calendar__day-number {
-  width: 26px;
-  height: 26px;
+  width: 34px;
+  height: 34px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   border-radius: 50%;
-  font-size: 0.85rem;
+  font-size: 1rem;
 }
 
 .month-calendar__day--selected .month-calendar__day-number {
@@ -638,17 +693,133 @@ label {
   font-weight: 700;
 }
 
+/* Compact variant's dots (`variant="compact"` — the Day view mini-navigator). */
 .month-calendar__dots {
   display: flex;
-  gap: 2px;
-  height: 5px;
+  gap: 4px;
+  height: 7px;
 }
 
 .month-calendar__dot {
-  width: 5px;
-  height: 5px;
+  width: 7px;
+  height: 7px;
   border-radius: 50%;
   background: var(--type-other);
+}
+
+/* ── Full-page grid: each cell lists its events (title + time) like docs/full.png,
+     instead of the small navigator's plain dots. ── */
+
+.month-calendar__grid--full {
+  gap: 1px;
+  background: var(--gridline);
+  border: 1px solid var(--gridline);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.month-calendar__day--full {
+  align-items: stretch;
+  justify-content: flex-start;
+  /* Grid items default to `min-width: auto`, which sizes a column to its widest UNWRAPPED
+     content (`.month-calendar__item-title`'s `white-space: nowrap`) rather than its fair 1fr
+     share — pushing the grid wider than its container and clipping the last (Sunday) column via
+     `overflow: hidden` above. `min-width: 0` lets this cell shrink to its actual track width, so
+     the title's own `text-overflow: ellipsis` truncates instead of the whole grid overflowing. */
+  min-width: 0;
+  min-height: 108px;
+  padding: 0.4rem 0.45rem 0.5rem;
+  border-radius: 0;
+  background: var(--surface);
+  gap: 0.3rem;
+}
+
+.month-calendar__day--full .month-calendar__day-number {
+  align-self: flex-end;
+  width: 24px;
+  height: 24px;
+  font-size: 0.8rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-muted);
+}
+
+.month-calendar__day--full.month-calendar__day--outside .month-calendar__day-number {
+  color: var(--ink-muted);
+}
+
+/* "Today" — a filled circle, the picture's own way of marking the current date. */
+.month-calendar__day-number--today {
+  background: var(--danger);
+  color: var(--accent-ink);
+  font-weight: 700;
+}
+
+.month-calendar__items {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  width: 100%;
+  text-align: left;
+}
+
+.month-calendar__item {
+  display: flex;
+  align-items: baseline;
+  gap: 0.35rem;
+  min-width: 0;
+  /* Once the bar+time's own combined minimum no longer fits (deep into a squeeze, past the
+     point the title's ellipsis alone can absorb), clip here rather than bleed into the next
+     day's cell — a squeezed calendar stays squeezed, never overlapping. */
+  overflow: hidden;
+}
+
+.month-calendar__item-bar {
+  width: 3px;
+  align-self: stretch;
+  border-radius: 2px;
+  flex-shrink: 0;
+  background: var(--type-other);
+}
+
+.month-calendar__item-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.month-calendar__item-time {
+  flex-shrink: 0;
+  font-size: 0.68rem;
+  color: var(--ink-muted);
+  white-space: nowrap;
+}
+
+.month-calendar__item-more {
+  font-size: 0.72rem;
+  color: var(--ink-muted);
+  padding-left: calc(3px + 0.35rem);
+}
+
+/* Squeezing the window narrower shrinks each of the 7 columns proportionally. Past this width
+   there isn't room for both a title and a time on one line without one of them losing the fight
+   — drop the time first, since the title (what task it is) matters more at a glance than when it
+   starts. Everything above still degrades safely on its own (ellipsis, `overflow: hidden`); this
+   just chooses what goes first, rather than letting both squeeze until neither is readable. */
+@media (max-width: 720px) {
+  .month-calendar__item-time {
+    display: none;
+  }
+  .month-calendar__heading {
+    min-width: 0;
+  }
+  .month-calendar__day--full {
+    padding: 0.3rem 0.3rem 0.4rem;
+  }
 }
 
 /* TaskType → color, shared by every dot marker (fixed order per the shared contract's

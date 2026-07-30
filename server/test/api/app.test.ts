@@ -579,6 +579,39 @@ describe('GET /schedule/overview — month-grid dots', () => {
     expect(byDate['2026-07-16']).toEqual(['HABIT']);
   });
 
+  it('items carries each day\'s tasks by title/type/preferred start, sorted by time — for the month view', async () => {
+    ta = await buildTestApp();
+    const token = (await register(ta.app)).token;
+    const client = authed(ta.app, token);
+
+    await client.post('/tasks').send({
+      title: 'Dentist',
+      type: 'MEETING',
+      durationMinutes: 30,
+      priority: 3,
+      preferredWindow: { start: 900, end: 930 },
+      flexibility: 'FIXED',
+      intendedDate: '2026-07-15',
+    });
+    await client.post('/tasks').send({
+      title: 'Morning journal',
+      type: 'HABIT',
+      durationMinutes: 15,
+      priority: 3,
+      preferredWindow: { start: 420, end: 450 },
+      flexibility: 'FLEXIBLE',
+      intendedDate: '2026-07-15',
+    });
+
+    const res = await client.get('/schedule/overview?start=2026-07-15&end=2026-07-15');
+    expect(res.status).toBe(200);
+    const items = res.body.days[0].items as { id: string; title: string; type: string; start: number }[];
+    expect(items.map((i) => i.title)).toEqual(['Morning journal', 'Dentist']);
+    expect(items.map((i) => i.type)).toEqual(['HABIT', 'MEETING']);
+    expect(items.map((i) => i.start)).toEqual([420, 900]);
+    expect(items.every((i) => typeof i.id === 'string' && i.id.length > 0)).toBe(true);
+  });
+
   it('never materializes a Placement for a day nobody has retrieved via GET /schedule', async () => {
     ta = await buildTestApp();
     const { userId, token } = await register(ta.app);

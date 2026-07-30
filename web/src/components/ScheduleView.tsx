@@ -14,16 +14,34 @@ interface Props {
   readonly schedulableDay: Interval;
 }
 
-/** UI-01/FR-DSH-01/02: one day, a vertical time axis, ◄/► navigation. UI-05: every action re-renders in place. */
+/** UI-01/FR-DSH-01/02: one day, a vertical time axis, ◀/▶ navigation. UI-05: every action re-renders in place. */
 export const ScheduleView = ({ date, onDateChange, schedulableDay }: Props) => {
   const [data, setData] = useState<ScheduleResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
-  // Collapsible month-grid navigator (the picture's mini calendar) — collapsed by default so
-  // the day view, UI-01's actual required structure, stays what the screen opens on.
-  const [showMonth, setShowMonth] = useState(false);
-  // Stable identity so memoized MonthCalendar doesn't re-render on unrelated ScheduleView state.
-  const closeMonth = useCallback(() => setShowMonth(false), []);
+  // FR-DSH-01/02 (day) vs FR-DSH-08 (month) — two ways to look at the same schedule. Day is the
+  // view the screen opens on; UI-01's actual required structure never changes because of this.
+  const [viewMode, setViewMode] = useState<'day' | 'month'>('day');
+  // The collapsible mini-navigator (dots, `variant="compact"`) that opens above Day view's own
+  // timeline — independent of `viewMode`, which is the full-page Month tab. Collapsed by default
+  // so Day view's required structure is what's on screen without the user opening anything.
+  const [showMiniMonth, setShowMiniMonth] = useState(false);
+  // Stable identities so memoized MonthCalendar doesn't re-render on unrelated ScheduleView state.
+  const selectFromMonth = useCallback(
+    (picked: string) => {
+      onDateChange(picked);
+      setViewMode('day');
+    },
+    [onDateChange],
+  );
+  const selectFromMiniMonth = useCallback(
+    (picked: string) => {
+      onDateChange(picked);
+      setShowMiniMonth(false);
+    },
+    [onDateChange],
+  );
+  const closeMiniMonth = useCallback(() => setShowMiniMonth(false), []);
   const [busyPlacementId, setBusyPlacementId] = useState<string | null>(null);
   // UC-03: placements accepted via the CandidatePicker THIS session. Independent of
   // rescheduleTrigger (a picker accept is a first placement, not a reschedule, so it never
@@ -97,104 +115,133 @@ export const ScheduleView = ({ date, onDateChange, schedulableDay }: Props) => {
   }, [data]);
 
   return (
-    <div className="schedule-view">
-      {showMonth && (
-        <MonthCalendar date={date} onSelect={onDateChange} onClose={closeMonth} />
-      )}
-
-      <div className="schedule-view__nav">
+    <div className={viewMode === 'month' ? 'schedule-view schedule-view--month' : 'schedule-view'}>
+      {/* FR-DSH-01/02 vs FR-DSH-08: Day is the required structure and what the screen opens on;
+          Month is a full-page alternative view, not a dropdown layered on top of it. */}
+      <div className="schedule-view__mode-toggle" role="tablist" aria-label="Schedule view">
         <button
           type="button"
-          className="icon-button icon-button--filled icon-button--lg"
-          onClick={() => onDateChange(addDays(date, -1))}
-          aria-label="Previous day"
+          role="tab"
+          aria-selected={viewMode === 'day'}
+          className={viewMode === 'day' ? 'schedule-view__mode-tab schedule-view__mode-tab--active' : 'schedule-view__mode-tab'}
+          onClick={() => setViewMode('day')}
         >
-          ◄
+          Day
         </button>
-        <div className="schedule-view__date-wrap">
-          <h2>{formatDateHeading(date)}</h2>
-          {/* Only an OPEN affordance — once expanded, MonthCalendar carries its own close control. */}
-          {!showMonth && (
+        <button
+          type="button"
+          role="tab"
+          aria-selected={viewMode === 'month'}
+          className={viewMode === 'month' ? 'schedule-view__mode-tab schedule-view__mode-tab--active' : 'schedule-view__mode-tab'}
+          onClick={() => setViewMode('month')}
+        >
+          Month
+        </button>
+      </div>
+
+      {viewMode === 'month' ? (
+        <MonthCalendar date={date} onSelect={selectFromMonth} />
+      ) : (
+        <>
+          {showMiniMonth && (
+            <MonthCalendar date={date} onSelect={selectFromMiniMonth} variant="compact" onClose={closeMiniMonth} />
+          )}
+
+          <div className="schedule-view__nav">
             <button
               type="button"
-              className="icon-button icon-button--ghost icon-button--md"
-              aria-label="Show month view"
-              aria-expanded={false}
-              onClick={() => setShowMonth(true)}
+              className="icon-button icon-button--filled icon-button--lg"
+              onClick={() => onDateChange(addDays(date, -1))}
+              aria-label="Previous day"
             >
-              ▼
+              ◀
             </button>
+            <div className="schedule-view__date-wrap">
+              <h2>{formatDateHeading(date)}</h2>
+              {/* Only an OPEN affordance — once expanded, MonthCalendar carries its own close control. */}
+              {!showMiniMonth && (
+                <button
+                  type="button"
+                  className="icon-button icon-button--ghost icon-button--md"
+                  aria-label="Show mini month calendar"
+                  aria-expanded={false}
+                  onClick={() => setShowMiniMonth(true)}
+                >
+                  ▼
+                </button>
+              )}
+            </div>
+            <button
+              type="button"
+              className="icon-button icon-button--filled icon-button--lg"
+              onClick={() => onDateChange(addDays(date, 1))}
+              aria-label="Next day"
+            >
+              ▶
+            </button>
+            <div className="schedule-view__nav-actions">
+              <button type="button" className="schedule-view__export" onClick={() => void onExport()}>
+                Export .ics
+              </button>
+              <button type="button" className="schedule-view__add-task" onClick={() => setShowForm(true)}>
+                + Add Task
+              </button>
+            </div>
+          </div>
+
+          {error !== null && <p className="error">{error}</p>}
+
+          {showForm && (
+            <div className="modal">
+              <TaskForm
+                date={date}
+                onDone={(justAcceptedPlacementId) => {
+                  setShowForm(false);
+                  if (justAcceptedPlacementId !== undefined) {
+                    setJustAcceptedIds((prev) => new Set(prev).add(justAcceptedPlacementId));
+                  }
+                  void refresh();
+                }}
+                onCancel={() => setShowForm(false)}
+              />
+            </div>
           )}
-        </div>
-        <button
-          type="button"
-          className="icon-button icon-button--filled icon-button--lg"
-          onClick={() => onDateChange(addDays(date, 1))}
-          aria-label="Next day"
-        >
-          ►
-        </button>
-        <div className="schedule-view__nav-actions">
-          <button type="button" className="schedule-view__export" onClick={() => void onExport()}>
-            Export .ics
-          </button>
-          <button type="button" className="schedule-view__add-task" onClick={() => setShowForm(true)}>
-            + Add Task
-          </button>
-        </div>
-      </div>
 
-      {error !== null && <p className="error">{error}</p>}
+          {awaitingChoiceCount > 0 && (
+            <p className="schedule-view__banner">
+              {awaitingChoiceCount} task(s) are awaiting your choice of an alternative time —
+              re-add or check back after choosing from the "+ Add Task" flow that created them.
+            </p>
+          )}
 
-      {showForm && (
-        <div className="modal">
-          <TaskForm
-            date={date}
-            onDone={(justAcceptedPlacementId) => {
-              setShowForm(false);
-              if (justAcceptedPlacementId !== undefined) {
-                setJustAcceptedIds((prev) => new Set(prev).add(justAcceptedPlacementId));
-              }
-              void refresh();
-            }}
-            onCancel={() => setShowForm(false)}
-          />
-        </div>
-      )}
-
-      {awaitingChoiceCount > 0 && (
-        <p className="schedule-view__banner">
-          {awaitingChoiceCount} task(s) are awaiting your choice of an alternative time —
-          re-add or check back after choosing from the "+ Add Task" flow that created them.
-        </p>
-      )}
-
-      <div className="schedule-view__timeline">
-        <span className="schedule-view__axis-label">Day Start: {minuteToLabel(schedulableDay.start)}</span>
-        {placements.length === 0 && <p className="schedule-view__free">(free)</p>}
-        {placements.map((p) => (
-          <OccurrenceBlock
-            key={p.id}
-            placement={p}
-            task={taskById.get(p.taskId)}
-            busy={busyPlacementId === p.id}
-            justAccepted={justAcceptedIds.has(p.id)}
-            onComplete={() => onComplete(p.id, p.taskId)}
-            onSkip={() => onSkip(p.id, p.taskId)}
-          />
-        ))}
-        <span className="schedule-view__axis-label">Day End: {minuteToLabel(schedulableDay.end)}</span>
-      </div>
-
-      {unplacedTasks.length > 0 && (
-        <div className="schedule-view__unplaced">
-          <h3>Unplaced</h3>
-          <ul>
-            {unplacedTasks.map((t) => (
-              <li key={t.id}>{t.title} — no valid slot found today</li>
+          <div className="schedule-view__timeline">
+            <span className="schedule-view__axis-label">Day Start: {minuteToLabel(schedulableDay.start)}</span>
+            {placements.length === 0 && <p className="schedule-view__free">(free)</p>}
+            {placements.map((p) => (
+              <OccurrenceBlock
+                key={p.id}
+                placement={p}
+                task={taskById.get(p.taskId)}
+                busy={busyPlacementId === p.id}
+                justAccepted={justAcceptedIds.has(p.id)}
+                onComplete={() => onComplete(p.id, p.taskId)}
+                onSkip={() => onSkip(p.id, p.taskId)}
+              />
             ))}
-          </ul>
-        </div>
+            <span className="schedule-view__axis-label">Day End: {minuteToLabel(schedulableDay.end)}</span>
+          </div>
+
+          {unplacedTasks.length > 0 && (
+            <div className="schedule-view__unplaced">
+              <h3>Unplaced</h3>
+              <ul>
+                {unplacedTasks.map((t) => (
+                  <li key={t.id}>{t.title} — no valid slot found today</li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </>
       )}
     </div>
   );

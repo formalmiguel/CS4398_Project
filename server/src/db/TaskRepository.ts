@@ -425,18 +425,40 @@ export class TaskRepository {
    * it. This reads task DEFINITIONS (`intendedDate` + `recurrence`) instead: no engine call, no
    * reschedule sweep, no write. Only dates with at least one matching task are returned. Range
    * length is bounded by the caller (`app.ts`'s route); this method trusts what it's given.
+   *
+   * `items` (added for the month-view redesign) carries each matching task's title and
+   * `preferredWindow.start` — the task's DEFINED time, not a placed one, since no engine runs
+   * here. For a FIXED commitment that is the actual time it occupies; for a flexible task it is
+   * only where the System will try first, same caveat FR-DSH-05 already carries for candidates
+   * shown before a call completes. `types` is kept, unmodified, alongside it — existing readers
+   * of the dots-only shape are untouched.
    */
   async taskTypesInRange(
     userId: string,
     start: IsoDate,
     end: IsoDate,
-  ): Promise<readonly { date: IsoDate; types: readonly TaskType[] }[]> {
+  ): Promise<
+    readonly {
+      date: IsoDate;
+      types: readonly TaskType[];
+      items: readonly { id: string; title: string; type: TaskType; start: Minute }[];
+    }[]
+  > {
     if (!isNonEmptyString(userId)) return [];
     const docs = await this.tasks.find({ userId }).toArray();
-    const result: { date: IsoDate; types: readonly TaskType[] }[] = [];
+    const result: {
+      date: IsoDate;
+      types: readonly TaskType[];
+      items: readonly { id: string; title: string; type: TaskType; start: Minute }[];
+    }[] = [];
     for (const date of datesBetween(start, end)) {
-      const types = [...new Set(docs.filter((doc) => matchesDate(doc, date)).map((doc) => doc.type))];
-      if (types.length > 0) result.push({ date, types });
+      const matching = docs.filter((doc) => matchesDate(doc, date));
+      if (matching.length === 0) continue;
+      const types = [...new Set(matching.map((doc) => doc.type))];
+      const items = matching
+        .map((doc) => ({ id: doc._id.toString(), title: doc.title, type: doc.type, start: doc.preferredWindow.start }))
+        .sort((a, b) => a.start - b.start);
+      result.push({ date, types, items });
     }
     return result;
   }
