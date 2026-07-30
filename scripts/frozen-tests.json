@@ -47,8 +47,10 @@
     {
       "packet": "06",
       "path": "server/test/reschedule",
+      "sha": "8b56986",
       "frozenOn": "2026-07-22",
-      "refrozenFrom": "8b24320 - one defective fixture corrected in c30e784, a RED-style commit. See TEAM-MEETING.md, 22 Jul.",
+      "refrozenFrom": "8b24320 - one defective fixture corrected in c30e784, a RED-style commit. See TEAM-MEETING.md, 22 Jul. RE-FROZEN AGAIN 30 Jul at 8b56986: elapsed-sweep, single-engine and triggers corrected for the FR-RSC-01 and 3.8.5 rule 2 fixes, a team decision per CLAUDE.md 4.12(b). See TEAM-MEETING.md, 30 Jul.",
+      "shaBackfilledBy": "Hand edit, 30 Jul. The 30 Jul re-freeze ran while the fixes were uncommitted, so freeze correctly recorded no sha (freeze-tests.mjs 108-113). 8b56986 is the commit that carried both the corrected tests and that re-freeze; `git diff 8b56986 -- server/test/reschedule` is empty. Edited by hand rather than re-run with --sha, so the per-file hashes were not recomputed.",
       "owner": "Patrick Rucker",
       "tests": 156,
       "files": {
