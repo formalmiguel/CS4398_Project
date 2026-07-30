@@ -177,7 +177,13 @@ describe('FR-RSC-10 — evaluation happens when the schedule is retrieved', () =
     expect(h.engine.calls.map((c) => c.task.id)).not.toContain('walk');
   });
 
-  it('FR-RSC-10 / FR-RSC-01: an elapsed FIXED commitment is not swept', async () => {
+  // ⚠️ Corrected: this test used to assert a FIXED commitment is untouched by the sweep. That
+  // left an elapsed FIXED occurrence PLANNED forever, with no status a user or FR-ANL reading
+  // could ever tell apart from one still to come. The team decided an elapsed FIXED occurrence
+  // should still be CLASSIFIED (MISSED, or COMPLETED under `ELAPSED_CLASSIFICATION`) — the part
+  // that never applies to a fixed commitment is RE-PLACEMENT, since it is immovable (FR-RSC-02)
+  // and there is nowhere else for it to go. The engine is still never called.
+  it('FR-RSC-10 / FR-RSC-01: an elapsed FIXED commitment is classified MISSED in place, never re-placed', async () => {
     const h = makeHarness({ engine: scriptedEngine([]), now: at(20, 35) });
     const lecturePlacement = placement({
       id: 'p-lecture',
@@ -187,9 +193,17 @@ describe('FR-RSC-10 — evaluation happens when the schedule is retrieved', () =
     });
     h.repo.addTask(LECTURE).addPlacement(lecturePlacement);
 
-    expect(await h.service.sweepElapsed(USER, TODAY)).toEqual([]);
+    const outcome = await h.service.sweepElapsed(USER, TODAY);
+
+    expect(outcome).toEqual([
+      {
+        kind: 'AUTO_MISSED',
+        taskId: 'lecture',
+        placement: { ...lecturePlacement, status: 'MISSED' },
+      },
+    ]);
     expect(h.engine.calls).toHaveLength(0);
-    expect(h.repo.requirePlacement('p-lecture')).toEqual(lecturePlacement);
+    expect(h.repo.requirePlacement('p-lecture').status).toBe('MISSED');
   });
 
   it('FR-RSC-10: sweeps only the requested user schedule', async () => {

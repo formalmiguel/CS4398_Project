@@ -517,14 +517,19 @@ describe('FR-RSC-08 — a user-declared skip is the third trigger, and the only 
     expect(h.repo.requirePlacement(outcome.placement.id).rescheduleTrigger).toBe('SKIPPED');
   });
 
-  it('FR-RSC-08: the skipped occurrence own interval is not busy for its re-placement', async () => {
-    // UC-13 step 3: the engine is re-invoked "with the updated busy set". An occurrence that
-    // has just been classified skipped no longer occupies the day.
+  // ⚠️ Corrected: this test used to assert the vacated interval is NOT busy for the
+  // re-placement search — which is technically true of the STORED occurrence (its status is no
+  // longer PLANNED, so it doesn't occupy time by `OCCUPIES_TIME`'s own rule), but left the
+  // interval itself free for the engine to re-select, and a "reschedule" landing back on the
+  // exact time it was skipped from is not a reschedule a user can tell apart from nothing
+  // happening. The team decided the vacated interval should still be treated as busy for THIS
+  // search specifically, so the engine is genuinely forced elsewhere (or reports unplaceable).
+  it('FR-RSC-08: the skipped occurrence own interval IS busy for its re-placement, so it cannot land there again', async () => {
     const h = skipHarness();
 
     await h.service.onUserSkipped(GYM_PLANNED);
 
-    expect(busyContains(call(h.engine, 0).busy, { start: at(17), end: at(18) })).toBe(false);
+    expect(busyContains(call(h.engine, 0).busy, { start: at(17), end: at(18) })).toBe(true);
   });
 
   it('FR-RSC-08: accepts the declaration after the window has elapsed as well', async () => {

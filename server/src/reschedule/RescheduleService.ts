@@ -209,6 +209,27 @@ export type RescheduleOutcome =
       readonly kind: 'NO_ACTION';
       readonly taskId: string;
       readonly why: NoActionReason;
+    }
+  | {
+      /**
+       * The `ELAPSED_CLASSIFICATION=COMPLETED` alternative to a `RESCHEDULED` MISSED outcome
+       * (see `RescheduleService`'s constructor doc). The occurrence is marked `COMPLETED` in
+       * place — no successor, no reschedule — so there is nothing here to call `RESCHEDULED`.
+       */
+      readonly kind: 'AUTO_COMPLETED';
+      readonly taskId: string;
+      readonly placement: Placement;
+    }
+  | {
+      /**
+       * A FIXED commitment's elapsed occurrence under `ELAPSED_CLASSIFICATION=MISSED`: marked
+       * `MISSED` in place, with no successor, because a fixed commitment is immovable and there
+       * is nowhere else for it to go (unlike `RESCHEDULED`, which a flexible MISSED occurrence
+       * always produces alongside its original row).
+       */
+      readonly kind: 'AUTO_MISSED';
+      readonly taskId: string;
+      readonly placement: Placement;
     };
 
 /**
@@ -323,10 +344,20 @@ const triggerFromHistory = (rows: readonly Placement[]): RescheduleTrigger | und
 // ─── The service ─────────────────────────────────────────────────────────────
 
 export class RescheduleService {
+  /**
+   * `elapsedClassification` — a same-session, dev-facing switch (env var `ELAPSED_CLASSIFICATION`
+   * in `index.ts`, defaulting to `'MISSED'` so every existing test and the frozen packet 06/07
+   * suite is unaffected) between FR-RSC-01's classification and an alternative the team wanted to
+   * compare it against: instead of MISSED + a rescheduled successor, `sweepElapsed` marks the
+   * elapsed occurrence `COMPLETED` in place and calls the engine for nothing. Only `sweepElapsed`
+   * reads this — `onTaskMissed` (the explicit, human-invoked `/tasks/:id/mark-missed`) always
+   * means MISSED regardless, because the human said so, not because time passed.
+   */
   constructor(
     private readonly engine: FindCandidateSlots,
     private readonly repo: TaskRepository,
     private readonly clock: Clock,
+    private readonly elapsedClassification: 'MISSED' | 'COMPLETED' = 'MISSED',
   ) {}
 
   /** FR-RSC-01 — an elapsed, incomplete, flexible occurrence is classified missed. */
@@ -515,12 +546,19 @@ export class RescheduleService {
     const reattempts: { readonly task: Task; readonly history: readonly Placement[] }[] = [];
 
     for (const task of tasks) {
-      // FR-RSC-01 applies to flexible tasks only: a fixed commitment is immovable by definition,
-      // so there is nothing to re-place and no missed classification is made.
-      if (task.flexibility !== 'FLEXIBLE') continue;
-
       const mine = placements.filter((p) => p.taskId === task.id);
       if (mine.some((p) => p.status === 'COMPLETED')) continue; // FR-RSC-07, never.
+
+      // FR-RSC-01's RE-PLACEMENT is flexible-only — a fixed commitment is immovable by
+      // definition, so there is no successor to find it and no reattempt to offer. But an
+      // elapsed fixed occurrence still needs a real status instead of sitting PLANNED forever,
+      // so it is classified in place (below, at the output loop) and never enters `reattempts`.
+      if (task.flexibility !== 'FLEXIBLE') {
+        const fixedPlanned = mine.filter((p) => p.status === 'PLANNED');
+        const fixedElapsed = fixedPlanned.find((p) => this.hasElapsed(date, p.end));
+        if (fixedElapsed !== undefined) elapsedOnes.push({ task, userId, stored: fixedElapsed });
+        continue;
+      }
 
       const plannedRows = mine.filter((p) => p.status === 'PLANNED');
       if (plannedRows.length === 0) {
@@ -548,7 +586,15 @@ export class RescheduleService {
     const outcomes: RescheduleOutcome[] = [];
     for (const item of ordered) {
       if ('stored' in item) {
-        outcomes.push(await this.classifyAndReplace(userId, item.task, item.stored, 'MISSED'));
+        if (this.elapsedClassification === 'COMPLETED') {
+          outcomes.push(await this.completeElapsed(item.stored));
+        } else if (item.task.flexibility === 'FLEXIBLE') {
+          outcomes.push(await this.classifyAndReplace(userId, item.task, item.stored, 'MISSED'));
+        } else {
+          // Fixed and immovable: MISSED in place, same as a real miss's original row, but with
+          // no successor to find it — there is nowhere else for a fixed commitment to go.
+          outcomes.push(await this.markElapsedFixedMissed(item.stored));
+        }
       } else {
         // The re-attempt is stamped with what it descends from — and with NOTHING where the
         // store holds no evidence it descends from anything (v2.20). This branch is also a
@@ -607,6 +653,15 @@ export class RescheduleService {
     task: Task,
     date: IsoDate,
     excludePlacementId: string | undefined,
+    /**
+     * `classifyAndReplace`'s vacated interval (FR-RSC-01/08): the retiring row is excluded from
+     * `busy` by its own now-MISSED/SKIPPED status, so without this the slot it just gave up
+     * reads as free again and the engine's own ranking (closest to the preferred window) simply
+     * re-selects it — a "reschedule" that lands right back where it started. Passed as an extra
+     * busy interval so the search is genuinely forced elsewhere. Not used by `moveInPlace`,
+     * whose row is still `PLANNED` and displaced by a real conflict already in `busy`.
+     */
+    avoid?: Interval,
   ): Promise<EngineAnswer> {
     const day = await this.repo.schedulableDay(userId, date);
     const window = this.remainderOfDay(day, date);
@@ -631,6 +686,7 @@ export class RescheduleService {
     const busy: Interval[] = onDate
       .filter((p) => p.id !== excludePlacementId && occupiesTime(p))
       .map(intervalOf);
+    if (avoid !== undefined) busy.push(avoid);
 
     const result = this.engine(busy, this.askedAbout(task, window, date), window);
     if (!result.placed) return { ok: false, reason: result.reason, explanation: result.explanation };
@@ -713,7 +769,7 @@ export class RescheduleService {
   ): Promise<RescheduleOutcome> {
     await this.repo.savePlacement({ ...stored, status: trigger });
 
-    const answer = await this.askEngine(userId, task, stored.date, stored.id);
+    const answer = await this.askEngine(userId, task, stored.date, stored.id, intervalOf(stored));
     // FR-RSC-05: the classification is not conditional on a slot being found. The original stays
     // MISSED/SKIPPED, nothing else is written, and the next day is offered.
     if (!answer.ok) return unplaceable(task.id, stored.date, trigger, answer);
@@ -735,6 +791,30 @@ export class RescheduleService {
     );
     await this.repo.savePlacement(successor);
     return { kind: 'RESCHEDULED', taskId: task.id, trigger, placement: successor };
+  }
+
+  /**
+   * The `ELAPSED_CLASSIFICATION=COMPLETED` alternative to `classifyAndReplace(..., 'MISSED')`:
+   * the elapsed row is marked `COMPLETED` in place, exactly as `onCompletionRecorded` marks a
+   * user-confirmed completion — no successor, no engine call, no reschedule trigger, because
+   * nothing was rescheduled. `OCCUPIES_TIME` already includes `COMPLETED`, so the slot stays
+   * held rather than freed.
+   */
+  private async completeElapsed(stored: Placement): Promise<RescheduleOutcome> {
+    const placement: Placement = { ...stored, status: 'COMPLETED' };
+    await this.repo.savePlacement(placement);
+    return { kind: 'AUTO_COMPLETED', taskId: stored.taskId, placement };
+  }
+
+  /**
+   * A fixed commitment's elapsed occurrence, under `ELAPSED_CLASSIFICATION=MISSED`: marked
+   * `MISSED` in place, exactly like `classifyAndReplace`'s original row — but with no successor,
+   * because a fixed commitment is immovable (FR-RSC-02) and there is nowhere else for it to go.
+   */
+  private async markElapsedFixedMissed(stored: Placement): Promise<RescheduleOutcome> {
+    const placement: Placement = { ...stored, status: 'MISSED' };
+    await this.repo.savePlacement(placement);
+    return { kind: 'AUTO_MISSED', taskId: stored.taskId, placement };
   }
 
   /**

@@ -47,7 +47,19 @@ const main = async (): Promise<void> => {
   const metrics = new MetricStore(db);
   await metrics.ensureIndexes();
   const clock = new SystemClock();
-  const reschedule = new RescheduleService(findCandidateSlots, tasks, clock);
+  // Dev-facing switch: an elapsed occurrence is classified MISSED (default, reschedules — the
+  // documented FR-RSC-01 behavior) or, if set to COMPLETED, marked complete in place with no
+  // reschedule. See RescheduleService's constructor doc.
+  const elapsedClassificationRaw = process.env.ELAPSED_CLASSIFICATION ?? 'MISSED';
+  if (elapsedClassificationRaw !== 'MISSED' && elapsedClassificationRaw !== 'COMPLETED') {
+    throw new Error("ELAPSED_CLASSIFICATION must be 'MISSED' or 'COMPLETED' if set");
+  }
+  const reschedule = new RescheduleService(
+    findCandidateSlots,
+    tasks,
+    clock,
+    elapsedClassificationRaw,
+  );
   const auth = new AuthService(jwtSecret);
 
   // The §3.6 `Catalog` seam is one port; the two seeded libraries each implement half of it
@@ -100,6 +112,33 @@ const main = async (): Promise<void> => {
     catalog,
     recommendationSchedulerFor,
   });
+
+  // FR-RSC-10 permits, but does not require, a background scheduler — `GET /schedule` already
+  // sweeps on every retrieval, but a schedule left open in a browser tab otherwise sees nothing
+  // happen until the next fetch. This is that optional timer: every SWEEP_INTERVAL_MINUTES it
+  // runs the SAME sweepElapsed(userId, date) a request would have run, for every user, for
+  // clock.today(). Set SWEEP_INTERVAL_MINUTES=0 to disable it.
+  const sweepIntervalMinutes = Number(process.env.SWEEP_INTERVAL_MINUTES ?? 5);
+  if (sweepIntervalMinutes > 0) {
+    const runBackgroundSweep = async (): Promise<void> => {
+      const today = clock.today();
+      for (const userId of await users.allUserIds()) {
+        try {
+          await reschedule.sweepElapsed(userId, today);
+        } catch (err) {
+          // One user's failure must not stop the rest, or cancel future ticks.
+          // eslint-disable-next-line no-console
+          console.error(`background sweep failed for user ${userId}`, err);
+        }
+      }
+    };
+    setInterval(() => {
+      runBackgroundSweep().catch((err: unknown) => {
+        // eslint-disable-next-line no-console
+        console.error('background sweep tick failed', err);
+      });
+    }, sweepIntervalMinutes * 60_000);
+  }
 
   app.listen(PORT, () => {
     // eslint-disable-next-line no-console
