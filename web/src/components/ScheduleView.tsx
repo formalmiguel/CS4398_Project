@@ -43,10 +43,12 @@ export const ScheduleView = ({ date, onDateChange, schedulableDay }: Props) => {
     },
     [onDateChange],
   );
+  // Deliberately does NOT close the mini month on pick (unlike `selectFromMonth`'s full-page
+  // Month tab) — the mini navigator is meant for browsing several days in a row without
+  // reopening it each time; `closeMiniMonth` (▼'s own toggle) is the only thing that closes it.
   const selectFromMiniMonth = useCallback(
     (picked: string) => {
       onDateChange(picked);
-      setShowMiniMonth(false);
     },
     [onDateChange],
   );
