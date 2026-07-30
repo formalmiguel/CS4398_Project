@@ -93,8 +93,11 @@ export const AuthScreen = ({ onAuthenticated }: Props) => {
                 required
               />
             </label>
-            <fieldset className="dietary-preferences">
-              <legend>Dietary preferences</legend>
+            {/* A native <legend> always renders straddling the fieldset's top border — there's
+                no reliable cross-browser way to keep it fully above the box. A plain label
+                above an aria-labelled fieldset gets the same accessible grouping without it. */}
+            <p className="dietary-preferences-label">Dietary preferences</p>
+            <fieldset className="dietary-preferences" aria-label="Dietary preferences">
               {DIETARY_OPTIONS.map((option) => (
                 <label key={option.value} className="checkbox">
                   <input
