@@ -1013,11 +1013,24 @@ export const buildApp = (deps: AppDependencies): Express => {
     // FR-WEL-01: the metric set for the date, rendered by whatever it contains (not a fixed list).
     // FR-WEL-04: the previous 7 days (inclusive) as raw DailyMetricSets — the view extracts the
     // sleep-score and active-calorie series, so a metric added under FR-WER-04 needs no change here.
-    const [metricSet, history, selectedWorkoutId] = await Promise.all([
+    const [requestedSet, history, selectedWorkoutId] = await Promise.all([
       metrics.getDailyMetricSet(userId, date),
       metrics.getMetricsInRange(userId, shiftIsoDate(date, -6), date),
       workoutSelections.getSelection(userId, date),
     ]);
+
+    // When the requested date has no data of its own, fall back to the most recent prior reading
+    // so the whole view — metrics panel, workout tier AND calorie target — reflects the last real
+    // day rather than showing "no data" everywhere. The fallback set keeps its own (earlier) date,
+    // so FR-WEL-05's dateNote in the view labels it "as of …"; the top-level `date` below stays the
+    // requested date, so scheduling a workout/meal from here still lands on the day the user is on.
+    // Undefined when the user has NO metrics at all on or before the date — then the requested
+    // (empty) set stands, and the view honestly shows "No metrics recorded for this date."
+    let metricSet = requestedSet;
+    if (Object.keys(requestedSet.metrics).length === 0) {
+      const fallback = await metrics.getLatestOnOrBefore(userId, shiftIsoDate(date, -1));
+      if (fallback !== undefined) metricSet = fallback;
+    }
 
     // The recommendation engine is built PER REQUEST from the loaded user, because
     // CaloriesToTargetRule needs THIS user's baseline (FR-REC-09) — never a boot-time constant.

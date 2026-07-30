@@ -23,9 +23,20 @@ const kcal = (n: number): string => `${n.toLocaleString()} kcal`;
 // user can still edit in the form itself, same as any other field.
 const MEAL_DEFAULT_DURATION_MINUTES = 30;
 
-/** FR-WEL-05: a metric is "current" only when the set's date is today. */
-const dateNote = (setDate: string): string | null =>
-  setDate === todayIso() ? null : `as of ${setDate}`;
+/**
+ * FR-WEL-05: the meta line under "Today's metrics". It states, accurately, whether the metrics
+ * shown are the ones recorded for the date being VIEWED or a fallback to an earlier reading (the
+ * backend substitutes the most recent prior set when the viewed date has none of its own):
+ *   - set date === viewed date → "measured {date}"          (no fallback happened)
+ *   - set date !== viewed date → "no data for {viewed} — showing {set date}" (fell back)
+ * The viewed date is written as "today" only when it actually is the current day, so the common
+ * case reads naturally; any other viewed date is named explicitly rather than mislabelled "today".
+ */
+const metricsSourceNote = (viewedDate: string, setDate: string): string => {
+  if (setDate === viewedDate) return `measured ${setDate}`;
+  const viewedLabel = viewedDate === todayIso() ? 'today' : viewedDate;
+  return `no data for ${viewedLabel} — showing ${setDate}`;
+};
 
 /**
  * FR-WEL, UI-03: the wellness view. Renders the read-only `GET /wellness` payload (packet 14a).
@@ -101,7 +112,6 @@ export const WellnessView = ({ date }: Props) => {
   if (data === null) return <section className="wellness"><p>Loading…</p></section>;
 
   const { metrics, workout, meals } = data;
-  const staleNote = dateNote(metrics.date);
   // Skipping is client-side only (no backend concept — see `skippedMeals` above), so the total
   // has to be recomputed here rather than trusting the server's `planTotalCalories`, which knows
   // nothing about what the user has skipped in this view.
@@ -116,9 +126,7 @@ export const WellnessView = ({ date }: Props) => {
       <div className="wellness__panel">
         <div className="wellness__panel-head">
           <h2>Today&rsquo;s metrics</h2>
-          <span className="wellness__meta">
-            {staleNote === null ? `measured ${metrics.date}` : `no data for today — showing ${metrics.date}`}
-          </span>
+          <span className="wellness__meta">{metricsSourceNote(date, metrics.date)}</span>
         </div>
         {Object.keys(metrics.metrics).length === 0 ? (
           <p className="wellness__muted">No metrics recorded for this date.</p>

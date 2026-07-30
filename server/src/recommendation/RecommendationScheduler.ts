@@ -215,18 +215,37 @@ export class RecommendationScheduler {
     date: IsoDate,
     warranted: IntensityTier,
   ): Promise<{ task: Task; placement: Placement } | undefined> {
-    const now = this.clock.nowMinute();
     const placements = await this.repo.placementsForDate(userId, date);
     for (const p of placements) {
       // FR-REC-07: a completed or already-begun workout is off limits. Only a PLANNED placement
-      // whose window is still ahead of `now` is eligible.
-      if (p.status !== 'PLANNED' || p.start <= now) continue;
+      // whose window is still ahead of the clock is eligible.
+      if (p.status !== 'PLANNED' || this.hasBegun(p.date, p.start)) continue;
       const task = await this.repo.getTask(p.taskId);
       if (task === undefined || task.type !== 'WORKOUT' || task.intensityTier === undefined) continue;
       if (TIER_RANK[task.intensityTier] <= TIER_RANK[warranted]) continue;
       return { task, placement: p };
     }
     return undefined;
+  }
+
+  /**
+   * FR-REC-07: has this occurrence's window STARTED, judged by its own date as well as its
+   * minute-of-day?
+   *
+   * ⚠️ The date half is load-bearing and was missing. `nowMinute()` is a minute-of-day with no
+   * calendar in it, so comparing it to `p.start` alone answers a different question — "is this
+   * earlier in SOME day than the current time of day" — which is wrong in both directions:
+   * tomorrow's 07:00 run read as already begun from 07:01 today (so FR-REC-02's replacement
+   * silently refused, throwing "no workout above <tier> to replace"), and a past date's run read
+   * as still upcoming whenever the clock had not yet reached its start minute (so a closed day's
+   * history could be rewritten). Same defect shape as OPEN-35, whose fix gave `RescheduleService`
+   * a date-aware `hasElapsed`; this class never got the equivalent.
+   */
+  private hasBegun(date: IsoDate, startMinute: number): boolean {
+    const today = this.clock.today();
+    if (date < today) return true; // a closed day has begun in its entirety
+    if (date > today) return false; // a future day has not begun at all
+    return startMinute <= this.clock.nowMinute();
   }
 
   /**

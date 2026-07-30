@@ -1,0 +1,410 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Adaptive Habit, Schedule &amp; Wellness System — Final Presentation</title>
+<style>
+  /* Self-contained by design: no fonts, no CDN, no network. It must not be able to fail
+     in front of the room. Same reasoning as §4.2's offline acceptance demonstration. */
+  :root {
+    --bg: #0d1117;
+    --fg: #e6edf3;
+    --dim: #9aa7b2;
+    --accent: #6cb6ff;
+    --accent2: #7ee787;
+    --warn: #ffa657;
+    --danger: #ff7b72;
+    --rule: #30363d;
+    --code-bg: #161b22;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0; height: 100%;
+    background: var(--bg); color: var(--fg);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  #deck { height: 100%; }
+  .slide {
+    display: none;
+    height: 100%;
+    padding: 5vh 7vw 9vh;
+    overflow-y: auto;
+    animation: fade .18s ease-out;
+  }
+  .slide.active { display: flex; flex-direction: column; justify-content: center; }
+  @keyframes fade { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+  h1 { font-size: clamp(2rem, 4.6vw, 4rem); line-height: 1.08; margin: 0 0 .5em; letter-spacing: -.02em; }
+  h2 { font-size: clamp(1.5rem, 3.1vw, 2.6rem); line-height: 1.15; margin: 0 0 .7em; letter-spacing: -.015em; }
+  h3 { font-size: clamp(1.05rem, 1.6vw, 1.4rem); color: var(--accent); margin: 1.2em 0 .4em; font-weight: 600; }
+  p, li { font-size: clamp(1rem, 1.5vw, 1.45rem); line-height: 1.5; }
+  ul { padding-left: 1.1em; margin: .4em 0; }
+  li { margin: .45em 0; }
+  .kicker {
+    text-transform: uppercase; letter-spacing: .16em;
+    font-size: clamp(.7rem, .95vw, .9rem); color: var(--dim);
+    margin: 0 0 1.6em; font-weight: 600;
+  }
+  .lead { font-size: clamp(1.2rem, 2vw, 1.9rem); line-height: 1.4; }
+  .dim { color: var(--dim); }
+  .accent { color: var(--accent); }
+  .good { color: var(--accent2); }
+  .warn { color: var(--warn); }
+  em.q {
+    display: block; font-style: normal;
+    border-left: 4px solid var(--accent); padding: .6em 0 .6em 1em;
+    margin: 1em 0; font-size: clamp(1.15rem, 2vw, 1.85rem); line-height: 1.36;
+  }
+  em.q.hot { border-left-color: var(--warn); }
+  code, .mono {
+    font-family: ui-monospace, "SF Mono", "Cascadia Mono", Consolas, "Liberation Mono", monospace;
+    background: var(--code-bg); border: 1px solid var(--rule);
+    border-radius: 5px; padding: .1em .4em; font-size: .88em;
+  }
+  pre {
+    background: var(--code-bg); border: 1px solid var(--rule); border-radius: 8px;
+    padding: 1em 1.2em; overflow-x: auto; margin: .8em 0;
+  }
+  pre code { background: none; border: none; padding: 0; font-size: clamp(.8rem, 1.15vw, 1.05rem); line-height: 1.55; }
+
+  table { border-collapse: collapse; width: 100%; margin: .6em 0; }
+  th, td { text-align: left; padding: .5em .7em; border-bottom: 1px solid var(--rule); font-size: clamp(.9rem, 1.35vw, 1.3rem); }
+  th { color: var(--dim); font-weight: 600; text-transform: uppercase; letter-spacing: .07em; font-size: clamp(.68rem, .95vw, .85rem); }
+
+  .metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 1.1rem; margin: 1em 0; }
+  .metric { background: var(--code-bg); border: 1px solid var(--rule); border-radius: 10px; padding: 1.1rem 1.2rem; }
+  .metric .n { font-size: clamp(1.8rem, 3.4vw, 3rem); font-weight: 700; color: var(--accent2); line-height: 1; letter-spacing: -.02em; }
+  .metric .l { font-size: clamp(.82rem, 1.1vw, 1rem); color: var(--dim); margin-top: .5em; line-height: 1.35; }
+
+  .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 2.2rem; }
+  .cols h3 { margin-top: 0; }
+  .col-a h3 { color: var(--danger); }
+  .col-b h3 { color: var(--accent2); }
+  @media (max-width: 820px) { .cols { grid-template-columns: 1fr; } }
+
+  .who { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1.2rem; margin-top: 1em; }
+  .who div { border-top: 3px solid var(--accent); padding-top: .7em; }
+  .who .name { font-weight: 700; font-size: clamp(1rem, 1.5vw, 1.35rem); }
+  .who .role { color: var(--accent); font-size: clamp(.82rem, 1.1vw, 1rem); margin: .2em 0 .5em; }
+  .who .did { color: var(--dim); font-size: clamp(.85rem, 1.15vw, 1.05rem); line-height: 1.45; }
+
+  .star { color: var(--warn); }
+
+  footer {
+    position: fixed; bottom: 0; left: 0; right: 0;
+    display: flex; justify-content: space-between; align-items: center;
+    padding: .7rem 2rem; font-size: .8rem; color: var(--dim);
+    border-top: 1px solid var(--rule); background: var(--bg);
+  }
+  footer .t { letter-spacing: .04em; }
+  #bar { position: fixed; top: 0; left: 0; height: 3px; background: var(--accent); transition: width .18s ease; }
+
+  @media print {
+    .slide { display: block !important; page-break-after: always; height: auto; padding: 2rem; }
+    footer, #bar { display: none; }
+    html, body { background: #fff; color: #000; }
+  }
+</style>
+</head>
+<body>
+<div id="bar"></div>
+<div id="deck">
+
+  <!-- 1 -->
+  <section class="slide">
+    <p class="kicker">CS 4398 · Software Engineering Capstone · Summer 2026</p>
+    <h1>Adaptive Habit, Schedule &amp;<br>Wellness System</h1>
+    <p class="lead dim">An adaptive scheduling engine driven by real wearable health data —<br>built by directing AI agents against a written specification.</p>
+    <div class="who">
+      <div>
+        <div class="name">Patrick Rucker</div>
+        <div class="role">Scheduling Algorithm Lead</div>
+        <div class="did">Packets 04–07 · engine and reschedule service<br>16a/16b · executable guards<br>17a–17d · acceptance suite and recommendation wiring</div>
+      </div>
+      <div>
+        <div class="name">Ryan Woosley</div>
+        <div class="role">Data &amp; Wearable Integration Lead</div>
+        <div class="did">Packets 08–11 · Garmin adapter, metric set, rules, libraries<br>14/15 · wellness and analytics<br>Ingestion CLI — 50 real metric sets</div>
+      </div>
+      <div>
+        <div class="name">Miguel Alvarez</div>
+        <div class="role">Frontend &amp; Backend Lead</div>
+        <div class="did">Packet 12 · API and persistence<br>13/13b · dashboard, month navigator, theme<br>.ics export · reschedule UI</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 2 -->
+  <section class="slide">
+    <p class="kicker">What we were asked to show</p>
+    <h2>Four things</h2>
+    <ol>
+      <li>Every member present, each naming their contribution</li>
+      <li><strong class="accent">How we used agentic development — most of all.</strong> The context files, and how prompts were generated from them</li>
+      <li><strong class="accent">Structure, process, and V&amp;V</strong> — with quantitative results</li>
+      <li>A demo of the system</li>
+    </ol>
+    <em class="q">The team wrote the requirements and directed the agents. The agents wrote the code. Everything that follows is about how we kept that honest.</em>
+  </section>
+
+  <!-- 3 -->
+  <section class="slide">
+    <p class="kicker">Ask 2 · Context files</p>
+    <h2>Your chat context is not the project's memory</h2>
+    <p>A conversation ends and takes its context with it. A file does not.</p>
+    <p>Three people, multiple AI sessions, nineteen days. <strong>Anything that exists only in a chat log is effectively lost</strong> — and gets re-argued from scratch by the next session.</p>
+    <h3><code>CLAUDE.md</code> §0 — the standing instruction to every agent</h3>
+    <table>
+      <tr><th>When this happens</th><th>Update this</th></tr>
+      <tr><td>A decision is made</td><td><code>TEAM-MEETING.md</code> → decision log, <em>with the reasoning</em></td></tr>
+      <tr><td>A requirement changes</td><td><code>SRS-v2.md</code> + revision history + every cross-reference</td></tr>
+      <tr><td>An architectural call is made or reversed</td><td><code>CLAUDE.md</code> §4 — and why the rejected option was rejected</td></tr>
+      <tr><td>Anything material changes</td><td><code>CLAUDE.md</code> §9 and the "last updated" date</td></tr>
+    </table>
+    <p class="dim">Written in the same turn as the change. Not "later," not "I'll note that."</p>
+  </section>
+
+  <!-- 4 -->
+  <section class="slide">
+    <p class="kicker">Ask 2 · Context files</p>
+    <h2>Decisions Already Made — Do Not Re-Litigate</h2>
+    <p>Agents re-propose rejected ideas <em>fluently and confidently</em>. So the reasoning is written down, not just the conclusion.</p>
+    <ul>
+      <li><strong>§4.1</strong> — the official Garmin Health API is off the critical path. Partner approval, lead time we cannot schedule against 31 July.</li>
+      <li><strong>§4.2</strong> — workout and meal libraries are locally seeded, not runtime API calls. The whole demonstration runs with outbound network disabled.</li>
+      <li><strong>§4.3</strong> — there is exactly <em>one</em> scheduling engine. Rescheduling re-invokes it; it is not a second algorithm.</li>
+      <li><strong>§4.9</strong> — the system is not a medical device. It <em>asks</em> for a calorie baseline; it never estimates BMR.</li>
+    </ul>
+    <em class="q">We're not just documenting what we did. We're documenting what we decided <strong>not</strong> to do — because that's what an agent will otherwise undo.</em>
+  </section>
+
+  <!-- 5 -->
+  <section class="slide">
+    <p class="kicker">Ask 2 · Generating prompts from context</p>
+    <h2>26 packets, in delivery order</h2>
+    <pre><code>prompts/
+  foundation/   01  02  02b  03      scaffold, toolchain, guards, contract
+  engine/       04  05  06   07      RED → GREEN → RED → GREEN
+  wearable/     08  08b 09   10  11  adapter, rules, libraries
+  backend/      12                   API and persistence
+  frontend/     13  14a 14b  15a 15c dashboard, wellness, analytics
+  verification/ 16a 16b 17a  17c 17d guards, acceptance, wiring</code></pre>
+    <ul>
+      <li>One packet ≈ one agent session ≈ one reviewable diff ≈ <strong>one human owner</strong>.</li>
+      <li><strong>Numbers are the delivery order; folders are the ownership.</strong> Two axes, both load-bearing.</li>
+      <li>The SRS is the prompt corpus — packets quote requirement IDs and boundary tables <strong>verbatim</strong>.</li>
+      <li>Each owner authors their own packet <em>immediately before running it</em>.</li>
+    </ul>
+    <em class="q">A prompt that doesn't exist yet is visibly missing. A prompt written from speculation is invisibly wrong.</em>
+  </section>
+
+  <!-- 6 -->
+  <section class="slide">
+    <p class="kicker">Ask 2 · <span class="star">★</span> The difference that matters</p>
+    <h2>Same artifact, opposite ends of its life</h2>
+    <div class="cols">
+      <div class="col-a">
+        <h3>The example pack</h3>
+        <p>Contains finished <code>.java</code> files.</p>
+        <p class="dim">Written <strong>backwards</strong> from a program that already existed — so the output was pasted back in.</p>
+      </div>
+      <div class="col-b">
+        <h3>Ours</h3>
+        <p>Contains requirements.</p>
+        <p class="dim">Written <strong>forwards</strong> to a program that did not exist yet. A prompt pack is a <strong>generator</strong>.</p>
+      </div>
+    </div>
+    <p>We conform to the house style — numbered in delivery order, a <code>00-</code> summary, a phase map, and the five named techniques.</p>
+    <em class="q">Run the pack in order and the agent <em>creates</em> the code. Re-running may produce different code — and that is expected.</em>
+  </section>
+
+  <!-- 7 -->
+  <section class="slide">
+    <p class="kicker">Ask 2 · <span class="star">★</span> Why the implementation must never enter a prompt</p>
+    <h2>It breaks the measurement, silently</h2>
+    <em class="q hot">Paste the implementation into the prompt, and the tests start checking the code against itself. The coverage number stays green and stops measuring anything.<br><br>You don't find out — because nothing fails.</em>
+    <p><strong>And a second cost:</strong> whichever way that one run happened to merge intervals or order its comparisons becomes the specification — indistinguishable from a requirement the team actually agreed on.</p>
+    <h3>The claim this structure makes</h3>
+    <p class="lead">Delete <code>engine/src/</code>, re-run packet 05, and the <strong class="good">30 frozen engine tests still pass.</strong></p>
+    <p class="dim">The implementation is disposable. The specification and its executable form are not — which is exactly why the tests are written first (packet 04) and frozen before any implementation exists (packet 05).</p>
+  </section>
+
+  <!-- 8 -->
+  <section class="slide">
+    <p class="kicker">Ask 3 · Structure</p>
+    <h2>One engine, and it cannot cheat</h2>
+    <pre><code>engine/     findCandidateSlots()   pure · ZERO dependencies · 100% covered
+shared/     contract.ts            human-authored, frozen before any agent ran
+server/     reschedule/            WHEN the engine is called again
+            recommendation/        metrics → decisions → real scheduled tasks
+            api/  db/              Express · MongoDB
+web/        React + TypeScript</code></pre>
+    <ul>
+      <li><strong>Exactly one function in this system produces a placement.</strong> Rescheduling re-invokes it.</li>
+      <li>The engine has an <strong>empty dependency block, permanently</strong> — an engine that cannot import anything cannot import a clock.</li>
+      <li>Time is an integer <code>Minute</code>. The engine never sees a <code>Date</code>.</li>
+    </ul>
+    <p class="dim">That purity is structural, not aspirational — and it is what lets the engine be property-tested over 1,000 randomized days with no database and no browser.</p>
+  </section>
+
+  <!-- 9 -->
+  <section class="slide">
+    <p class="kicker">Ask 3 · Process</p>
+    <h2>RED and GREEN are different agent sessions</h2>
+    <pre><code>RED agent          sees the SRS and the contract. Never an implementation.
+   ↓
+HUMAN GATE         a second person reviews. Nobody freezes their own suite.
+   ↓
+FROZEN             sha256 per file, committed
+   ↓
+GREEN agent        sees failing tests. MAY NOT edit, skip or weaken one — ever.
+                   If it thinks a test is wrong, it STOPS and a human decides.</code></pre>
+    <p><strong>Why this can't be collapsed "for speed":</strong> when one agent writes the test and the implementation together, the test encodes what the code <em>does</em> rather than what the requirement <em>says</em>. It goes green, it looks reasonable, and it is wrong.</p>
+    <em class="q">This is structural. It cannot be fixed by asking the agent to be careful.</em>
+    <p class="dim">~193 commits · 20 of them explicit RED/GREEN boundary commits.</p>
+  </section>
+
+  <!-- 10 -->
+  <section class="slide">
+    <p class="kicker">Ask 3 · <span class="star">★</span> V&amp;V — quantitative</p>
+    <h2>Measured, not asserted</h2>
+    <div class="metrics">
+      <div class="metric"><div class="n">510</div><div class="l">tests passing, 41 suites, ~31 seconds</div></div>
+      <div class="metric"><div class="n">100%</div><div class="l">engine coverage — statements, branches, functions, lines</div></div>
+      <div class="metric"><div class="n">1,000</div><div class="l">randomized days property-tested: no placement ever overlaps a busy interval</div></div>
+      <div class="metric"><div class="n">6</div><div class="l">executable guards enforcing inspection-only requirements</div></div>
+      <div class="metric"><div class="n">8</div><div class="l">frozen suites — 33 files pinned by sha256</div></div>
+      <div class="metric"><div class="n">136</div><div class="l">FR/NFR requirements defined, plus 33 constraints and interfaces</div></div>
+    </div>
+    <pre><code>$ npx jest --selectProjects engine --coverage     # 100% table          ~5s
+$ npm run guard:single-placement                 # FR-RSC-03          instant
+$ npm run guard:tests-frozen                     # 8 frozen suites    instant
+$ npx jest engine/test/property.test.ts          # 1,000 days           ~1s
+$ npm run verify                                 # everything          ~31s</code></pre>
+    <p class="good"><strong>→ Run these live, in this order.</strong> <span class="dim">Open on the coverage table. Close on <code>verify</code> — talk over it, don't wait for it.</span></p>
+  </section>
+
+  <!-- 11 -->
+  <section class="slide">
+    <p class="kicker">Ask 3 · V&amp;V</p>
+    <h2>Two guards worth thirty seconds each</h2>
+    <h3>guard:single-placement</h3>
+    <p>Ask an agent to repair the schedule when a commitment displaces a task, and it will write a tidy little <code>findNextFreeSlot()</code> inside the reschedule service — because that is locally the simplest thing to do.</p>
+    <p><strong class="warn">The requirement is now false. No test fails.</strong></p>
+    <pre><code>$ npm run guard:single-placement
+exactly one placement definition (findCandidateSlots, engine/src);
+no PlacementResult-returning function elsewhere  (FR-RSC-03)</code></pre>
+    <h3>guard:tests-frozen</h3>
+    <p>Hashes, not commits — a commit-based freeze needs the repository <em>and</em> that commit reachable. Hashes catch an edited test, an edited-<strong>and-committed</strong> test, a deleted test, <strong>and a file quietly added to a frozen suite.</strong></p>
+  </section>
+
+  <!-- 12 -->
+  <section class="slide">
+    <p class="kicker">Ask 3 · <span class="star">★</span> V&amp;V</p>
+    <h2>A guard that has never been observed to fail doesn't count</h2>
+    <p>Every guard is watched <strong>failing</strong> against a deliberately introduced violation before it is trusted.</p>
+    <p class="lead">Packet 16b produced <strong class="good">14 must-fail transcripts</strong> where 11 were required.</p>
+    <em class="q hot">A green guard that enforces nothing exits 0 exactly like a working one. From the outside, they are indistinguishable.</em>
+    <p><strong>This project has shipped that mistake twice and caught it both times</strong> — which is why the rule exists in writing rather than as good intentions.</p>
+  </section>
+
+  <!-- 13 -->
+  <section class="slide">
+    <p class="kicker">Ask 3 · <span class="star">★</span> V&amp;V working — this week</p>
+    <h2>What 507 passing tests did not catch</h2>
+    <p>Rehearsing this demonstration yesterday, applying a recommendation to <em>tomorrow's</em> schedule returned <em>"no workout above LOW to replace"</em> — for a workout that had not started.</p>
+    <pre><code>if (placement.start &lt;= clock.nowMinute()) continue;   // ✗ no calendar in it</code></pre>
+    <p>A minute-of-day comparison. Wrong in <strong>both</strong> directions: a future date's workout read as already begun; a past date's read as still upcoming — so a finished day's history could be rewritten.</p>
+    <em class="q">Every frozen suite applies the recommendation to the clock's own date — the one configuration where the bug is invisible. We found it by <strong>running the system</strong>, not by running the suite.</em>
+    <p class="dim">Fixed with a date-aware check mirroring the one the reschedule service already had. Pinned by 3 new tests — <strong>2 watched failing first</strong>. SRS corrected in place to v2.41. 510 green, all 8 freeze entries unchanged.</p>
+  </section>
+
+  <!-- 14 -->
+  <section class="slide">
+    <p class="kicker">Ask 3 · The honest summary</p>
+    <h2>Systematic testing tells you what you checked</h2>
+    <em class="q hot">It does not tell you what you forgot to check.<br><br>That is why we still rehearse against a running server.</em>
+    <p>Five levels are represented — unit, property, integration, contract, acceptance — using Jest, fast-check, supertest and <code>mongodb-memory-server</code>.</p>
+    <p><code>docs/TESTING.md</code> records which tool was chosen for what, and the three that were <strong>costed and rejected</strong> — Postman/Newman, Vitest + RTL, Playwright/Cypress — so nobody re-proposes them.</p>
+  </section>
+
+  <!-- 15 -->
+  <section class="slide">
+    <p class="kicker">Ask 4 · Demo</p>
+    <h2>Three acts</h2>
+    <h3>1 · The day</h3>
+    <p>Two fixed commitments — 09:00 lecture, 13:00 standup — and six flexible tasks the engine placed around them.</p>
+    <h3>2 · Repair</h3>
+    <p>Add a dentist appointment at 14:00 → <strong>Study CS4398 is displaced and re-placed at 15:00–16:30</strong> by the same engine. Then try a second class at 09:00 → <strong class="warn">409 — "That time conflicts with CS4398 Capstone Lecture."</strong></p>
+    <h3>3 · The claim</h3>
+    <p>Inject sleep score 40 → tier drops to <strong>LOW</strong>, calorie target rises → <strong>apply the workout</strong> → it becomes a real <code>SYSTEM</code> task placed by the same engine → drop a commitment on it and watch it get displaced like any user task.</p>
+    <em class="q">Not a scheduler and a fitness app sharing a login. One system.</em>
+  </section>
+
+  <!-- 16 -->
+  <section class="slide">
+    <p class="kicker">Where we fell short</p>
+    <h2>The gaps, before you find them</h2>
+    <ul>
+      <li><strong>FR-WEL-04 is not satisfied.</strong> The seven-day wellness panel was removed at the requirement owner's request. We flagged it, logged it as OPEN-37, and updated the SRS to say so — rather than let the document assert a capability the build no longer has.</li>
+      <li><strong>No Conditional work was undertaken.</strong> Priority displacement, the live Garmin API, and the external content API are deliberately out of scope, recorded with reasons on 26 July.</li>
+      <li><strong>Some late frontend work has no automated coverage</strong> — the wellness click-to-schedule path and the background sweep. Flagged rather than implied.</li>
+    </ul>
+    <em class="q">A stale document is worse than no document, because it is trusted.</em>
+  </section>
+
+  <!-- 17 -->
+  <section class="slide">
+    <p class="kicker">Thank you</p>
+    <h1>One integrated system</h1>
+    <p class="lead">A recommendation derived from real wearable data becomes a real task on a real calendar — placed by the same engine, and defended by the same rescheduling logic, as everything else in the user's day.</p>
+    <p class="dim" style="margin-top:2em">Patrick Rucker · Ryan Woosley · Miguel Alvarez<br>CS 4398 — Summer 2026</p>
+  </section>
+
+</div>
+
+<footer>
+  <span class="t">Adaptive Habit, Schedule &amp; Wellness System</span>
+  <span class="t">← → navigate · <strong>F</strong> full screen · <span id="num">1 / 17</span></span>
+</footer>
+
+<script>
+  var slides = Array.prototype.slice.call(document.querySelectorAll('.slide'));
+  var i = 0;
+  var num = document.getElementById('num');
+  var bar = document.getElementById('bar');
+
+  function show(n) {
+    i = Math.max(0, Math.min(slides.length - 1, n));
+    slides.forEach(function (s, k) { s.classList.toggle('active', k === i); });
+    num.textContent = (i + 1) + ' / ' + slides.length;
+    bar.style.width = ((i + 1) / slides.length * 100) + '%';
+    if (location.hash !== '#' + (i + 1)) history.replaceState(null, '', '#' + (i + 1));
+    slides[i].scrollTop = 0;
+  }
+
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'ArrowRight' || e.key === 'PageDown' || e.key === ' ') { show(i + 1); e.preventDefault(); }
+    else if (e.key === 'ArrowLeft' || e.key === 'PageUp') { show(i - 1); e.preventDefault(); }
+    else if (e.key === 'Home') { show(0); }
+    else if (e.key === 'End') { show(slides.length - 1); }
+    else if (e.key === 'f' || e.key === 'F') {
+      if (document.fullscreenElement) { document.exitFullscreen(); }
+      else if (document.documentElement.requestFullscreen) { document.documentElement.requestFullscreen(); }
+    }
+  });
+
+  // Tap/click the right two-thirds to advance, left third to go back — for a handheld clicker
+  // that sends clicks rather than key events.
+  document.addEventListener('click', function (e) {
+    if (e.target.closest('a')) return;
+    show(e.clientX < window.innerWidth / 3 ? i - 1 : i + 1);
+  });
+
+  var start = parseInt((location.hash || '#1').slice(1), 10);
+  show(isNaN(start) ? 0 : start - 1);
+</script>
+</body>
+</html>
