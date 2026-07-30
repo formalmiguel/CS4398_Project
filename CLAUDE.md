@@ -322,7 +322,7 @@ Owner: Patrick Rucker
 |---|---|
 | `PNN RED` | the frozen test-suite commit from a packet's RED session |
 | `PNN GREEN` | the implementation that makes that suite pass |
-| `engine` · `reschedule` · `adapter` · `catalog` · `api` · `frontend` | module work outside a packet — these are the SRS module seams (§7.4) |
+| `engine` · `reschedule` · `recommendation` · `adapter` · `catalog` · `api` · `frontend` | module work outside a packet — these are the SRS module seams (§7.4) |
 | `guard` | an executable CI guard for an **(I)** requirement (§4.8) |
 | `seed` | workout / meal library data (§4.2) |
 | `srs` | changes to `docs/SRS-v2.md` |
@@ -330,6 +330,8 @@ Owner: Patrick Rucker
 | `chore` | tooling, dependencies, config, scaffolding |
 
 > **`reschedule` was added 22 Jul, and it exists to stop one specific misfiling.** It covers `server/src/reschedule/` — the FR-RSC policy layer that decides **when** the engine is called again. ⚠️ **It is not `engine`, and the distinction is §4.3's**: there is exactly one function in this System that produces a placement, it lives in `engine/src`, and the whole point of FR-RSC-03 is that the reschedule service *re-invokes* it rather than being it. **A log where both modules read `engine:` is a log that quietly asserts the thing FR-RSC-03 forbids** — and the guard in packet 16a checks the code, not the commit messages. *(Rejected: `api:`, which packet 12 already uses for `server/src/api/` and which names the wrong layer.)*
+
+> **`recommendation` was added 30 Jul, for the same reason and by the same argument.** It covers `server/src/recommendation/` — `RecommendationEngine`, the two rules, `WorkoutSource`, and `RecommendationScheduler` (the FR-REC-04 wiring). Until now this module had **no scope at all**: every commit that touched it came from a packet (`P10 GREEN`, `P17b GREEN`, `P17c`, `P17d`), so the gap only appeared the first time it was fixed outside one. ⚠️ **The available near-misses are all actively wrong**: `engine:` is `engine/src` and FR-RSC-03's whole point (see above); `reschedule:` is the FR-RSC policy layer, and `RecommendationScheduler` *calls* it rather than being it; `catalog:` is the library seam it draws from; `api:` names the wrong layer, as it did in July. **Misfiling here would assert the same false thing the `reschedule` row exists to prevent** — that two modules with one placement function between them are one module. *(Rejected: leaving it unlisted and reaching for the closest fit, which is how a closed vocabulary silently stops being one.)*
 
 **Subject line:** imperative mood (*"add"*, not *"added"*), no trailing period, ≤72 characters, and **name the behavior, not the file** — `engine: keep searching after a too-short gap`, never `engine: update scheduler.ts`. A summary that names a file tells a reviewer nothing they couldn't get from `git diff --stat`.
 
@@ -413,6 +415,10 @@ Owner: Patrick Rucker
 ---
 
 ## 9. Current Status (30 July 2026 — **build complete, §6 demonstrated, everything merged and pushed; nothing tracked; ad hoc frontend follow-ups continuing on their own branch**)
+
+---
+
+> 🐛 **30 Jul (latest): FR-REC-04's apply-workout path could not be applied to any day but today, and could rewrite a closed day's history — FOUND AND FIXED, UNCOMMITTED as of this note.** Found while rehearsing the 31 July demonstration against the running server, not by a failing test. `RecommendationScheduler.aboveTierWorkout` decided "has this workout begun?" with `p.start <= clock.nowMinute()` — **a minute-of-day comparison with no reference to `p.date`**, which is the same defect shape as OPEN-35 (fixed in `RescheduleService` on 29 Jul with a date-aware `hasElapsed`; this class never got the equivalent). Wrong in both directions: a **future** date's workout read as already begun once the wall clock passed its start minute, so `POST /recommendations/apply-workout` returned **409 "no workout above LOW to replace"** for a workout that had plainly not started; a **past** date's workout read as still upcoming whenever the clock had not reached its start minute, so a finished day's placement could be superseded and rewritten. **Fixed** with a private `hasBegun(date, startMinute)` mirroring `hasElapsed`. **Pinned by 3 tests in a new unfrozen directory** (`server/test/recommendation-future-date/`) that imports the **frozen** packet-17a harness, so the real engine and real `RescheduleService` run — **2 watched to FAIL first**, the third pinning FR-REC-07's genuinely-begun case that must keep refusing. `npm run verify` **510 green** (507 + 3), 41 suites, engine 100%, all guards green, **all 8 freeze entries verified unchanged — no frozen file touched.** SRS → **v2.41** (FR-REC-07 corrected in place; the cover page was also stale at 2.36 and is now 2.41). ⚠️ **Two things a new session should carry forward: (1)** the 28 Jul §6 transcript is real but was **time-lucky** — it applied to the clock's own date with a 17:00 run, the one configuration where this bug is invisible; **(2)** the failure mode was **silent and time-dependent**, since a 409 is indistinguishable from "the System correctly has nothing to replace." ⚠️ **UNCOMMITTED.** Full account: `docs/TEAM-MEETING.md` decision log, 30 Jul; `docs/SRS-v2.md` v2.41.
 
 ---
 
