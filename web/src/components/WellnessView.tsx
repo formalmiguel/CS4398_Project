@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
-import type { DailyMetricSet, IntensityTier, Metric } from '@capstone/shared';
+import type { IntensityTier } from '@capstone/shared';
 
 import { WellnessResult, getWellness, toErrorMessage } from '../api/client';
 import { todayIso } from '../dateUtils';
@@ -20,12 +20,6 @@ const kcal = (n: number): string => `${n.toLocaleString()} kcal`;
 /** FR-WEL-05: a metric is "current" only when the set's date is today. */
 const dateNote = (setDate: string): string | null =>
   setDate === todayIso() ? null : `as of ${setDate}`;
-
-/** The two series FR-WEL-04 names, pulled out of a DailyMetricSet by key (or null when absent). */
-const seriesValue = (set: DailyMetricSet, name: string): number | null => {
-  const m = set.metrics[name] as Metric | undefined;
-  return m !== undefined && m.isAvailable ? m.value : null;
-};
 
 /**
  * FR-WEL, UI-03: the wellness view. Renders the read-only `GET /wellness` payload (packet 14a) —
@@ -48,17 +42,6 @@ export const WellnessView = ({ date }: Props) => {
   useEffect(() => {
     void load();
   }, [load]);
-
-  // FR-WEL-04: the sleep-score and active-calorie series over the returned window.
-  const history = useMemo(
-    () =>
-      (data?.history ?? []).map((set) => ({
-        date: set.date,
-        sleep: seriesValue(set, 'sleepScore'),
-        calories: seriesValue(set, 'activeCalories'),
-      })),
-    [data],
-  );
 
   if (error !== null) {
     return (
@@ -103,34 +86,6 @@ export const WellnessView = ({ date }: Props) => {
               </li>
             ))}
           </ul>
-        )}
-      </div>
-
-      {/* ── LAST 7 DAYS (FR-WEL-04) ── */}
-      <div className="wellness__panel">
-        <h2>Last 7 days</h2>
-        {history.length === 0 ? (
-          <p className="wellness__muted">No history yet.</p>
-        ) : (
-          <table className="wellness__history">
-            <thead>
-              <tr>
-                <th>Date</th>
-                <th>Sleep score</th>
-                <th>Active calories</th>
-              </tr>
-            </thead>
-            <tbody>
-              {history.map((point) => (
-                <tr key={point.date}>
-                  <td>{point.date}</td>
-                  {/* A gap is em-dashed, never a fabricated zero (FR-WEL-05). */}
-                  <td>{point.sleep === null ? '—' : point.sleep}</td>
-                  <td>{point.calories === null ? '—' : point.calories.toLocaleString()}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
         )}
       </div>
 
