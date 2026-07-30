@@ -5,7 +5,7 @@
 >
 > **It does not claim the same code.** It claims the same requirements met by an implementation derived independently each time, which is the only thing that makes NFR-MNT-01's 90% coverage figure and NFR-COR-01's 1,000-case property test mean anything at all. *(SRS **NFR-MNT-09**, Conditional.)*
 
-**Last updated:** 30 July 2026 *(run sheet brought up to date — it had stood at the 24 July state, listing packets as unauthored that have since been written and run. ⛔ **Read §3's stop-notice first: two GREEN packets do not exist, and a replay run in numerical order freezes two suites it then cannot make green.**)*
+**Last updated:** 30 July 2026 *(run sheet brought up to date — it had stood at the 24 July state, listing packets as unauthored that have since been written and run. ✅ **The pack is now complete: every packet 01 → 17d exists on disk.** The audit that produced this refresh found two GREEN packets missing — `15b` and `17b`, whose RED partners freeze — and **both have since been written (OPEN-39, closed)**. ⚠️ **Read §3's note on them before replaying: they were authored retrospectively and have never been run.**)*
 
 ---
 
@@ -79,31 +79,33 @@ This section used to say *"do not delete `scripts/`"* **wholesale**, which contr
 | 13 | `frontend/13-frontend-schedule-dashboard.md` | BUILD | `npm run verify`; app serves |
 | 14a | `frontend/14a-wellness-backend-endpoints.md` | BUILD | `npm run verify`; `GET /wellness` answers on the running server |
 | 14b | `frontend/14b-frontend-wellness-view.md` | BUILD | `npm run verify`; the view renders in a browser |
-| **15a** | `frontend/15a-analytics-computation-RED.md` | 🔴 RED | **🚦 RED GATE** → **freeze** `server/test/analytics` · ⛔ **see the stop-notice below before running this** |
-| **15b** | ⛔ **`frontend/15b-analytics-computation-GREEN.md` DOES NOT EXIST** | 🟢 GREEN | — |
+| 15a | `frontend/15a-analytics-computation-RED.md` | 🔴 RED | **🚦 RED GATE** → **freeze** `server/test/analytics` |
+| 15b | `frontend/15b-analytics-computation-GREEN.md` | 🟢 GREEN | suite green, freeze entries green; `GET /analytics` answers on the running server |
 | 15c | `frontend/15c-frontend-analytics-view.md` | BUILD | `npm run verify` |
 | 16a | `verification/16a-guards-placement-purity.md` | GUARD | both new guards watched to fail, then pass |
 | 16b | `verification/16b-guards-network-extensibility.md` | GUARD | every check watched to fail, then pass; 16a's four re-proven after the `strip-code.mjs` extraction |
-| **17a** | `verification/17a-acceptance-suite-RED.md` | 🔴 RED | **🚦 RED GATE** → **freeze** `server/test/acceptance` · ⛔ **see the stop-notice below before running this** |
-| **17b** | ⛔ **`verification/17b-integration-GREEN.md` DOES NOT EXIST** | 🟢 GREEN | — |
+| 17a | `verification/17a-acceptance-suite-RED.md` | 🔴 RED | **🚦 RED GATE** → **freeze** `server/test/acceptance` |
+| **17b** | `verification/17b-integration-GREEN.md` | 🟢 GREEN | **8/8 acceptance green**, `guard:single-placement` green, freeze entries green — **this is FR-REC-04 landing** |
 | 17c | `verification/17c-replacement-durability.md` | 🔴 RED → 🟢 GREEN | **two sessions, not one.** RED gate → **freeze** `server/test/replacement`, then GREEN |
 | 17d | `verification/17d-wire-recommendation-path.md` | INTEGRATION | `npm run verify`; **and the §6 transcript against the running server — a green suite does not close this one** |
 
-> ### ⛔ STOP-NOTICE: two GREEN packets do not exist, and their RED partners do
+> ### ✅ RESOLVED 30 Jul — the two missing GREEN packets have been written (OPEN-39)
 >
-> **This is worse than a missing packet, and it is the single most important thing on this page.**
+> **For about four days this pack could not complete a replay, and nothing said so.** `15b` and `17b` did not exist while their RED partners `15a` and `17a` did — and RED packets **freeze**. A replay run in numerical order would have pinned two suites whose implementation stops at a throwing stub (`Error('15b')`, `Error('17b')`), with no packet to write the body and a freeze correctly refusing to let anyone edit the tests around it. ⚠️ **`17a` is FR-REC-04's acceptance suite — the load-bearing requirement (§5) — so the stall landed on the one thing the project cannot afford to lose.**
 >
-> A missing packet is visibly absent — you skip it and lose that feature. But `15a` and `17a` are **present, and they freeze**. Run them in numerical order and you have pinned two suites whose implementations stop at a throwing stub — `Error('15b')` in `server/src/analytics/HabitAnalytics.ts`, `Error('17b')` in `server/src/recommendation/RecommendationScheduler.ts` — with **no packet to write the body, and a freeze that now forbids touching the tests.** `npm run verify` cannot go green, and the freeze is doing exactly its job in preventing the obvious workaround.
+> **Both packets were genuinely run in July.** The commits are on `dev`, the implementations exist, the stubs are long gone. **What was never saved was the prompt** — written into an agent session and lost with it. ⚠️ **`prompts/00-prompt-collection-summary.md` listed 17b as `✅ Done` and named a filename that had never existed**, so the gap read as closed from the one table anybody would check.
 >
-> **Both were genuinely run** — `Packet: 15b` and `Packet: 17b` commits are on `dev`, the implementations exist and the stubs are long gone. **What was never saved is the prompt.** The packet text was written into an agent session and lost with it, which is the precise failure `CLAUDE.md` §0 exists to prevent, showing up in the one directory nobody thought of as documentation.
+> **Both have been re-authored** — from `docs/SRS-v2.md`, their RED packets, and `docs/P15A-RED-REPORT.md` / `docs/P17B-GREEN-REPORT.md`. ⛔ **Not from the committed implementation**, which would have been §0.1's exact prohibition and would have left NFR-MNT-01's coverage figure measuring `HabitAnalytics.ts` and `RecommendationScheduler.ts` against themselves — on two modules where nobody would have noticed.
 >
-> **Three ways out, in order of honesty:**
+> ### ⚠️ What that does NOT mean — do not overstate it
 >
-> 1. **Author `15b` and `17b` before replaying.** They are the only two gaps; every other packet 01→17d exists. `docs/P17B-GREEN-REPORT.md` and `docs/P15A-RED-REPORT.md` record what those sessions did and are the natural starting material. ⛔ **But write them from the SRS and the frozen suites, never from the committed implementation** — pasting `HabitAnalytics.ts` or `RecommendationScheduler.ts` into a packet is exactly §0.1's prohibition, and it would void NFR-MNT-01's coverage figure for those modules.
-> 2. **Skip `15a` and `17a` too.** The replay stays green and simply lacks analytics and the acceptance suite. ⚠️ **This drops `17a`, which is FR-REC-04's frozen test — the load-bearing requirement (§5).** A replay that omits it cannot demonstrate the System's central claim.
-> 3. **Run them and stop at red, knowingly.** Only defensible if the red is *stated*. An unexplained red suite reads as a failed replay, which is the opposite of what it would be.
+> **These two packets have never been RUN.** Every other packet here produced the code that is on `dev`; these two were written *backwards*, from requirements, to describe work already done. **They are therefore the least-tested prompts in the pack, and the first replay is their first test.**
 >
-> ⚠️ **Do not "fix" this by editing the frozen tests or re-running `npm run freeze`.** Both are §8.3's editing-the-test, and the second is it one level removed (§4.12(b)).
+> If either is under-specified, the failure surfaces as a GREEN session that cannot satisfy a frozen suite — **which is the safe direction to fail in**, and is what their escalation clauses exist for. **Treat an escalation out of 15b or 17b as information about the packet, not only about the run.**
+>
+> ### The standing lesson, which is not about these two packets
+>
+> **A packet is not finished when its code merges. It is finished when the prompt that produced it is on disk.** §0's rule — *the documents are the project's memory, your chat context is not* — had a blind spot in the one directory nobody thought of as documentation. **The generator is a deliverable, not scaffolding.**
 
 > ### ⚠️ What no packet reproduces at all
 >
