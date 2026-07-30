@@ -36,6 +36,7 @@ import { UserStore } from '../db/UserStore';
 import type { UserRecord } from '../db/UserStore';
 import { TaskRepository } from '../db/TaskRepository';
 import { MetricStore } from '../db/MetricStore';
+import type { WorkoutSelectionStore } from '../db/WorkoutSelectionStore';
 import type { Catalog } from '../catalog/Catalog';
 import type { RecommendationScheduler } from '../recommendation/RecommendationScheduler';
 import { RecommendationEngine } from '../recommendation/RecommendationEngine';
@@ -61,6 +62,11 @@ export interface AppDependencies {
   readonly auth: AuthService;
   /** FR-WEL-01/04/05, FR-WER-07: the Daily Metric Set store (packet 08). */
   readonly metrics: MetricStore;
+  /**
+   * Ad hoc, not an SRS requirement: which workout option the user clicked on the wellness view,
+   * per date — a display preference persisted so it survives logout, not a schedule mutation.
+   */
+  readonly workoutSelections: WorkoutSelectionStore;
   /** FR-WEL-02/03: the seeded workout + meal libraries (packet 11), behind the §3.6 `Catalog` seam. */
   readonly catalog: Catalog;
   /**
@@ -232,8 +238,17 @@ const computeCandidates = async (
 };
 
 export const buildApp = (deps: AppDependencies): Express => {
-  const { users, tasks, reschedule, clock, auth, metrics, catalog, recommendationSchedulerFor } =
-    deps;
+  const {
+    users,
+    tasks,
+    reschedule,
+    clock,
+    auth,
+    metrics,
+    workoutSelections,
+    catalog,
+    recommendationSchedulerFor,
+  } = deps;
   const app = express();
   app.use(cors());
   app.use(express.json());
@@ -998,9 +1013,10 @@ export const buildApp = (deps: AppDependencies): Express => {
     // FR-WEL-01: the metric set for the date, rendered by whatever it contains (not a fixed list).
     // FR-WEL-04: the previous 7 days (inclusive) as raw DailyMetricSets — the view extracts the
     // sleep-score and active-calorie series, so a metric added under FR-WER-04 needs no change here.
-    const [metricSet, history] = await Promise.all([
+    const [metricSet, history, selectedWorkoutId] = await Promise.all([
       metrics.getDailyMetricSet(userId, date),
       metrics.getMetricsInRange(userId, shiftIsoDate(date, -6), date),
+      workoutSelections.getSelection(userId, date),
     ]);
 
     // The recommendation engine is built PER REQUEST from the loaded user, because
@@ -1058,6 +1074,7 @@ export const buildApp = (deps: AppDependencies): Express => {
         alternatives: workouts.items.slice(1, 3),
         reason: workoutReason ?? null, // FR-REC-13 (the machine-readable reason; the sentence is a view concern)
         satisfiable: workouts.satisfiable,
+        selectedWorkoutId: selectedWorkoutId ?? null,
       },
       meals: {
         baseline: user.baselineCalories, // FR-WEL-03: shown separately from…
@@ -1070,6 +1087,23 @@ export const buildApp = (deps: AppDependencies): Express => {
         plan,
       },
     });
+  });
+
+  // Ad hoc, not an SRS requirement: records which workout option the user clicked on the
+  // wellness view for a date, so the highlight survives logout. Purely a display preference —
+  // it does NOT place, replace, or touch any task, so it does not go through
+  // RecommendationScheduler and does not need workoutId to be today's recommended/alternative set.
+  app.post('/wellness/workout-selection', requireAuth(auth), async (req: AuthedRequest, res) => {
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+    const userId = req.userId!;
+    const { date: bodyDate, workoutId } = req.body as Record<string, unknown>;
+    const date = isSafeQueryString(bodyDate) ? bodyDate : clock.today();
+    if (typeof workoutId !== 'string' || workoutId.length === 0) {
+      res.status(400).json({ error: 'workoutId is required' });
+      return;
+    }
+    await workoutSelections.setSelection(userId, date, workoutId);
+    res.status(204).end();
   });
 
   // ── Apply a recommendation (FR-REC-02, FR-REC-03, FR-REC-04) ───────────

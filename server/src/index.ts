@@ -14,6 +14,7 @@ import { UserStore } from './db/UserStore';
 import type { UserRecord } from './db/UserStore';
 import { TaskRepository } from './db/TaskRepository';
 import { MetricStore } from './db/MetricStore';
+import { WorkoutSelectionStore } from './db/WorkoutSelectionStore';
 import { RescheduleService } from './reschedule/RescheduleService';
 import { WorkoutCatalog } from './catalog/WorkoutCatalog';
 import { MealCatalog } from './catalog/MealCatalog';
@@ -46,6 +47,8 @@ const main = async (): Promise<void> => {
   const tasks = new TaskRepository(db, users);
   const metrics = new MetricStore(db);
   await metrics.ensureIndexes();
+  const workoutSelections = new WorkoutSelectionStore(db);
+  await workoutSelections.ensureIndexes();
   const clock = new SystemClock();
   // Dev-facing switch: an elapsed occurrence is classified MISSED (default, reschedules — the
   // documented FR-RSC-01 behavior) or, if set to COMPLETED, marked complete in place with no
@@ -109,6 +112,7 @@ const main = async (): Promise<void> => {
     clock,
     auth,
     metrics,
+    workoutSelections,
     catalog,
     recommendationSchedulerFor,
   });

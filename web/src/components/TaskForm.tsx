@@ -32,6 +32,19 @@ interface Props {
    */
   readonly rescheduleFrom?: { readonly task: Task; readonly fromDate: string };
   /**
+   * Create mode only (ignored when `rescheduleFrom` is set): seeds the title/type/duration/
+   * intensity fields from something the user already picked elsewhere (the Wellness view's
+   * workout cards) while leaving the date, time, priority and flexibility entirely up to them —
+   * clicking a workout there records a preference, not a placement; this form is where the user
+   * actually chooses when it happens.
+   */
+  readonly prefill?: {
+    readonly title: string;
+    readonly type: TaskType;
+    readonly durationMinutes: number;
+    readonly intensityTier?: IntensityTier;
+  };
+  /**
    * Reschedule mode only: fires the moment the server confirms the move, before any interstitial
    * screen (e.g. the displaced-count notice) — lets the caller remember the exact old→new pair
    * immediately, which is what makes the "Rescheduled" panel's cross-day case accurate.
@@ -50,22 +63,24 @@ interface Props {
 }
 
 /** UI-02 / FR-TSK-01: every mandatory attribute, rejecting submission with the missing one stated. */
-export const TaskForm = ({ date, rescheduleFrom, onRescheduled, onDone, onCancel }: Props) => {
+export const TaskForm = ({ date, rescheduleFrom, prefill, onRescheduled, onDone, onCancel }: Props) => {
   // Mutable, unlike the prop it starts from: the candidate picker's "use reschedule" escape
   // (below) switches an in-progress CREATE into a reschedule targeting the task just created,
   // without the parent needing to re-mount this component with a new prop.
   const [target, setTarget] = useState(rescheduleFrom ?? null);
-  const [title, setTitle] = useState(rescheduleFrom?.task.title ?? '');
+  const [title, setTitle] = useState(rescheduleFrom?.task.title ?? prefill?.title ?? '');
   // Defaults to the occurrence's own date when rescheduling, otherwise the day currently on
   // screen — either way it's its own field, editable independently.
   const [taskDate, setTaskDate] = useState(rescheduleFrom?.fromDate ?? date);
-  const [type, setType] = useState<TaskType>(rescheduleFrom?.task.type ?? 'HABIT');
+  const [type, setType] = useState<TaskType>(rescheduleFrom?.task.type ?? prefill?.type ?? 'HABIT');
   // Raw text, not a number: a controlled numeric input whose value is `Number(e.target.value)`
   // turns a cleared field into `0` on every keystroke, so React re-renders the DOM with "0"
   // while the browser leaves the caret where the deleted digit was — to its right. Keeping the
   // field's own text as state lets it sit empty mid-edit; `Number(durationInput)` is computed
   // only where an actual number is needed (submit).
-  const [durationInput, setDurationInput] = useState(String(rescheduleFrom?.task.durationMinutes ?? 30));
+  const [durationInput, setDurationInput] = useState(
+    String(rescheduleFrom?.task.durationMinutes ?? prefill?.durationMinutes ?? 30),
+  );
   const [priority, setPriority] = useState(rescheduleFrom?.task.priority ?? 3);
   // The window's END is never entered directly — it's `start + durationMinutes`, computed at
   // submit. Asking for both invited them to disagree (an end that didn't match the duration is
@@ -75,7 +90,7 @@ export const TaskForm = ({ date, rescheduleFrom, onRescheduled, onDone, onCancel
   );
   const [flexibility, setFlexibility] = useState<Flexibility>(rescheduleFrom?.task.flexibility ?? 'FLEXIBLE');
   const [intensityTier, setIntensityTier] = useState<IntensityTier>(
-    rescheduleFrom?.task.intensityTier ?? 'MODERATE',
+    rescheduleFrom?.task.intensityTier ?? prefill?.intensityTier ?? 'MODERATE',
   );
 
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
@@ -241,6 +256,7 @@ export const TaskForm = ({ date, rescheduleFrom, onRescheduled, onDone, onCancel
   return (
     <form className="task-form" onSubmit={submit}>
       {target !== null && <h3>Reschedule</h3>}
+      {target === null && prefill !== undefined && <h3>Schedule workout</h3>}
       <label>
         Title
         <input value={title} onChange={(e) => setTitle(e.target.value)} required maxLength={100} />

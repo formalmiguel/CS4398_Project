@@ -235,6 +235,8 @@ export interface WellnessWorkout {
   readonly alternatives: readonly Workout[];
   readonly reason: WellnessReason | null;
   readonly satisfiable: boolean;
+  /** The workout id the user last clicked for this date, or `null` if they never have. */
+  readonly selectedWorkoutId: string | null;
 }
 
 export interface WellnessMealSlot {
@@ -271,6 +273,10 @@ export interface WellnessResult {
 
 export const getWellness = (date: string): Promise<WellnessResult> =>
   request(`/wellness?date=${encodeURIComponent(date)}`);
+
+/** Persists which workout option the user clicked for a date, so it survives logout. */
+export const setWorkoutSelection = (date: string, workoutId: string): Promise<void> =>
+  request('/wellness/workout-selection', { method: 'POST', body: JSON.stringify({ date, workoutId }) });
 
 // ─── Analytics (FR-ANL-01/02/03/04, UI-04) ────────────────────────────────
 
