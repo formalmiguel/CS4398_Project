@@ -208,10 +208,19 @@ export class TaskRepository {
    * OPEN-17: see `matchesDate` — this is the method that makes a task visible to `sweepElapsed`.
    * Excludes `awaitingChoice` tasks (UC-03) — see that field's comment. Use `allTasksForDate` for
    * a listing the user sees; this one is what the reschedule service's automatic sweep reads.
+   *
+   * ⛔ OPEN-36: the exclusion is scoped to `doc.intendedDate === date`, NOT `doc.awaitingChoice`
+   * alone. `awaitingChoice` is only ever set `true` at one call site (`POST /tasks`'s UC-03
+   * branch), always for that task's own `intendedDate` — so `intendedDate` IS the occurrence the
+   * offer applies to. Excluding on `doc.awaitingChoice` alone (the old behavior) excluded the
+   * task from EVERY date `matchesDate` returns true for, which for a `DAILY`/`WEEKLY` recurring
+   * task is every date from `intendedDate` onward, forever — one unresolved choice permanently
+   * disabled `sweepElapsed`'s self-heal (FR-RSC-05) for the entire series, not just the one
+   * occurrence the choice was raised for.
    */
   async tasksForDate(userId: string, date: IsoDate): Promise<readonly Task[]> {
     const docs = await this.docsForDate(userId, date);
-    return docs.filter((doc) => !doc.awaitingChoice).map(toTask);
+    return docs.filter((doc) => !(doc.awaitingChoice && doc.intendedDate === date)).map(toTask);
   }
 
   /** Every task for the date, INCLUDING one awaiting a UC-03 choice — for the user's own view. */
@@ -244,7 +253,12 @@ export class TaskRepository {
    */
   async awaitingChoiceTaskIds(userId: string, date: IsoDate): Promise<readonly string[]> {
     const docs = await this.docsForDate(userId, date);
-    return docs.filter((doc) => doc.awaitingChoice).map((doc) => doc._id.toHexString());
+    // ⛔ OPEN-36: scoped to `doc.intendedDate === date` — see `tasksForDate`'s comment. Without
+    // it a recurring task's one unresolved choice would report as "awaiting" on every future
+    // occurrence too, not just the one it was actually raised for.
+    return docs
+      .filter((doc) => doc.awaitingChoice && doc.intendedDate === date)
+      .map((doc) => doc._id.toHexString());
   }
 
   async setAwaitingChoice(taskId: string, awaiting: boolean): Promise<void> {

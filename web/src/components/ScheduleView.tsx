@@ -1,9 +1,18 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
-import type { Interval, Task } from '@capstone/shared';
+import type { Interval, Placement, Slot, Task } from '@capstone/shared';
 
-import { ScheduleResult, completeTask, exportScheduleIcs, getSchedule, skipTask, toErrorMessage } from '../api/client';
+import {
+  ScheduleResult,
+  completeTask,
+  exportScheduleIcs,
+  getSchedule,
+  refreshCandidates,
+  skipTask,
+  toErrorMessage,
+} from '../api/client';
 import { addDays, formatDateHeading, minuteToLabel } from '../dateUtils';
+import { CandidatePicker } from './CandidatePicker';
 import { MonthCalendar } from './MonthCalendar';
 import { OccurrenceBlock } from './OccurrenceBlock';
 import { TaskForm } from './TaskForm';
@@ -49,6 +58,9 @@ export const ScheduleView = ({ date, onDateChange, schedulableDay }: Props) => {
   // picker closes, instead of it vanishing the instant the modal unmounts. Ephemeral by
   // design: does not survive a reload, same limitation already recorded for `awaitingChoice`.
   const [justAcceptedIds, setJustAcceptedIds] = useState<ReadonlySet<string>>(new Set());
+  // OPEN-36: reopens a real CandidatePicker for a task still awaiting a choice — the offer
+  // TaskForm originally showed is never persisted, so this recomputes a fresh one on demand.
+  const [picker, setPicker] = useState<{ task: Task; candidates: readonly Slot[] } | null>(null);
 
   const refresh = useCallback(async (): Promise<void> => {
     try {
@@ -87,6 +99,20 @@ export const ScheduleView = ({ date, onDateChange, schedulableDay }: Props) => {
   const onSkip = (placementId: string, taskId: string): Promise<void> =>
     runAction(placementId, taskId, skipTask, 'Could not skip the task.');
 
+  /** OPEN-36: recompute fresh candidates for a task still awaiting a choice and reopen the picker. */
+  const onChooseTime = async (task: Task): Promise<void> => {
+    try {
+      const result = await refreshCandidates(task.id, date);
+      if (result.candidates !== null && result.candidates.length > 0) {
+        setPicker({ task, candidates: result.candidates });
+      } else if (result.unplaceable !== null) {
+        setError(result.unplaceable.explanation);
+      }
+    } catch (err) {
+      setError(toErrorMessage(err, 'Could not refresh alternative times.'));
+    }
+  };
+
   /** FR-CAL-07: exports just the day currently on screen — a single-day range is still a range. */
   const onExport = async (): Promise<void> => {
     try {
@@ -102,15 +128,17 @@ export const ScheduleView = ({ date, onDateChange, schedulableDay }: Props) => {
     }
   };
 
-  const { taskById, placements, unplacedTasks, awaitingChoiceCount } = useMemo(() => {
+  const { taskById, placements, unplacedTasks, awaitingChoiceIds, awaitingChoiceCount } = useMemo(() => {
     const byId = new Map<string, Task>((data?.tasks ?? []).map((t) => [t.id, t]));
     const sortedPlacements = [...(data?.placements ?? [])].sort((a, b) => a.start - b.start);
     const placedTaskIds = new Set(sortedPlacements.map((p) => p.taskId));
+    const awaitingIds = new Set(data?.awaitingChoice ?? []);
     return {
       taskById: byId,
       placements: sortedPlacements,
       unplacedTasks: (data?.tasks ?? []).filter((t) => !placedTaskIds.has(t.id)),
-      awaitingChoiceCount: (data?.awaitingChoice ?? []).length,
+      awaitingChoiceIds: awaitingIds,
+      awaitingChoiceCount: awaitingIds.size,
     };
   }, [data]);
 
@@ -207,10 +235,25 @@ export const ScheduleView = ({ date, onDateChange, schedulableDay }: Props) => {
             </div>
           )}
 
+          {picker !== null && (
+            <div className="modal">
+              <CandidatePicker
+                task={picker.task}
+                date={date}
+                candidates={picker.candidates}
+                onPlaced={(placement: Placement) => {
+                  setPicker(null);
+                  setJustAcceptedIds((prev) => new Set(prev).add(placement.id));
+                  void refresh();
+                }}
+                onCancel={() => setPicker(null)}
+              />
+            </div>
+          )}
+
           {awaitingChoiceCount > 0 && (
             <p className="schedule-view__banner">
-              {awaitingChoiceCount} task(s) are awaiting your choice of an alternative time —
-              re-add or check back after choosing from the "+ Add Task" flow that created them.
+              {awaitingChoiceCount} task(s) are awaiting your choice of an alternative time.
             </p>
           )}
 
@@ -235,9 +278,18 @@ export const ScheduleView = ({ date, onDateChange, schedulableDay }: Props) => {
             <div className="schedule-view__unplaced">
               <h3>Unplaced</h3>
               <ul>
-                {unplacedTasks.map((t) => (
-                  <li key={t.id}>{t.title} — no valid slot found today</li>
-                ))}
+                {unplacedTasks.map((t) =>
+                  awaitingChoiceIds.has(t.id) ? (
+                    <li key={t.id}>
+                      {t.title} — awaiting your choice of an alternative time{' '}
+                      <button type="button" className="link" onClick={() => void onChooseTime(t)}>
+                        Choose a time
+                      </button>
+                    </li>
+                  ) : (
+                    <li key={t.id}>{t.title} — no valid slot found today</li>
+                  ),
+                )}
               </ul>
             </div>
           )}

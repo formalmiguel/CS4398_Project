@@ -231,6 +231,30 @@ describe('TaskRepository — UC-03/FR-DSH-06: awaitingChoice visibility', () => 
     await repo.setAwaitingChoice(task.id, false);
     expect(await repo.awaitingChoiceTaskIds(userId, '2026-07-23')).toEqual([]);
   });
+
+  it('OPEN-36: a DAILY recurring task awaitingChoice on its intendedDate does not block LATER occurrences', async () => {
+    const task = await repo.createTask({
+      userId,
+      intendedDate: '2026-07-20',
+      title: 'Daily journal',
+      type: 'HABIT',
+      durationMinutes: 15,
+      priority: 3,
+      preferredWindow: { start: 1200, end: 1230 },
+      flexibility: 'FLEXIBLE',
+      recurrence: { frequency: 'DAILY' },
+    });
+    await repo.setAwaitingChoice(task.id, true);
+
+    // Still awaiting on the occurrence the offer was actually made for.
+    expect(await repo.awaitingChoiceTaskIds(userId, '2026-07-20')).toEqual([task.id]);
+    expect(await repo.tasksForDate(userId, '2026-07-20')).toEqual([]);
+
+    // A LATER occurrence of the same recurring task must self-heal normally — one unresolved
+    // choice on 07-20 must not disable the whole series forever.
+    expect(await repo.awaitingChoiceTaskIds(userId, '2026-07-25')).toEqual([]);
+    expect((await repo.tasksForDate(userId, '2026-07-25')).map((t) => t.id)).toContain(task.id);
+  });
 });
 
 describe('TaskRepository — FR-TSK-03/07, DR-01', () => {

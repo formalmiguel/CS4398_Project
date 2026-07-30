@@ -25,7 +25,9 @@ import type {
   IntensityTier,
   Interval,
   Placement,
+  PlacementResult,
   PlacementStatus,
+  Slot,
   Task,
 } from '@capstone/shared';
 
@@ -41,7 +43,7 @@ import { SleepToIntensityRule } from '../recommendation/SleepToIntensityRule';
 import { CaloriesToTargetRule } from '../recommendation/CaloriesToTargetRule';
 import { analyzeHabit } from '../analytics/HabitAnalytics';
 import type { Clock, RescheduleService } from '../reschedule/RescheduleService';
-import { clockLabel, dayAlreadyOverExplanation } from '../reschedule/reasons';
+import { clockLabel, dayAlreadyOverExplanation, dayAlreadyPassedExplanation } from '../reschedule/reasons';
 import { AuthedRequest, AuthService, requireAuth } from './auth';
 import {
   isSafeQueryString,
@@ -136,8 +138,17 @@ const busySetFrom = (placements: readonly Placement[]): Interval[] =>
  * function — `findCandidateSlots` is still the only function that decides where anything goes;
  * this only decides what window to ask it about. `RescheduleService`'s copy is private and this
  * file may not edit that module, so the shape is necessarily duplicated here — see docs/P12-REPORT.md.
+ *
+ * ⛔ OPEN-36 (the same shape as OPEN-35, in this file's own duplicate copy): a date strictly
+ * before `clock.today()` has no remainder at all — the day is entirely over, not "not today" in
+ * the future-facing sense the old single check conflated it with. This was inert while the only
+ * caller was task creation (normally today), but `GET /tasks/:id/candidates` (below) recomputes
+ * for a task that may have sat `awaitingChoice` for days, so its `intendedDate` can easily be in
+ * the past by the time this runs — exactly OPEN-35's bug, just in this file's copy instead of
+ * `RescheduleService.remainderOfDay`'s (already fixed there).
  */
 const remainderOfDay = (day: Interval, date: string, clock: Clock): Interval | undefined => {
+  if (date < clock.today()) return undefined;
   if (date !== clock.today()) return day;
   const start = Math.max(day.start, clock.nowMinute());
   return start < day.end ? { start, end: day.end } : undefined;
@@ -148,6 +159,41 @@ const askedAbout = (task: Task, window: Interval, date: string, clock: Clock): T
   if (date !== clock.today()) return task;
   if (task.preferredWindow.end > clock.nowMinute()) return task;
   return { ...task, preferredWindow: window };
+};
+
+/**
+ * Where a FLEXIBLE task's ranked candidates would land on `date`, without writing anything.
+ * Shared by `POST /tasks`'s UC-02/03 branch (which additionally auto-places when the top
+ * candidate is `withinPreferredWindow`) and `GET /tasks/:id/candidates` (OPEN-36, which never
+ * auto-places — see that route's own comment for why).
+ */
+type CandidateComputation =
+  | { readonly placed: true; readonly candidates: readonly Slot[] }
+  | { readonly placed: false; readonly unplaceable: Extract<PlacementResult, { placed: false }> };
+
+const computeCandidates = async (
+  userId: string,
+  task: Task,
+  date: string,
+  tasks: TaskRepository,
+  clock: Clock,
+): Promise<CandidateComputation> => {
+  const [rawDay, onDate] = await Promise.all([
+    tasks.schedulableDay(userId, date),
+    tasks.placementsForDate(userId, date),
+  ]);
+  const day = remainderOfDay(rawDay, date, clock);
+  if (day === undefined) {
+    // FR-RSC-01's v2.14 case / OPEN-35's shape: either today's clock is past the day's end, or
+    // `date` itself has already closed — two different, honestly-worded reasons (see
+    // `dayAlreadyOverExplanation` vs `dayAlreadyPassedExplanation`).
+    const explanation =
+      date < clock.today() ? dayAlreadyPassedExplanation(task, date) : dayAlreadyOverExplanation(task, rawDay.end);
+    return { placed: false, unplaceable: { placed: false, slots: [], reason: 'DAY_FULL', explanation } };
+  }
+  const result = findCandidateSlots(busySetFrom(onDate), askedAbout(task, day, date, clock), day);
+  if (!result.placed) return { placed: false, unplaceable: result };
+  return { placed: true, candidates: result.slots };
 };
 
 export const buildApp = (deps: AppDependencies): Express => {
@@ -345,39 +391,16 @@ export const buildApp = (deps: AppDependencies): Express => {
     // FLEXIBLE: UC-02/UC-03 — a single-task, creation-time call to the engine. Not FR-SCH-10 (that
     // governs several tasks placed TOGETHER in one operation) and not RescheduleService (nothing
     // is being RE-scheduled; this task has never had a placement).
-    const [rawDay, onDate] = await Promise.all([
-      tasks.schedulableDay(userId, intendedDate),
-      tasks.placementsForDate(userId, intendedDate),
-    ]);
-    const day = remainderOfDay(rawDay, intendedDate, clock);
-    if (day === undefined) {
-      // FR-RSC-01's v2.14 case, applied at creation: `now` is at or past the end of the
-      // schedulable day, so there is no remainder to ask about and no valid Interval to pass.
-      res.status(201).json({
-        task,
-        placement: null,
-        candidates: null,
-        unplaceable: {
-          placed: false,
-          slots: [],
-          reason: 'DAY_FULL',
-          explanation: dayAlreadyOverExplanation(task, rawDay.end),
-        },
-      });
-      return;
-    }
-    const result = findCandidateSlots(busySetFrom(onDate), askedAbout(task, day, intendedDate, clock), day);
+    const computed = await computeCandidates(userId, task, intendedDate, tasks, clock);
 
-    if (!result.placed) {
+    if (!computed.placed) {
       // FR-SCH-06: reported, never silently dropped. The task stays created and unplaced;
       // FR-RSC-05's re-attempt (via sweepElapsed, at the next GET /schedule) keeps retrying it.
-      res
-        .status(201)
-        .json({ task, placement: null, candidates: null, unplaceable: result });
+      res.status(201).json({ task, placement: null, candidates: null, unplaceable: computed.unplaceable });
       return;
     }
 
-    const [best] = result.slots;
+    const [best] = computed.candidates;
     if (best === undefined) {
       throw new Error('findCandidateSlots returned placed: true with no candidate slots');
     }
@@ -404,7 +427,7 @@ export const buildApp = (deps: AppDependencies): Express => {
     // the very next GET /schedule (FR-RSC-10 sweeps unconditionally) does not auto-place it out
     // from under the picker — see the field's comment in TaskRepository.
     await tasks.setAwaitingChoice(task.id, true);
-    res.status(201).json({ task, placement: null, candidates: result.slots, unplaceable: null });
+    res.status(201).json({ task, placement: null, candidates: computed.candidates, unplaceable: null });
   });
 
   app.post('/tasks/:id/place', requireAuth(auth), async (req: AuthedRequest, res) => {
@@ -456,6 +479,43 @@ export const buildApp = (deps: AppDependencies): Express => {
     // The choice is made — this task is visible to sweepElapsed again like any other.
     await tasks.setAwaitingChoice(task.id, false);
     res.status(201).json({ placement });
+  });
+
+  /**
+   * OPEN-36: `TaskForm`'s `CandidatePicker` only ever appears once, at creation — the offer it
+   * shows is never persisted, so once that modal closes there was previously no way back to it.
+   * This recomputes a FRESH ranked list on demand for a task that is STILL awaiting a choice, so
+   * the schedule view can reopen the same picker later. Deliberately read-only: even if the
+   * preferred window has reopened since, it comes back as the top candidate rather than being
+   * silently auto-placed — the user asked to see and choose, having explicitly clicked in for
+   * exactly that. Accepting one still goes through the existing `POST /tasks/:id/place` above.
+   */
+  app.get('/tasks/:id/candidates', requireAuth(auth), async (req: AuthedRequest, res) => {
+    const task = await loadOwnedTask(req, res, req.params.id);
+    if (task === undefined) return;
+    const { date } = req.query;
+    if (!isSafeQueryString(date)) {
+      res.status(400).json({ error: 'date query parameter is required' });
+      return;
+    }
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+    const userId = req.userId!;
+
+    // The task must currently be awaiting a choice for exactly this date. Nothing else ever sets
+    // `awaitingChoice`, so this membership check also structurally guarantees `task.flexibility
+    // === 'FLEXIBLE'` — a FIXED commitment can never be in this state.
+    const awaiting = await tasks.awaitingChoiceTaskIds(userId, date);
+    if (!awaiting.includes(task.id)) {
+      res.status(409).json({ error: 'this task is not currently awaiting a choice for that date' });
+      return;
+    }
+
+    const computed = await computeCandidates(userId, task, date, tasks, clock);
+    if (!computed.placed) {
+      res.json({ candidates: null, unplaceable: computed.unplaceable });
+      return;
+    }
+    res.json({ candidates: computed.candidates, unplaceable: null });
   });
 
   app.get('/tasks/:id', requireAuth(auth), async (req: AuthedRequest, res) => {
