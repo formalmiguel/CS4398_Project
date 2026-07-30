@@ -9,6 +9,7 @@ import { Express } from 'express';
 import { UserStore } from '../../src/db/UserStore';
 import { TaskRepository } from '../../src/db/TaskRepository';
 import { MetricStore } from '../../src/db/MetricStore';
+import { WorkoutSelectionStore } from '../../src/db/WorkoutSelectionStore';
 import { RescheduleService } from '../../src/reschedule/RescheduleService';
 import { WorkoutCatalog } from '../../src/catalog/WorkoutCatalog';
 import { MealCatalog } from '../../src/catalog/MealCatalog';
@@ -29,6 +30,7 @@ export interface TestApp {
   readonly users: UserStore;
   readonly tasks: TaskRepository;
   readonly metrics: MetricStore;
+  readonly workoutSelections: WorkoutSelectionStore;
   readonly clock: TestableClock;
   readonly auth: AuthService;
   readonly stop: () => Promise<void>;
@@ -44,6 +46,8 @@ export const buildTestApp = async (
   const tasks = new TaskRepository(testDb.db, users);
   const metrics = new MetricStore(testDb.db);
   await metrics.ensureIndexes();
+  const workoutSelections = new WorkoutSelectionStore(testDb.db);
+  await workoutSelections.ensureIndexes();
   const clock = new TestableClock(startMinute, startDate);
   const reschedule = new RescheduleService(findCandidateSlots, tasks, clock);
   const auth = new AuthService('test-jwt-secret');
@@ -83,9 +87,10 @@ export const buildTestApp = async (
     clock,
     auth,
     metrics,
+    workoutSelections,
     catalog,
     recommendationSchedulerFor,
   });
 
-  return { app, users, tasks, metrics, clock, auth, stop: testDb.stop };
+  return { app, users, tasks, metrics, workoutSelections, clock, auth, stop: testDb.stop };
 };

@@ -138,6 +138,32 @@ export interface RefreshCandidatesResult {
 export const refreshCandidates = (taskId: string, date: string): Promise<RefreshCandidatesResult> =>
   request(`/tasks/${taskId}/candidates?date=${encodeURIComponent(date)}`);
 
+/**
+ * The Reschedule action, FIXED or FLEXIBLE alike, on either an already-`PLANNED` occurrence OR a
+ * task still `awaitingChoice` with no placement at all (the candidate picker's "use reschedule"
+ * escape) — the same attribute table `TaskInput` carries at creation, plus `fromDate` to
+ * identify which existing occurrence is being replaced, if any (a recurring task can have
+ * several; an unplaced task has none). No candidate search: the frontend pre-fills the Add Task
+ * form with the task's current details, so by the time this is called the user has already
+ * decided the new time (and possibly every other field too).
+ */
+export interface RescheduleInput extends TaskInput {
+  readonly fromDate: string;
+}
+
+export interface RescheduleResult {
+  readonly task: Task;
+  /** The retired occurrence — kept as history (DR-06), now `SKIPPED`. `null` where there was
+   * nothing to retire: this was a first placement, not a move (OPEN-21). */
+  readonly oldPlacement: Placement | null;
+  /** The new occurrence. */
+  readonly placement: Placement;
+  readonly displaced: readonly DisplacedOutcome[];
+}
+
+export const rescheduleTask = (taskId: string, input: RescheduleInput): Promise<RescheduleResult> =>
+  request(`/tasks/${taskId}/reschedule`, { method: 'POST', body: JSON.stringify(input) });
+
 export interface ScheduleResult {
   readonly tasks: readonly Task[];
   readonly placements: readonly Placement[];
@@ -155,6 +181,22 @@ export const skipTask = (taskId: string, date: string): Promise<{ outcome: unkno
 
 export const moveToNextDay = (taskId: string, date: string): Promise<{ outcome: unknown }> =>
   request(`/tasks/${taskId}/move-to-next-day`, { method: 'POST', body: JSON.stringify({ date }) });
+
+/**
+ * Manual FR-RSC-01 classification (`RescheduleService.onTaskMissed`, unchanged). The server
+ * still refuses before the window elapses (`{ kind: 'NO_ACTION', why: 'WINDOW_NOT_ELAPSED' }`),
+ * so the shape is typed just enough for the caller to detect that one case.
+ */
+export interface MarkMissedOutcome {
+  readonly outcome: { readonly kind: string; readonly why?: string };
+}
+
+export const markMissed = (taskId: string, date: string): Promise<MarkMissedOutcome> =>
+  request(`/tasks/${taskId}/mark-missed`, { method: 'POST', body: JSON.stringify({ date }) });
+
+/** Undoes a mistaken `complete`: reverts the occurrence to MISSED and re-places it, same shape as `markMissed`. */
+export const undoCompletion = (taskId: string, date: string): Promise<MarkMissedOutcome> =>
+  request(`/tasks/${taskId}/undo-completion`, { method: 'POST', body: JSON.stringify({ date }) });
 
 /**
  * The month-grid's dots (server/src/db/TaskRepository.ts's `taskTypesInRange`). Frontend-only
@@ -193,6 +235,8 @@ export interface WellnessWorkout {
   readonly alternatives: readonly Workout[];
   readonly reason: WellnessReason | null;
   readonly satisfiable: boolean;
+  /** The workout id the user last clicked for this date, or `null` if they never have. */
+  readonly selectedWorkoutId: string | null;
 }
 
 export interface WellnessMealSlot {
@@ -229,6 +273,10 @@ export interface WellnessResult {
 
 export const getWellness = (date: string): Promise<WellnessResult> =>
   request(`/wellness?date=${encodeURIComponent(date)}`);
+
+/** Persists which workout option the user clicked for a date, so it survives logout. */
+export const setWorkoutSelection = (date: string, workoutId: string): Promise<void> =>
+  request('/wellness/workout-selection', { method: 'POST', body: JSON.stringify({ date, workoutId }) });
 
 // ─── Analytics (FR-ANL-01/02/03/04, UI-04) ────────────────────────────────
 

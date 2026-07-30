@@ -342,6 +342,28 @@ label {
   color: var(--accent-ink);
 }
 
+.schedule-view__legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem 1rem;
+  margin-bottom: 1.25rem;
+  font-size: 0.75rem;
+  color: var(--ink-secondary);
+}
+
+.schedule-view__legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.schedule-view__legend-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
 .schedule-view__nav {
   display: flex;
   align-items: center;
@@ -468,6 +490,78 @@ label {
   color: var(--ink-secondary);
 }
 
+.schedule-view__rescheduled {
+  margin-top: 1.5rem;
+}
+
+.schedule-view__rescheduled h3 {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--ink-muted);
+  margin: 0 0 0.5rem;
+}
+
+.schedule-view__rescheduled ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.schedule-view__rescheduled-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.6rem 0.85rem;
+  background: var(--surface);
+  border: 1px solid var(--gridline);
+  border-radius: 10px;
+  font-size: 0.85rem;
+  /* Grayed, not crossed out — distinct from occurrence--done's strikethrough treatment, so a
+     missed occurrence never reads as though it were completed. */
+  opacity: 0.6;
+}
+
+.schedule-view__needs-reschedule {
+  margin-top: 1.5rem;
+}
+
+.schedule-view__needs-reschedule h3 {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--danger);
+  margin: 0 0 0.5rem;
+}
+
+.schedule-view__needs-reschedule ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+/* Unlike .schedule-view__rescheduled-item's dimmed opacity (pure history), this is something
+   to act on — full contrast, with a left accent to draw the eye down the list. */
+.schedule-view__needs-reschedule-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.6rem 0.85rem;
+  background: var(--surface);
+  border: 1px solid var(--gridline);
+  border-left: 3px solid var(--danger);
+  border-radius: 10px;
+  font-size: 0.85rem;
+}
+
 /* ─── Occurrence rows (§3.7.1's blocks) ───────────────────────────────── */
 
 .occurrence {
@@ -544,6 +638,7 @@ label {
 
 .occurrence__actions {
   display: flex;
+  flex-wrap: wrap;
   gap: 0.6rem;
   padding-left: 1.3rem;
 }
@@ -628,6 +723,13 @@ label {
 .candidate-picker li button:hover:not(:disabled) {
   border-color: var(--accent);
   background: color-mix(in srgb, var(--accent) 8%, var(--surface));
+}
+
+.candidate-picker__actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.4rem;
 }
 
 /* ─── Month calendar (FR-DSH-08 — full-page month view, docs/full.png) ────── */
@@ -1017,6 +1119,15 @@ label {
   padding: 0.7rem 0.85rem;
   display: grid;
   gap: 0.15rem;
+  background: none;
+  font: inherit;
+  text-align: left;
+  color: inherit;
+  cursor: pointer;
+  transition: border-color 0.12s ease, box-shadow 0.12s ease;
+}
+.wellness__workout:hover {
+  border-color: var(--accent);
 }
 .wellness__workout span {
   font-size: 0.8rem;
@@ -1025,6 +1136,16 @@ label {
 .wellness__workout--selected {
   border-color: var(--accent);
   box-shadow: inset 0 0 0 1px var(--accent);
+}
+.wellness__workout span.wellness__workout-badge {
+  justify-self: start;
+  margin-top: 0.15rem;
+  padding: 0.1rem 0.45rem;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-size: 0.7rem;
+  font-weight: 600;
 }
 .wellness__meal {
   display: grid;
@@ -1052,6 +1173,38 @@ label {
   padding-top: 0.5rem;
   margin-top: 0.15rem;
   font-weight: 700;
+}
+.wellness__meal--skipped-text {
+  opacity: 0.5;
+  text-decoration: line-through;
+}
+.wellness__meal-actions {
+  grid-column: 2 / -1;
+  display: flex;
+  gap: 0.5rem;
+}
+.wellness__meal-action {
+  border: 1px solid var(--gridline);
+  border-radius: 999px;
+  padding: 0.15rem 0.7rem;
+  background: none;
+  font: inherit;
+  font-size: 0.78rem;
+  color: inherit;
+  cursor: pointer;
+  transition: border-color 0.12s ease, color 0.12s ease;
+}
+.wellness__meal-action:hover {
+  border-color: var(--accent);
+}
+.wellness__meal-action--active {
+  border-color: var(--type-habit);
+  color: var(--type-habit);
+}
+.wellness__meal-action--primary {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--accent-ink);
 }
 
 /* ─── Analytics view (FR-ANL-04, UI-04) ─────────────────────────────────── */

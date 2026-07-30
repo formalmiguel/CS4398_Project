@@ -237,16 +237,21 @@ describe('FR-RSC-03 — the engine is the REAL one, end to end', () => {
     expect(outcome.placement.end).toBe(expected.slots[0]?.end);
   });
 
-  it('FR-RSC-03: takes the real engine rank-1 candidate even though rank 2 is earlier', async () => {
-    // The real engine ranks 5:45 PM first and 4:00 PM second — proximity to the preferred
-    // 5:00 PM start, not earliness. A service applying its own criterion would take 4:00 PM.
+  // ⚠️ Corrected: this fixture used to have 5:45 PM ranked first, using the tail end (17:45–18:00)
+  // of Gym's OWN vacated 17:00–18:00 slot — a "reschedule" that partly landed back on the exact
+  // time it was skipped from. The vacated interval is now busy for this search (see triggers.test
+  // and RescheduleService.askEngine's `avoid` parameter), so that sliver is no longer available
+  // and the real engine's next-best candidate — 4:00 PM, equally 60 minutes from the 5:00 PM
+  // preferred start — is rank 1 instead. Still the engine's own ranking, unaltered by the service
+  // (FR-RSC-03): this is what the SAME fixture ranks first once the tail-end option is gone.
+  it('FR-RSC-03: takes the real engine rank-1 candidate from what is actually still free', async () => {
     const { h, gymPlacement } = uc13();
 
     const outcome = await h.service.onUserSkipped(gymPlacement);
 
     if (outcome.kind !== 'RESCHEDULED') throw new Error('not rescheduled');
-    expect(outcome.placement.start).toBe(at(17, 45));
-    expect(outcome.placement.end).toBe(at(18, 45));
+    expect(outcome.placement.start).toBe(at(16));
+    expect(outcome.placement.end).toBe(at(17));
   });
 
   // Named FR-RSC-03, not FR-SCH-04: the engine's own no-overlap guarantee is packet 04's and

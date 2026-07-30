@@ -15,6 +15,13 @@ export const timeToMinute = (hhmm: string): Minute => {
   return Number(h ?? 0) * 60 + Number(m ?? 0);
 };
 
+/** The inverse of `timeToMinute` — a value an `<input type="time">` accepts as `HH:MM`. */
+export const minuteToTimeInput = (minute: Minute): string => {
+  const hour = String(Math.floor(minute / 60) % 24).padStart(2, '0');
+  const mins = String(minute % 60).padStart(2, '0');
+  return `${hour}:${mins}`;
+};
+
 const parseIsoDate = (isoDate: string): { year: number; month: number; day: number } => {
   const [y, m, d] = isoDate.split('-');
   return { year: Number(y ?? 0), month: Number(m ?? 1), day: Number(d ?? 1) };

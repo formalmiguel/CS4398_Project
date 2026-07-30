@@ -110,6 +110,12 @@ export class UserStore {
     return doc === null ? undefined : toRecord(doc);
   }
 
+  /** Every user id in the store — the background elapsed-window sweep's user list (FR-RSC-10). */
+  async allUserIds(): Promise<string[]> {
+    const docs = await this.users.find({}, { projection: { _id: 1 } }).toArray();
+    return docs.map((doc) => doc._id.toHexString());
+  }
+
   /** FR-USR-07: wake and sleep, as `Minute`. The engine is told; nobody consults a database row. */
   async schedulableDay(userId: string): Promise<Interval | undefined> {
     const user = await this.findById(userId);

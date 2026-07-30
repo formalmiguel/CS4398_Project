@@ -36,6 +36,7 @@ import { UserStore } from '../db/UserStore';
 import type { UserRecord } from '../db/UserStore';
 import { TaskRepository } from '../db/TaskRepository';
 import { MetricStore } from '../db/MetricStore';
+import type { WorkoutSelectionStore } from '../db/WorkoutSelectionStore';
 import type { Catalog } from '../catalog/Catalog';
 import type { RecommendationScheduler } from '../recommendation/RecommendationScheduler';
 import { RecommendationEngine } from '../recommendation/RecommendationEngine';
@@ -61,6 +62,11 @@ export interface AppDependencies {
   readonly auth: AuthService;
   /** FR-WEL-01/04/05, FR-WER-07: the Daily Metric Set store (packet 08). */
   readonly metrics: MetricStore;
+  /**
+   * Ad hoc, not an SRS requirement: which workout option the user clicked on the wellness view,
+   * per date — a display preference persisted so it survives logout, not a schedule mutation.
+   */
+  readonly workoutSelections: WorkoutSelectionStore;
   /** FR-WEL-02/03: the seeded workout + meal libraries (packet 11), behind the §3.6 `Catalog` seam. */
   readonly catalog: Catalog;
   /**
@@ -119,6 +125,19 @@ const fitsPreferredReason = (title: string, start: number): string =>
 const acceptedAlternativeReason = (title: string, start: number): string =>
   `"${title}" placed at ${clockLabel(start)} — you chose this after your preferred time was unavailable.`;
 
+/** The user asked to move an already-PLANNED occurrence and picked one of the offered times. */
+const manuallyRescheduledReason = (title: string, oldStart: number, start: number): string =>
+  `"${title}" moved from ${clockLabel(oldStart)} to ${clockLabel(start)} — you chose this time.`;
+
+/**
+ * The Reschedule form used on a task with no PRIOR placement — still `awaitingChoice`, offered
+ * from the candidate picker's "use reschedule" escape. This is a FIRST placement, not a move
+ * (OPEN-21): nothing moved FROM anywhere, so `manuallyRescheduledReason`'s "moved from X to Y"
+ * would be inventing a history that never happened.
+ */
+const placedDirectlyReason = (title: string, start: number): string =>
+  `"${title}" placed at ${clockLabel(start)} — you chose this time.`;
+
 /**
  * The busy set for a single-task creation-time engine call — SRS v2.17's invariant applied here
  * too: `PLANNED` and `COMPLETED` only. A `MISSED`/`SKIPPED`/`CANCELLED` row is not going to
@@ -127,6 +146,28 @@ const acceptedAlternativeReason = (title: string, start: number): string =>
 const OCCUPYING: readonly PlacementStatus[] = ['PLANNED', 'COMPLETED'];
 const busySetFrom = (placements: readonly Placement[]): Interval[] =>
   placements.filter((p) => OCCUPYING.includes(p.status)).map((p) => ({ start: p.start, end: p.end }));
+
+/**
+ * FR-CAL-03: a fixed commitment is immovable and never displaced to resolve a conflict — only a
+ * FLEXIBLE task moves, which `onCommitmentAdded` already handles by displacing it. This finds
+ * the ONE conflict nothing can resolve by moving something out of the way: the new commitment's
+ * interval overlapping a placement that itself cannot move — another FIXED commitment, or ANY
+ * `COMPLETED` occurrence (it already happened; it is not available to be built over). Where one
+ * exists, placing the new commitment must be REJECTED rather than silently double-booking the
+ * slot — there is nothing else in this System that would ever catch two commitments sharing a
+ * minute otherwise, since the engine is never consulted for a FIXED placement at all.
+ */
+const findImmovableConflict = (
+  onDate: readonly Placement[],
+  tasksById: ReadonlyMap<string, Task>,
+  interval: Interval,
+  excludePlacementId?: string,
+): Placement | undefined =>
+  onDate.find((p) => {
+    if (p.id === excludePlacementId || !OCCUPYING.includes(p.status)) return false;
+    if (!(p.start < interval.end && interval.start < p.end)) return false;
+    return p.status === 'COMPLETED' || tasksById.get(p.taskId)?.flexibility === 'FIXED';
+  });
 
 /**
  * FR-RSC-01 (v2.14)'s "remainder of day" rule, applied here too. `RescheduleService.askEngine`
@@ -197,8 +238,17 @@ const computeCandidates = async (
 };
 
 export const buildApp = (deps: AppDependencies): Express => {
-  const { users, tasks, reschedule, clock, auth, metrics, catalog, recommendationSchedulerFor } =
-    deps;
+  const {
+    users,
+    tasks,
+    reschedule,
+    clock,
+    auth,
+    metrics,
+    workoutSelections,
+    catalog,
+    recommendationSchedulerFor,
+  } = deps;
   const app = express();
   app.use(cors());
   app.use(express.json());
@@ -368,6 +418,20 @@ export const buildApp = (deps: AppDependencies): Express => {
     const userId = req.userId!;
     const { intendedDate, ...taskInput } = validated.value;
 
+    if (taskInput.flexibility === 'FIXED') {
+      const [onDate, tasksOnDate] = await Promise.all([
+        tasks.placementsForDate(userId, intendedDate),
+        tasks.allTasksForDate(userId, intendedDate),
+      ]);
+      const tasksById = new Map(tasksOnDate.map((t) => [t.id, t]));
+      const conflict = findImmovableConflict(onDate, tasksById, taskInput.preferredWindow);
+      if (conflict !== undefined) {
+        const conflictTitle = tasksById.get(conflict.taskId)?.title ?? 'another commitment';
+        res.status(409).json({ error: `That time conflicts with "${conflictTitle}".` });
+        return;
+      }
+    }
+
     const task = await tasks.createTask({ userId, intendedDate, ...taskInput });
 
     if (task.flexibility === 'FIXED') {
@@ -518,6 +582,124 @@ export const buildApp = (deps: AppDependencies): Express => {
     res.json({ candidates: computed.candidates, unplaceable: null });
   });
 
+  /**
+   * Reschedules an occurrence — FIXED or FLEXIBLE alike — by fully restating the task (FR-TSK-01's
+   * whole attribute table, reusing `validateTaskInput`) and a new date/time, rather than
+   * searching for a slot: the frontend pre-fills the Add Task form with the occurrence's current
+   * details and lets every field be edited, so the user has already decided what they want by
+   * the time this is called. The OLD occurrence is retired as history (`status: 'SKIPPED'`,
+   * DR-06 — kept, never deleted) and a NEW `PLANNED` placement is written at the submitted time,
+   * so both sides of the move are visible afterward — the "Rescheduled" panel on the schedule
+   * view pairs them the same way it already pairs a MISSED/SKIPPED row with its successor.
+   * `rescheduleTrigger: 'SKIPPED'` (FR-RSC-08: "declared by the user, possibly before the
+   * window") is the closest fit in the frozen `RescheduleTrigger` union, and matches what the
+   * existing Skip-based "Auto reschedule" already stamps — so every path through the Reschedule
+   * button produces the same shape.
+   *
+   * FIXED and FLEXIBLE differ only in the one respect creation itself already differs on
+   * (`POST /tasks`): a FIXED task's new slot is written exactly as submitted and displaces
+   * whatever FLEXIBLE occurrence it now overlaps (`onCommitmentAdded`, FR-RSC-02); a FLEXIBLE
+   * task's new slot is checked against the CURRENT busy set and rejected (409) rather than
+   * displacing anything, if it no longer fits.
+   */
+  app.post('/tasks/:id/reschedule', requireAuth(auth), async (req: AuthedRequest, res) => {
+    const task = await loadOwnedTask(req, res, req.params.id);
+    if (task === undefined) return;
+
+    const body = req.body as Record<string, unknown>;
+    const { fromDate } = body;
+    if (!isSafeQueryString(fromDate)) {
+      res.status(400).json({ error: 'fromDate is required' });
+      return;
+    }
+    const validated = validateTaskInput(body);
+    if (!validated.ok) {
+      res.status(400).json({ errors: validated.errors });
+      return;
+    }
+    const { intendedDate: date, intensityTier, ...attrs } = validated.value;
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+    const userId = req.userId!;
+
+    const fromOnDate = await tasks.placementsForDate(userId, fromDate);
+    // Absent when there is nothing to retire — e.g. this task is still `awaitingChoice` and has
+    // never been placed at all (the candidate picker's "use reschedule" escape). Placing it
+    // directly by hand is then a FIRST placement, not a move (OPEN-21) — the trigger and reason
+    // below both branch on this.
+    const current = fromOnDate.find((p) => p.taskId === task.id && p.status === 'PLANNED');
+
+    await tasks.updateTaskAttributes(task.id, {
+      ...attrs,
+      // `intendedDate` anchors a non-recurring task to the one day `matchesDate`/`tasksForDate`
+      // considers it to belong on — the same anchor `sweepElapsed`'s re-attempt branch (FR-RSC-05)
+      // reads to decide whether a task with no PLANNED row today should be freshly re-placed
+      // today. Leaving it at the task's ORIGINAL date after moving the placement elsewhere left
+      // that old date's sweep finding "no PLANNED row" (the row was just retired to SKIPPED) and
+      // re-placing the task there all over again — a duplicate ghost occurrence on the date the
+      // user just moved it away from. Following the placement's new date closes that gap.
+      intendedDate: date,
+      ...(intensityTier === undefined ? {} : { intensityTier }),
+    });
+    const updated = await tasks.getTask(task.id);
+    if (updated === undefined) {
+      res.status(404).json({ error: 'not found' });
+      return;
+    }
+
+    const { start, end } = updated.preferredWindow;
+    const onNewDate = fromDate === date ? fromOnDate : await tasks.placementsForDate(userId, date);
+    const excludeId = current?.id;
+
+    if (updated.flexibility === 'FLEXIBLE') {
+      const busy = busySetFrom(onNewDate.filter((p) => p.id !== excludeId));
+      if (busy.some((b) => start < b.end && b.start < end)) {
+        res.status(409).json({ error: 'that slot is no longer available' });
+        return;
+      }
+    } else {
+      // FR-CAL-03: nothing here can be displaced, so a conflict with another immovable
+      // placement (another FIXED commitment, or a COMPLETED occurrence) must be rejected rather
+      // than silently overlapping it — see `findImmovableConflict`.
+      const tasksOnNewDate = await tasks.allTasksForDate(userId, date);
+      const tasksById = new Map(tasksOnNewDate.map((t) => [t.id, t]));
+      const conflict = findImmovableConflict(onNewDate, tasksById, { start, end }, excludeId);
+      if (conflict !== undefined) {
+        const conflictTitle = tasksById.get(conflict.taskId)?.title ?? 'another commitment';
+        res.status(409).json({ error: `That time conflicts with "${conflictTitle}".` });
+        return;
+      }
+    }
+
+    const retired: Placement | null = current === undefined ? null : { ...current, status: 'SKIPPED' };
+    if (retired !== null) await tasks.savePlacement(retired);
+
+    const moved: Placement = {
+      id: tasks.nextPlacementId(),
+      taskId: updated.id,
+      date,
+      start,
+      end,
+      status: 'PLANNED',
+      placementReason:
+        updated.flexibility === 'FIXED'
+          ? commitmentReason(updated.title, start, end)
+          : current === undefined
+            ? placedDirectlyReason(updated.title, start)
+            : manuallyRescheduledReason(updated.title, current.start, start),
+      ...(current === undefined ? {} : { rescheduleTrigger: 'SKIPPED' as const }),
+    };
+    await tasks.savePlacement(moved);
+    // Whichever branch above: this task is no longer awaiting a UC-03 choice, since the user
+    // just committed to an exact time by hand. A no-op where it was already false.
+    await tasks.setAwaitingChoice(task.id, false);
+
+    // FR-RSC-02: a FIXED commitment displaces whatever FLEXIBLE occurrence it now overlaps.
+    const displaced =
+      updated.flexibility === 'FIXED' ? await reschedule.onCommitmentAdded(updated, date) : [];
+
+    res.json({ task: updated, oldPlacement: retired, placement: moved, displaced });
+  });
+
   app.get('/tasks/:id', requireAuth(auth), async (req: AuthedRequest, res) => {
     const task = await loadOwnedTask(req, res, req.params.id);
     if (task === undefined) return;
@@ -641,6 +823,40 @@ export const buildApp = (deps: AppDependencies): Express => {
     if (found === undefined) return;
     // FR-RSC-08: accepted before the window elapses too — the service's own rule, not this route's.
     const outcome = await reschedule.onUserSkipped(found.placement);
+    res.json({ outcome });
+  });
+
+  app.post('/tasks/:id/mark-missed', requireAuth(auth), async (req: AuthedRequest, res) => {
+    const found = await loadPlannedOccurrence(req, res);
+    if (found === undefined) return;
+    // FR-RSC-01: onTaskMissed itself enforces "window fully elapsed" (NO_ACTION /
+    // WINDOW_NOT_ELAPSED otherwise) — the same guard the automatic sweep on every /schedule
+    // retrieval uses. A manual mark-missed can therefore never fire in the window FR-RSC-08
+    // (skip) exists to cover; it only lets the user force the same classification the next
+    // retrieval would have made anyway, without waiting for it.
+    const outcome = await reschedule.onTaskMissed(found.placement);
+    res.json({ outcome });
+  });
+
+  app.post('/tasks/:id/undo-completion', requireAuth(auth), async (req: AuthedRequest, res) => {
+    const task = await loadOwnedTask(req, res, req.params.id);
+    if (task === undefined) return;
+    const { date } = req.body as Record<string, unknown>;
+    if (!isSafeQueryString(date)) {
+      res.status(400).json({ error: 'date is required' });
+      return;
+    }
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+    const userId = req.userId!;
+    const onDate = await tasks.placementsForDate(userId, date);
+    const placement = onDate.find((p) => p.taskId === task.id && p.status === 'COMPLETED');
+    if (placement === undefined) {
+      res.status(404).json({ error: 'no completed occurrence on that date' });
+      return;
+    }
+    // The user is correcting a mistaken `complete`: reverts to MISSED and re-places it exactly
+    // as a real miss would (RescheduleService.onCompletionUndone).
+    const outcome = await reschedule.onCompletionUndone(placement);
     res.json({ outcome });
   });
 
@@ -797,9 +1013,10 @@ export const buildApp = (deps: AppDependencies): Express => {
     // FR-WEL-01: the metric set for the date, rendered by whatever it contains (not a fixed list).
     // FR-WEL-04: the previous 7 days (inclusive) as raw DailyMetricSets — the view extracts the
     // sleep-score and active-calorie series, so a metric added under FR-WER-04 needs no change here.
-    const [metricSet, history] = await Promise.all([
+    const [metricSet, history, selectedWorkoutId] = await Promise.all([
       metrics.getDailyMetricSet(userId, date),
       metrics.getMetricsInRange(userId, shiftIsoDate(date, -6), date),
+      workoutSelections.getSelection(userId, date),
     ]);
 
     // The recommendation engine is built PER REQUEST from the loaded user, because
@@ -857,6 +1074,7 @@ export const buildApp = (deps: AppDependencies): Express => {
         alternatives: workouts.items.slice(1, 3),
         reason: workoutReason ?? null, // FR-REC-13 (the machine-readable reason; the sentence is a view concern)
         satisfiable: workouts.satisfiable,
+        selectedWorkoutId: selectedWorkoutId ?? null,
       },
       meals: {
         baseline: user.baselineCalories, // FR-WEL-03: shown separately from…
@@ -869,6 +1087,23 @@ export const buildApp = (deps: AppDependencies): Express => {
         plan,
       },
     });
+  });
+
+  // Ad hoc, not an SRS requirement: records which workout option the user clicked on the
+  // wellness view for a date, so the highlight survives logout. Purely a display preference —
+  // it does NOT place, replace, or touch any task, so it does not go through
+  // RecommendationScheduler and does not need workoutId to be today's recommended/alternative set.
+  app.post('/wellness/workout-selection', requireAuth(auth), async (req: AuthedRequest, res) => {
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+    const userId = req.userId!;
+    const { date: bodyDate, workoutId } = req.body as Record<string, unknown>;
+    const date = isSafeQueryString(bodyDate) ? bodyDate : clock.today();
+    if (typeof workoutId !== 'string' || workoutId.length === 0) {
+      res.status(400).json({ error: 'workoutId is required' });
+      return;
+    }
+    await workoutSelections.setSelection(userId, date, workoutId);
+    res.status(204).end();
   });
 
   // ── Apply a recommendation (FR-REC-02, FR-REC-03, FR-REC-04) ───────────
