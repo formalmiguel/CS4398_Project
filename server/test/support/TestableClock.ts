@@ -29,4 +29,10 @@ export class TestableClock implements Clock {
   advanceTo(minute: Minute): void {
     this.minute = minute;
   }
+
+  /** OPEN-36: lets a test move `today()` forward without touching `nowMinute()`, to simulate a
+   * task sitting unresolved (e.g. `awaitingChoice`) across a day boundary. */
+  advanceToDate(date: IsoDate): void {
+    this.date = date;
+  }
 }

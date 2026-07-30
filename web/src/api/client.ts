@@ -124,6 +124,20 @@ export const placeTask = (
 ): Promise<{ placement: Placement }> =>
   request(`/tasks/${taskId}/place`, { method: 'POST', body: JSON.stringify(choice) });
 
+/**
+ * OPEN-36: recomputes fresh ranked candidates for a task that is STILL `awaitingChoice` on
+ * `date` — read-only, writes nothing. Lets the schedule view reopen `CandidatePicker` after the
+ * "+ Add Task" flow that originally offered it has long since closed (those candidates are never
+ * persisted). 409s if the task isn't currently awaiting a choice for that date.
+ */
+export interface RefreshCandidatesResult {
+  readonly candidates: readonly Slot[] | null;
+  readonly unplaceable: Extract<PlacementResult, { placed: false }> | null;
+}
+
+export const refreshCandidates = (taskId: string, date: string): Promise<RefreshCandidatesResult> =>
+  request(`/tasks/${taskId}/candidates?date=${encodeURIComponent(date)}`);
+
 export interface ScheduleResult {
   readonly tasks: readonly Task[];
   readonly placements: readonly Placement[];
@@ -148,9 +162,17 @@ export const moveToNextDay = (taskId: string, date: string): Promise<{ outcome: 
  * A day absent from `days` has no matching task; this is a read of task DEFINITIONS, not
  * placements, so it is safe to call for a month nobody has ever opened via `getSchedule`.
  */
+export interface MonthOverviewItem {
+  readonly id: string;
+  readonly title: string;
+  readonly type: TaskType;
+  readonly start: Minute;
+}
+
 export interface MonthOverviewDay {
   readonly date: string;
   readonly types: readonly TaskType[];
+  readonly items: readonly MonthOverviewItem[];
 }
 
 export const getMonthOverview = (start: string, end: string): Promise<{ days: readonly MonthOverviewDay[] }> =>

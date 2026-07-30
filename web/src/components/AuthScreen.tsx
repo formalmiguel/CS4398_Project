@@ -6,7 +6,7 @@ import { AuthResult, login, register, toErrorMessage } from '../api/client';
 import { timeToMinute } from '../dateUtils';
 
 interface Props {
-  readonly onAuthenticated: (result: AuthResult) => void;
+  readonly onAuthenticated: (result: AuthResult, email: string) => void;
 }
 
 /** FR-REC-05: the five dietary preferences the user may declare at registration (UC-01). */
@@ -52,7 +52,7 @@ export const AuthScreen = ({ onAuthenticated }: Props) => {
               baselineCalories: Number(baselineCalories),
               dietaryPreferences,
             });
-      onAuthenticated(result);
+      onAuthenticated(result, email);
     } catch (err) {
       setError(toErrorMessage(err, 'Could not reach the server.'));
     } finally {
@@ -93,8 +93,11 @@ export const AuthScreen = ({ onAuthenticated }: Props) => {
                 required
               />
             </label>
-            <fieldset className="dietary-preferences">
-              <legend>Dietary preferences</legend>
+            {/* A native <legend> always renders straddling the fieldset's top border — there's
+                no reliable cross-browser way to keep it fully above the box. A plain label
+                above an aria-labelled fieldset gets the same accessible grouping without it. */}
+            <p className="dietary-preferences-label">Dietary preferences</p>
+            <fieldset className="dietary-preferences" aria-label="Dietary preferences">
               {DIETARY_OPTIONS.map((option) => (
                 <label key={option.value} className="checkbox">
                   <input

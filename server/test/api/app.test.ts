@@ -452,6 +452,178 @@ describe('UC-02/UC-03 — task creation calls the engine directly (FR-DSH-06)', 
   });
 });
 
+describe('OPEN-36 — a stuck awaitingChoice task self-heals on later occurrences, and can be re-offered', () => {
+  it('a recurring task stuck awaitingChoice self-heals on a LATER occurrence via GET /schedule', async () => {
+    ta = await buildTestApp(600, '2026-07-23');
+    const token = (await register(ta.app)).token;
+    const client = authed(ta.app, token);
+
+    await client.post('/tasks').send({
+      title: 'Advisor Meeting',
+      type: 'MEETING',
+      durationMinutes: 60,
+      priority: 1,
+      preferredWindow: { start: 600, end: 660 },
+      flexibility: 'FIXED',
+      intendedDate: '2026-07-23',
+    });
+    const created = await client.post('/tasks').send({
+      title: 'Daily journal',
+      type: 'HABIT',
+      durationMinutes: 30,
+      priority: 3,
+      preferredWindow: { start: 600, end: 660 },
+      flexibility: 'FLEXIBLE',
+      intendedDate: '2026-07-23',
+      recurrence: { frequency: 'DAILY' },
+    });
+    expect(created.body.candidates.length).toBeGreaterThan(0);
+    const taskId = created.body.task.id;
+
+    // Never resolved on 07-23. A LATER occurrence must still self-heal (FR-RSC-05) — one
+    // unresolved choice must not disable the whole recurring series forever.
+    const later = await client.get('/schedule?date=2026-07-25');
+    const mine = later.body.placements.find((p: { taskId: string }) => p.taskId === taskId);
+    expect(mine).toBeDefined();
+    expect(mine.status).toBe('PLANNED');
+    expect(later.body.awaitingChoice).not.toContain(taskId);
+
+    // The original occurrence is still, correctly, awaiting a choice.
+    const original = await client.get('/schedule?date=2026-07-23');
+    expect(original.body.awaitingChoice).toContain(taskId);
+  });
+
+  it('GET /tasks/:id/candidates returns fresh ranked candidates for a task awaiting choice, writing nothing', async () => {
+    ta = await buildTestApp();
+    const token = (await register(ta.app)).token;
+    const client = authed(ta.app, token);
+    const date = '2026-07-23';
+
+    await client.post('/tasks').send({
+      title: 'Advisor Meeting',
+      type: 'MEETING',
+      durationMinutes: 60,
+      priority: 1,
+      preferredWindow: { start: 600, end: 660 },
+      flexibility: 'FIXED',
+      intendedDate: date,
+    });
+    const created = await client.post('/tasks').send({
+      title: 'Gym',
+      type: 'WORKOUT',
+      durationMinutes: 30,
+      priority: 3,
+      preferredWindow: { start: 600, end: 660 },
+      flexibility: 'FLEXIBLE',
+      intendedDate: date,
+      intensityTier: 'MODERATE',
+    });
+    const taskId = created.body.task.id;
+
+    const res = await client.get(`/tasks/${taskId}/candidates?date=${date}`);
+    expect(res.status).toBe(200);
+    expect(Array.isArray(res.body.candidates)).toBe(true);
+    expect(res.body.candidates.length).toBeGreaterThan(0);
+    expect(res.body.unplaceable).toBeNull();
+
+    const schedule = await client.get(`/schedule?date=${date}`);
+    expect(schedule.body.placements.find((p: { taskId: string }) => p.taskId === taskId)).toBeUndefined();
+  });
+
+  it('GET /tasks/:id/candidates 409s for a task that is not currently awaiting a choice', async () => {
+    ta = await buildTestApp();
+    const token = (await register(ta.app)).token;
+    const client = authed(ta.app, token);
+    const date = '2026-07-23';
+
+    const created = await client.post('/tasks').send({
+      title: 'Read',
+      type: 'HABIT',
+      durationMinutes: 30,
+      priority: 3,
+      preferredWindow: { start: 600, end: 700 },
+      flexibility: 'FLEXIBLE',
+      intendedDate: date,
+    });
+    expect(created.body.placement).not.toBeNull(); // auto-placed, never awaitingChoice
+
+    const res = await client.get(`/tasks/${created.body.task.id}/candidates?date=${date}`);
+    expect(res.status).toBe(409);
+  });
+
+  it('a candidate from GET /tasks/:id/candidates can be accepted via POST /tasks/:id/place', async () => {
+    ta = await buildTestApp();
+    const token = (await register(ta.app)).token;
+    const client = authed(ta.app, token);
+    const date = '2026-07-23';
+
+    await client.post('/tasks').send({
+      title: 'Advisor Meeting',
+      type: 'MEETING',
+      durationMinutes: 60,
+      priority: 1,
+      preferredWindow: { start: 600, end: 660 },
+      flexibility: 'FIXED',
+      intendedDate: date,
+    });
+    const created = await client.post('/tasks').send({
+      title: 'Gym',
+      type: 'HABIT',
+      durationMinutes: 30,
+      priority: 3,
+      preferredWindow: { start: 600, end: 660 },
+      flexibility: 'FLEXIBLE',
+      intendedDate: date,
+    });
+    const refreshed = await client.get(`/tasks/${created.body.task.id}/candidates?date=${date}`);
+    const chosen = refreshed.body.candidates[0];
+
+    const placed = await client
+      .post(`/tasks/${created.body.task.id}/place`)
+      .send({ date, start: chosen.start, end: chosen.end });
+    expect(placed.status).toBe(201);
+    expect(placed.body.placement).toMatchObject({ start: chosen.start, end: chosen.end, status: 'PLANNED' });
+
+    const schedule = await client.get(`/schedule?date=${date}`);
+    expect(schedule.body.awaitingChoice).not.toContain(created.body.task.id);
+  });
+
+  it('GET /tasks/:id/candidates for a date now in the past reports the day already passed, not a bogus slot', async () => {
+    ta = await buildTestApp(600, '2026-07-20');
+    const token = (await register(ta.app)).token;
+    const client = authed(ta.app, token);
+
+    await client.post('/tasks').send({
+      title: 'Advisor Meeting',
+      type: 'MEETING',
+      durationMinutes: 60,
+      priority: 1,
+      preferredWindow: { start: 600, end: 660 },
+      flexibility: 'FIXED',
+      intendedDate: '2026-07-20',
+    });
+    const created = await client.post('/tasks').send({
+      title: 'Gym',
+      type: 'HABIT',
+      durationMinutes: 30,
+      priority: 3,
+      preferredWindow: { start: 600, end: 660 },
+      flexibility: 'FLEXIBLE',
+      intendedDate: '2026-07-20',
+    });
+    expect(created.body.candidates.length).toBeGreaterThan(0);
+
+    // Days pass without the user ever resolving it.
+    ta.clock.advanceToDate('2026-07-25');
+
+    const res = await client.get(`/tasks/${created.body.task.id}/candidates?date=2026-07-20`);
+    expect(res.status).toBe(200);
+    expect(res.body.candidates).toBeNull();
+    expect(res.body.unplaceable.reason).toBe('DAY_FULL');
+    expect(res.body.unplaceable.explanation).toMatch(/2026-07-20/);
+  });
+});
+
 describe('FR-SCH-10 — a batch of genuinely-simultaneous unplaced tasks is still ordered by priority', () => {
   let token: string;
   const date = '2026-07-23';
@@ -577,6 +749,39 @@ describe('GET /schedule/overview — month-grid dots', () => {
     expect(byDate['2026-07-14']).toEqual(['HABIT']);
     expect(byDate['2026-07-15'].sort()).toEqual(['HABIT', 'MEETING']);
     expect(byDate['2026-07-16']).toEqual(['HABIT']);
+  });
+
+  it('items carries each day\'s tasks by title/type/preferred start, sorted by time — for the month view', async () => {
+    ta = await buildTestApp();
+    const token = (await register(ta.app)).token;
+    const client = authed(ta.app, token);
+
+    await client.post('/tasks').send({
+      title: 'Dentist',
+      type: 'MEETING',
+      durationMinutes: 30,
+      priority: 3,
+      preferredWindow: { start: 900, end: 930 },
+      flexibility: 'FIXED',
+      intendedDate: '2026-07-15',
+    });
+    await client.post('/tasks').send({
+      title: 'Morning journal',
+      type: 'HABIT',
+      durationMinutes: 15,
+      priority: 3,
+      preferredWindow: { start: 420, end: 450 },
+      flexibility: 'FLEXIBLE',
+      intendedDate: '2026-07-15',
+    });
+
+    const res = await client.get('/schedule/overview?start=2026-07-15&end=2026-07-15');
+    expect(res.status).toBe(200);
+    const items = res.body.days[0].items as { id: string; title: string; type: string; start: number }[];
+    expect(items.map((i) => i.title)).toEqual(['Morning journal', 'Dentist']);
+    expect(items.map((i) => i.type)).toEqual(['HABIT', 'MEETING']);
+    expect(items.map((i) => i.start)).toEqual([420, 900]);
+    expect(items.every((i) => typeof i.id === 'string' && i.id.length > 0)).toBe(true);
   });
 
   it('never materializes a Placement for a day nobody has retrieved via GET /schedule', async () => {

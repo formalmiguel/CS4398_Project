@@ -16,7 +16,7 @@
  * ⛔ AND NOTHING HERE COMPUTES A TIME. `clockLabel` renders a `Minute` the engine already chose
  * into a wall-clock label; every minute passed in arrives from a `Slot` or a stored `Placement`.
  */
-import type { Minute, Task } from '@capstone/shared';
+import type { IsoDate, Minute, Task } from '@capstone/shared';
 
 const MINUTES_PER_HOUR = 60;
 const MINUTES_PER_DAY = 1440;
@@ -104,3 +104,14 @@ export const cancellationStatement = (task: Task, withdrawn: Minute): string =>
 export const dayAlreadyOverExplanation = (task: Task, dayEnd: Minute): string =>
   `Your schedulable day ended at ${clockLabel(dayEnd)}, so there is no time left today for ` +
   `"${task.title}".`;
+
+/**
+ * OPEN-35. A date strictly before `clock.today()` has no remainder at all — unlike
+ * `dayAlreadyOverExplanation`, which is about TODAY's clock having passed the day's end, this is
+ * about a CALENDAR DATE that has already closed. Saying "no time left today" about a date that
+ * is not today would repeat OPEN-24's exact mistake (a reason sentence claiming something untrue
+ * about when it happened) — this date wasn't visited today, it is being looked at again after
+ * the fact, and the day it names is the one that is over, not "today".
+ */
+export const dayAlreadyPassedExplanation = (task: Task, date: IsoDate): string =>
+  `${date} has already passed, so there is no time left on that day for "${task.title}".`;

@@ -208,10 +208,19 @@ export class TaskRepository {
    * OPEN-17: see `matchesDate` — this is the method that makes a task visible to `sweepElapsed`.
    * Excludes `awaitingChoice` tasks (UC-03) — see that field's comment. Use `allTasksForDate` for
    * a listing the user sees; this one is what the reschedule service's automatic sweep reads.
+   *
+   * ⛔ OPEN-36: the exclusion is scoped to `doc.intendedDate === date`, NOT `doc.awaitingChoice`
+   * alone. `awaitingChoice` is only ever set `true` at one call site (`POST /tasks`'s UC-03
+   * branch), always for that task's own `intendedDate` — so `intendedDate` IS the occurrence the
+   * offer applies to. Excluding on `doc.awaitingChoice` alone (the old behavior) excluded the
+   * task from EVERY date `matchesDate` returns true for, which for a `DAILY`/`WEEKLY` recurring
+   * task is every date from `intendedDate` onward, forever — one unresolved choice permanently
+   * disabled `sweepElapsed`'s self-heal (FR-RSC-05) for the entire series, not just the one
+   * occurrence the choice was raised for.
    */
   async tasksForDate(userId: string, date: IsoDate): Promise<readonly Task[]> {
     const docs = await this.docsForDate(userId, date);
-    return docs.filter((doc) => !doc.awaitingChoice).map(toTask);
+    return docs.filter((doc) => !(doc.awaitingChoice && doc.intendedDate === date)).map(toTask);
   }
 
   /** Every task for the date, INCLUDING one awaiting a UC-03 choice — for the user's own view. */
@@ -244,7 +253,12 @@ export class TaskRepository {
    */
   async awaitingChoiceTaskIds(userId: string, date: IsoDate): Promise<readonly string[]> {
     const docs = await this.docsForDate(userId, date);
-    return docs.filter((doc) => doc.awaitingChoice).map((doc) => doc._id.toHexString());
+    // ⛔ OPEN-36: scoped to `doc.intendedDate === date` — see `tasksForDate`'s comment. Without
+    // it a recurring task's one unresolved choice would report as "awaiting" on every future
+    // occurrence too, not just the one it was actually raised for.
+    return docs
+      .filter((doc) => doc.awaitingChoice && doc.intendedDate === date)
+      .map((doc) => doc._id.toHexString());
   }
 
   async setAwaitingChoice(taskId: string, awaiting: boolean): Promise<void> {
@@ -425,18 +439,40 @@ export class TaskRepository {
    * it. This reads task DEFINITIONS (`intendedDate` + `recurrence`) instead: no engine call, no
    * reschedule sweep, no write. Only dates with at least one matching task are returned. Range
    * length is bounded by the caller (`app.ts`'s route); this method trusts what it's given.
+   *
+   * `items` (added for the month-view redesign) carries each matching task's title and
+   * `preferredWindow.start` — the task's DEFINED time, not a placed one, since no engine runs
+   * here. For a FIXED commitment that is the actual time it occupies; for a flexible task it is
+   * only where the System will try first, same caveat FR-DSH-05 already carries for candidates
+   * shown before a call completes. `types` is kept, unmodified, alongside it — existing readers
+   * of the dots-only shape are untouched.
    */
   async taskTypesInRange(
     userId: string,
     start: IsoDate,
     end: IsoDate,
-  ): Promise<readonly { date: IsoDate; types: readonly TaskType[] }[]> {
+  ): Promise<
+    readonly {
+      date: IsoDate;
+      types: readonly TaskType[];
+      items: readonly { id: string; title: string; type: TaskType; start: Minute }[];
+    }[]
+  > {
     if (!isNonEmptyString(userId)) return [];
     const docs = await this.tasks.find({ userId }).toArray();
-    const result: { date: IsoDate; types: readonly TaskType[] }[] = [];
+    const result: {
+      date: IsoDate;
+      types: readonly TaskType[];
+      items: readonly { id: string; title: string; type: TaskType; start: Minute }[];
+    }[] = [];
     for (const date of datesBetween(start, end)) {
-      const types = [...new Set(docs.filter((doc) => matchesDate(doc, date)).map((doc) => doc.type))];
-      if (types.length > 0) result.push({ date, types });
+      const matching = docs.filter((doc) => matchesDate(doc, date));
+      if (matching.length === 0) continue;
+      const types = [...new Set(matching.map((doc) => doc.type))];
+      const items = matching
+        .map((doc) => ({ id: doc._id.toString(), title: doc.title, type: doc.type, start: doc.preferredWindow.start }))
+        .sort((a, b) => a.start - b.start);
+      result.push({ date, types, items });
     }
     return result;
   }

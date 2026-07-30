@@ -42,6 +42,8 @@ export const App = () => {
       try {
         const p = await getProfile();
         setProfile(p);
+        // eslint-disable-next-line no-console
+        console.log('Restored session for', p.email, `(userId: ${p.userId})`);
       } catch {
         clearToken();
       } finally {
@@ -51,16 +53,18 @@ export const App = () => {
     void restore();
   }, []);
 
-  const onAuthenticated = (result: AuthResult): void => {
+  const onAuthenticated = (result: AuthResult, email: string): void => {
     setToken(result.token);
     setProfile({
       userId: result.userId,
-      email: '',
+      email,
       wakeMinute: result.wakeMinute,
       sleepMinute: result.sleepMinute,
       baselineCalories: result.baselineCalories,
       dietaryPreferences: result.dietaryPreferences,
     });
+    // eslint-disable-next-line no-console
+    console.log('Logged in as', email, `(userId: ${result.userId})`);
   };
 
   const logOut = (): void => {

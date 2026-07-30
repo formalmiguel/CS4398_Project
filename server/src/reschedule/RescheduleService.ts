@@ -59,6 +59,7 @@ import type {
 import {
   cancellationStatement,
   dayAlreadyOverExplanation,
+  dayAlreadyPassedExplanation,
   displacedReason,
   editedReason,
   firstPlacementReason,
@@ -333,7 +334,7 @@ export class RescheduleService {
 
     // FR-RSC-01, read literally: a miss requires the window to have FULLY elapsed. This is what
     // keeps FR-RSC-08 meaningful — a skip must be accepted in exactly the case a miss must not.
-    if (this.clock.nowMinute() < stored.end) return noAction(task.id, 'WINDOW_NOT_ELAPSED');
+    if (!this.hasElapsed(stored.date, stored.end)) return noAction(task.id, 'WINDOW_NOT_ELAPSED');
 
     return this.classifyAndReplace(userId, task, stored, 'MISSED');
   }
@@ -476,7 +477,6 @@ export class RescheduleService {
 
   /** FR-RSC-10 — the evaluation a schedule retrieval performs. No timer, no background job. */
   async sweepElapsed(userId: string, date: IsoDate): Promise<readonly RescheduleOutcome[]> {
-    const now = this.clock.nowMinute();
     const tasks = await this.repo.tasksForDate(userId, date);
     const placements = await this.repo.placementsForDate(userId, date);
 
@@ -510,7 +510,7 @@ export class RescheduleService {
         continue;
       }
 
-      const elapsed = plannedRows.find((p) => p.end <= now);
+      const elapsed = plannedRows.find((p) => this.hasElapsed(date, p.end));
       if (elapsed !== undefined) elapsedOnes.push({ task, userId, stored: elapsed });
     }
 
@@ -584,9 +584,15 @@ export class RescheduleService {
     const window = this.remainderOfDay(day, date);
 
     // FR-RSC-01 (v2.14): no remainder means no valid `Interval` to pass, so the engine is not
-    // called. The one reason in the System that does not originate in the engine.
+    // called. The one reason in the System that does not originate in the engine. ⛔ OPEN-35:
+    // two distinct cases now reach here — today's day being over, and a date that has already
+    // CLOSED (strictly before today) — and they get two different, honestly-worded reasons.
     if (window === undefined) {
-      return { ok: false, reason: 'DAY_FULL', explanation: dayAlreadyOverExplanation(task, day.end) };
+      const explanation =
+        date < this.clock.today()
+          ? dayAlreadyPassedExplanation(task, date)
+          : dayAlreadyOverExplanation(task, day.end);
+      return { ok: false, reason: 'DAY_FULL', explanation };
     }
 
     // UC-13 step 3: "re-invokes the same engine with the UPDATED busy set." The occurrence being
@@ -617,12 +623,38 @@ export class RescheduleService {
    * FR-RSC-01 (v2.12): "remaining that day" is expressed by what the service passes IN, not by
    * a rule the engine applies. `undefined` where the day is already over.
    *
-   * Narrowed only for the CURRENT date — a day the clock is not on has no elapsed part.
+   * ⛔ OPEN-35: a date BEFORE today has no remainder at all — the day is entirely over, not
+   * merely partway through. The old code only special-cased `date === today`, so a past date
+   * (any date whose `IsoDate` sorts before `clock.today()`) fell into the "not today" branch
+   * meant for a FUTURE day and was handed the FULL schedulable day back. That let a missed
+   * occurrence on a closed day be "re-placed" inside that same closed day, in the same slot it
+   * already occupied — which the next retrieval then found freshly "elapsed" again by
+   * `hasElapsed`'s own minute check, forever. A future date still gets the full day (nothing
+   * has elapsed on a day that has not arrived), which is unchanged.
    */
   private remainderOfDay(day: Interval, date: IsoDate): Interval | undefined {
-    if (date !== this.clock.today()) return day;
+    const today = this.clock.today();
+    if (date < today) return undefined;
+    if (date !== today) return day;
     const start = Math.max(day.start, this.clock.nowMinute());
     return start < day.end ? { start, end: day.end } : undefined;
+  }
+
+  /**
+   * FR-RSC-01 / FR-RSC-10 — has this occurrence's window elapsed? ⛔ OPEN-35: this is the
+   * decision the bug lived in. The old callers compared `clock.nowMinute()` to the placement's
+   * minute-of-day ALONE, never checking which calendar date the placement is even ON — so a
+   * placement on ANY date whose minute-of-day happened to be `<= nowMinute()` was "elapsed",
+   * including a date two days from now or two days ago. A date strictly before today has
+   * unambiguously elapsed in full, regardless of the clock's minute; a date strictly after
+   * today has not begun to elapse, regardless of the clock's minute; only on today does the
+   * minute comparison mean anything.
+   */
+  private hasElapsed(date: IsoDate, endMinute: Minute): boolean {
+    const today = this.clock.today();
+    if (date < today) return true;
+    if (date > today) return false;
+    return endMinute <= this.clock.nowMinute();
   }
 
   /**
