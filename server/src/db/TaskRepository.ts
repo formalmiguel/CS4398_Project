@@ -223,10 +223,28 @@ export class TaskRepository {
     return docs.filter((doc) => !(doc.awaitingChoice && doc.intendedDate === date)).map(toTask);
   }
 
-  /** Every task for the date, INCLUDING one awaiting a UC-03 choice — for the user's own view. */
+  /**
+   * Every task for the date, INCLUDING one awaiting a UC-03 choice — for the user's own view.
+   *
+   * ⛔ A union with the actual placements on `date`, not `matchesDate` alone. The Reschedule
+   * action writes its new placement wherever the user chose and RETIRES the old one right where
+   * it was — neither of those two dates has to be this task's `intendedDate` or a day its
+   * `recurrence` names, so `matchesDate` alone can miss one of them. That's exactly what made
+   * the moved (or the retired, "Rescheduled"-panel) occurrence's title render as "task
+   * unavailable": `placementsForDate` was already finding the placement row correctly, but this
+   * method — the one that supplies the `Task` a `taskId` looks up against — didn't think the
+   * task belonged on that date at all. A task with a real placement on `date` belongs in this
+   * listing regardless of what its own fields say.
+   */
   async allTasksForDate(userId: string, date: IsoDate): Promise<readonly Task[]> {
-    const docs = await this.docsForDate(userId, date);
-    return docs.map(toTask);
+    const [docs, placedHere] = await Promise.all([
+      this.docsForDate(userId, date),
+      this.placements.find({ userId, date }).toArray(),
+    ]);
+    const known = new Set(docs.map((doc) => doc._id.toHexString()));
+    const extraIds = [...new Set(placedHere.map((p) => p.taskId))].filter((id) => !known.has(id));
+    const extra = extraIds.length === 0 ? [] : await this.getTasksByIds(extraIds);
+    return [...docs.map(toTask), ...extra.values()];
   }
 
   /**
@@ -399,7 +417,15 @@ export class TaskRepository {
     patch: Partial<
       Pick<
         TaskDocument,
-        'title' | 'durationMinutes' | 'priority' | 'preferredWindow' | 'recurrence' | 'intensityTier'
+        | 'title'
+        | 'type'
+        | 'durationMinutes'
+        | 'priority'
+        | 'preferredWindow'
+        | 'flexibility'
+        | 'recurrence'
+        | 'intensityTier'
+        | 'intendedDate'
       >
     >,
   ): Promise<void> {

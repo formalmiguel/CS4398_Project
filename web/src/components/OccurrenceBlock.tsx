@@ -1,3 +1,5 @@
+import { useState } from 'react';
+
 import type { Placement, Task } from '@capstone/shared';
 
 import { minuteToLabel } from '../dateUtils';
@@ -7,6 +9,16 @@ interface Props {
   readonly task: Task | undefined;
   readonly onComplete: () => void;
   readonly onSkip: () => void;
+  /** Reschedule > Auto (FLEXIBLE only) — the same SKIPPED action the Skip button triggers. */
+  readonly onRescheduleAuto: () => void;
+  /**
+   * Reschedule > Pick a time (FIXED and FLEXIBLE alike) — opens the Add Task form pre-filled
+   * with this occurrence's details, every field editable. FIXED has no "auto" option (there is
+   * nothing for the engine to search for — its time is the user's own statement, FR-CAL-01), so
+   * this is the ONLY reschedule action offered for it.
+   */
+  readonly onOpenReschedule: () => void;
+  readonly onUndoToMissed: () => void;
   readonly busy: boolean;
   /**
    * UC-03: true only for a placement this browser session just watched the user accept from
@@ -35,12 +47,24 @@ interface Props {
  * bug OPEN-21 was: a brand-new task's first placement must never be presented as though it
  * were a reschedule.
  */
-export const OccurrenceBlock = ({ placement, task, onComplete, onSkip, busy, justAccepted }: Props) => {
+export const OccurrenceBlock = ({
+  placement,
+  task,
+  onComplete,
+  onSkip,
+  onRescheduleAuto,
+  onOpenReschedule,
+  onUndoToMissed,
+  busy,
+  justAccepted,
+}: Props) => {
+  const [showRescheduleMenu, setShowRescheduleMenu] = useState(false);
   const wasRescheduled = placement.rescheduleTrigger !== undefined;
   const showReason = wasRescheduled || justAccepted;
   const isFixed = task?.flexibility === 'FIXED';
   const isSystem = task?.source === 'SYSTEM';
-  const isDone = placement.status === 'COMPLETED' || placement.status === 'CANCELLED';
+  const isCompleted = placement.status === 'COMPLETED';
+  const isDone = isCompleted || placement.status === 'CANCELLED';
 
   const classes = ['occurrence', isFixed ? 'occurrence--fixed' : 'occurrence--flexible'];
   if (wasRescheduled) classes.push('occurrence--rescheduled');
@@ -70,6 +94,60 @@ export const OccurrenceBlock = ({ placement, task, onComplete, onSkip, busy, jus
           </button>
           <button type="button" onClick={onSkip} disabled={busy}>
             ⤼ skip
+          </button>
+          {/* Expands INLINE rather than as a floating popover — the timeline container clips
+              overflow (for its rounded corners), which would cut off an absolutely-positioned
+              menu instead of letting it float above the surrounding content. */}
+          {isFixed ? (
+            // FR-CAL-01: nothing for the engine to auto-search — go straight to the form.
+            <button type="button" onClick={onOpenReschedule} disabled={busy}>
+              ↻ reschedule
+            </button>
+          ) : showRescheduleMenu ? (
+            <>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowRescheduleMenu(false);
+                  onRescheduleAuto();
+                }}
+                disabled={busy}
+              >
+                Auto reschedule
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowRescheduleMenu(false);
+                  onOpenReschedule();
+                }}
+                disabled={busy}
+              >
+                Pick a time
+              </button>
+              <button type="button" onClick={() => setShowRescheduleMenu(false)} disabled={busy}>
+                cancel
+              </button>
+            </>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setShowRescheduleMenu(true)}
+              disabled={busy}
+              aria-expanded={false}
+            >
+              ↻ reschedule
+            </button>
+          )}
+        </div>
+      )}
+
+      {isCompleted && (
+        <div className="occurrence__actions">
+          {/* Corrects a mistaken "complete" click: reverts to MISSED and re-places it exactly as
+              a real miss would (RescheduleService.onCompletionUndone). */}
+          <button type="button" onClick={onUndoToMissed} disabled={busy}>
+            ✕ missed
           </button>
         </div>
       )}

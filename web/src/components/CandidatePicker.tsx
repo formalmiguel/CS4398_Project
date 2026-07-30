@@ -10,6 +10,13 @@ interface Props {
   readonly candidates: readonly Slot[];
   readonly onPlaced: (placement: Placement) => void;
   readonly onCancel: () => void;
+  /**
+   * A third way out, alongside accepting a ranked candidate or leaving it unplaced: hand off to
+   * the Reschedule form instead, where every field (including the time) is freely editable
+   * rather than picked from the engine's own ranked list. Optional because not every caller of
+   * this component has somewhere to hand off to.
+   */
+  readonly onUseReschedule?: () => void;
 }
 
 /**
@@ -18,7 +25,7 @@ interface Props {
  * account (rank, times, nearness to the preference) — this component renders it verbatim rather
  * than reconstructing a sentence from the raw fields.
  */
-export const CandidatePicker = ({ task, date, candidates, onPlaced, onCancel }: Props) => {
+export const CandidatePicker = ({ task, date, candidates, onPlaced, onCancel, onUseReschedule }: Props) => {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -52,9 +59,16 @@ export const CandidatePicker = ({ task, date, candidates, onPlaced, onCancel }: 
         ))}
       </ul>
       {error !== null && <p className="error">{error}</p>}
-      <button type="button" className="link" onClick={onCancel} disabled={busy}>
-        Decide later — leave it unplaced
-      </button>
+      <div className="candidate-picker__actions">
+        {onUseReschedule !== undefined && (
+          <button type="button" className="link" onClick={onUseReschedule} disabled={busy}>
+            None of these — use Reschedule instead
+          </button>
+        )}
+        <button type="button" className="link" onClick={onCancel} disabled={busy}>
+          Decide later — leave it unplaced
+        </button>
+      </div>
     </div>
   );
 };

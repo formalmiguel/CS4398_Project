@@ -3,13 +3,16 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { Interval, Placement, Slot, Task } from '@capstone/shared';
 
 import {
+  RescheduleResult,
   ScheduleResult,
   completeTask,
   exportScheduleIcs,
   getSchedule,
+  moveToNextDay,
   refreshCandidates,
   skipTask,
   toErrorMessage,
+  undoCompletion,
 } from '../api/client';
 import { addDays, formatDateHeading, minuteToLabel } from '../dateUtils';
 import { CandidatePicker } from './CandidatePicker';
@@ -63,6 +66,13 @@ export const ScheduleView = ({ date, onDateChange, schedulableDay }: Props) => {
   // OPEN-36: reopens a real CandidatePicker for a task still awaiting a choice — the offer
   // TaskForm originally showed is never persisted, so this recomputes a fresh one on demand.
   const [picker, setPicker] = useState<{ task: Task; candidates: readonly Slot[] } | null>(null);
+  // The Reschedule action's "pick a time" step — opens TaskForm pre-filled from this occurrence.
+  const [rescheduleForm, setRescheduleForm] = useState<{ task: Task; fromDate: string } | null>(null);
+  // Reschedules done via the form THIS session, keyed by the retired placement's id — lets the
+  // Rescheduled panel show the EXACT new time/date immediately, even across a day change, which
+  // the same-day successor lookup in the panel's own render (below) cannot see. Ephemeral, same
+  // limitation already accepted for `justAcceptedIds`/`awaitingChoice` — does not survive a reload.
+  const [justRescheduled, setJustRescheduled] = useState<ReadonlyMap<string, Placement>>(new Map());
 
   const refresh = useCallback(async (): Promise<void> => {
     try {
@@ -101,6 +111,40 @@ export const ScheduleView = ({ date, onDateChange, schedulableDay }: Props) => {
   const onSkip = (placementId: string, taskId: string): Promise<void> =>
     runAction(placementId, taskId, skipTask, 'Could not skip the task.');
 
+  // Reschedule > Auto (FLEXIBLE only): the same SKIPPED action the Skip button triggers
+  // (FR-RSC-08 already covers "declared by the user, possibly before the window") — a second
+  // entry point onto the identical action, not a new trigger.
+  const onRescheduleAuto = onSkip;
+
+  // Reschedule > Pick a time (FIXED and FLEXIBLE alike): opens the Add Task form pre-filled
+  // with this occurrence's details. No candidate search here — see TaskForm/rescheduleTask.
+  const onOpenReschedule = (task: Task, fromDate: string): void => setRescheduleForm({ task, fromDate });
+
+  // Corrects a mistaken "complete" click: reverts the occurrence to MISSED and re-places it, the
+  // same way a real miss would be. Not routed through `runAction` — there's no generic failure
+  // text worth showing over the specific one.
+  const onUndoToMissed = async (placementId: string, taskId: string): Promise<void> => {
+    setBusyPlacementId(placementId);
+    try {
+      await undoCompletion(taskId, date);
+      await refresh();
+    } catch (err) {
+      setError(toErrorMessage(err, 'Could not undo the completion.'));
+    } finally {
+      setBusyPlacementId(null);
+    }
+  };
+
+  // A MISSED row whose same-day re-attempt (FR-RSC-05, on every retrieval) found no room has no
+  // successor anywhere — this is the "offer to move it to the next day" the requirement
+  // describes, reusing the same moveToNextDay action TaskForm already offers at creation time.
+  // Applies equally to a SKIPPED row with no successor — Skip/Auto reschedule can fail to find
+  // room the same way a miss's same-day re-attempt can. Deliberately gated to rows with no
+  // active successor (see rescheduledHistory below): calling moveToNextDay on a task that
+  // already has one would place a SECOND, unwanted occurrence tomorrow.
+  const onMoveToNextDay = (placementId: string, taskId: string): Promise<void> =>
+    runAction(placementId, taskId, moveToNextDay, 'Could not reschedule the task.');
+
   /** OPEN-36: recompute fresh candidates for a task still awaiting a choice and reopen the picker. */
   const onChooseTime = async (task: Task): Promise<void> => {
     try {
@@ -130,19 +174,28 @@ export const ScheduleView = ({ date, onDateChange, schedulableDay }: Props) => {
     }
   };
 
-  const { taskById, placements, unplacedTasks, awaitingChoiceIds, awaitingChoiceCount } = useMemo(() => {
-    const byId = new Map<string, Task>((data?.tasks ?? []).map((t) => [t.id, t]));
-    const sortedPlacements = [...(data?.placements ?? [])].sort((a, b) => a.start - b.start);
-    const placedTaskIds = new Set(sortedPlacements.map((p) => p.taskId));
-    const awaitingIds = new Set(data?.awaitingChoice ?? []);
-    return {
-      taskById: byId,
-      placements: sortedPlacements,
-      unplacedTasks: (data?.tasks ?? []).filter((t) => !placedTaskIds.has(t.id)),
-      awaitingChoiceIds: awaitingIds,
-      awaitingChoiceCount: awaitingIds.size,
-    };
-  }, [data]);
+  const { taskById, placements, rescheduledHistory, unplacedTasks, awaitingChoiceIds, awaitingChoiceCount } =
+    useMemo(() => {
+      const byId = new Map<string, Task>((data?.tasks ?? []).map((t) => [t.id, t]));
+      const sortedPlacements = [...(data?.placements ?? [])].sort((a, b) => a.start - b.start);
+      // MISSED and SKIPPED rows are history (DR-06 — kept, never deleted) and no longer occupy
+      // time, so they don't belong on the live timeline; every reschedule — automatic (miss,
+      // skip) or manual (the Reschedule button, either option) — lands here instead, since all
+      // of them retire the old row the same way (see the unified "Rescheduled" section below).
+      const isRetired = (p: Placement): boolean => p.status === 'MISSED' || p.status === 'SKIPPED';
+      const timelinePlacements = sortedPlacements.filter((p) => !isRetired(p));
+      const history = sortedPlacements.filter(isRetired);
+      const placedTaskIds = new Set(sortedPlacements.map((p) => p.taskId));
+      const awaitingIds = new Set(data?.awaitingChoice ?? []);
+      return {
+        taskById: byId,
+        placements: timelinePlacements,
+        rescheduledHistory: history,
+        unplacedTasks: (data?.tasks ?? []).filter((t) => !placedTaskIds.has(t.id)),
+        awaitingChoiceIds: awaitingIds,
+        awaitingChoiceCount: awaitingIds.size,
+      };
+    }, [data]);
 
   return (
     <div className={viewMode === 'month' ? 'schedule-view schedule-view--month' : 'schedule-view'}>
@@ -249,6 +302,32 @@ export const ScheduleView = ({ date, onDateChange, schedulableDay }: Props) => {
                   void refresh();
                 }}
                 onCancel={() => setPicker(null)}
+                onUseReschedule={() => {
+                  // The task already exists (still awaitingChoice, no placement) — rescheduleTask
+                  // treats "nothing to retire" as a first placement, not an error.
+                  setRescheduleForm({ task: picker.task, fromDate: date });
+                  setPicker(null);
+                }}
+              />
+            </div>
+          )}
+
+          {rescheduleForm !== null && (
+            <div className="modal">
+              <TaskForm
+                date={date}
+                rescheduleFrom={rescheduleForm}
+                onRescheduled={(result: RescheduleResult) => {
+                  const { oldPlacement, placement } = result;
+                  if (oldPlacement !== null) {
+                    setJustRescheduled((prev) => new Map(prev).set(oldPlacement.id, placement));
+                  }
+                }}
+                onDone={() => {
+                  setRescheduleForm(null);
+                  void refresh();
+                }}
+                onCancel={() => setRescheduleForm(null)}
               />
             </div>
           )}
@@ -271,10 +350,56 @@ export const ScheduleView = ({ date, onDateChange, schedulableDay }: Props) => {
                 justAccepted={justAcceptedIds.has(p.id)}
                 onComplete={() => onComplete(p.id, p.taskId)}
                 onSkip={() => onSkip(p.id, p.taskId)}
+                onRescheduleAuto={() => void onRescheduleAuto(p.id, p.taskId)}
+                onOpenReschedule={() => {
+                  const task = taskById.get(p.taskId);
+                  if (task !== undefined) onOpenReschedule(task, p.date);
+                }}
+                onUndoToMissed={() => void onUndoToMissed(p.id, p.taskId)}
               />
             ))}
             <span className="schedule-view__axis-label">Day End: {minuteToLabel(schedulableDay.end)}</span>
           </div>
+
+          {rescheduledHistory.length > 0 && (
+            <div className="schedule-view__rescheduled">
+              <h3>Rescheduled</h3>
+              <ul>
+                {rescheduledHistory.map((p) => {
+                  const task = taskById.get(p.taskId);
+                  // This session's own exact pairing (from the Reschedule form, `onRescheduled`)
+                  // is accurate even across a day change; a same-day successor lookup is the
+                  // fallback for everything else (a reload, or Skip/Auto reschedule/an automatic
+                  // miss, none of which move a task to a different day).
+                  const successor = justRescheduled.get(p.id) ?? placements.find((live) => live.taskId === p.taskId);
+                  return (
+                    <li key={p.id} className="schedule-view__rescheduled-item">
+                      <span>
+                        {task?.title ?? '(task unavailable)'} — was {minuteToLabel(p.start)}–{minuteToLabel(p.end)}
+                        {successor !== undefined && (
+                          <>
+                            {' '}
+                            → now {successor.date !== date ? `${successor.date} ` : ''}
+                            {minuteToLabel(successor.start)}–{minuteToLabel(successor.end)}
+                          </>
+                        )}
+                      </span>
+                      {successor === undefined && (
+                        <button
+                          type="button"
+                          className="link"
+                          disabled={busyPlacementId === p.id}
+                          onClick={() => void onMoveToNextDay(p.id, p.taskId)}
+                        >
+                          Reschedule
+                        </button>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          )}
 
           {unplacedTasks.length > 0 && (
             <div className="schedule-view__unplaced">

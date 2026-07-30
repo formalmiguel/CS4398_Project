@@ -145,6 +145,8 @@ export interface TaskRepository {
  *                       FR-TSK-04 — "re-place it IF the current placement is no longer valid."
  *                       The condition is the requirement, not decoration: an edit that leaves
  *                       the placement legal moves nothing.
+ *   NOT_COMPLETED       `onCompletionUndone` acts only on a `COMPLETED` occurrence — there is
+ *                       nothing to undo otherwise.
  *   NO_SUCH_OCCURRENCE  the placement or task is not in the store.
  */
 export type NoActionReason =
@@ -153,6 +155,7 @@ export type NoActionReason =
   | 'NOT_FLEXIBLE'
   | 'WINDOW_NOT_ELAPSED'
   | 'PLACEMENT_STILL_VALID'
+  | 'NOT_COMPLETED'
   | 'NO_SUCH_OCCURRENCE';
 
 /**
@@ -435,6 +438,31 @@ export class RescheduleService {
       statement:
         task === undefined ? '' : cancellationStatement(task, successor.start),
     };
+  }
+
+  /**
+   * The user corrects a mistaken `complete` click: the occurrence is reverted to `MISSED` and
+   * re-placed exactly as a real miss would be (the same `classifyAndReplace` path FR-RSC-01
+   * uses). This is deliberately the one way past FR-RSC-07's "never" — every other path reaches
+   * a `COMPLETED` row through inference (the sweep, a stale trigger); this one only fires on the
+   * user's own explicit statement that the completion was wrong, so nothing is being guessed.
+   */
+  async onCompletionUndone(placement: Placement): Promise<RescheduleOutcome> {
+    const task = await this.repo.getTask(placement.taskId);
+    const userId = await this.repo.ownerOfTask(placement.taskId);
+    if (task === undefined || userId === undefined) {
+      return noAction(placement.taskId, 'NO_SUCH_OCCURRENCE');
+    }
+
+    // FR-RSC-06: the stored row, never the caller's possibly-stale copy.
+    const onDate = await this.repo.placementsForDate(userId, placement.date);
+    const stored = onDate.find((p) => p.id === placement.id);
+    if (stored === undefined) return noAction(task.id, 'NO_SUCH_OCCURRENCE');
+    if (stored.status !== 'COMPLETED') return noAction(task.id, 'NOT_COMPLETED');
+    // A fixed commitment isn't the engine's to re-place, same as every other trigger.
+    if (task.flexibility !== 'FLEXIBLE') return noAction(task.id, 'NOT_FLEXIBLE');
+
+    return this.classifyAndReplace(userId, task, stored, 'MISSED');
   }
 
   /**
