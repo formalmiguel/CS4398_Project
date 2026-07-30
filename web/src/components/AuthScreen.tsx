@@ -6,7 +6,7 @@ import { AuthResult, login, register, toErrorMessage } from '../api/client';
 import { timeToMinute } from '../dateUtils';
 
 interface Props {
-  readonly onAuthenticated: (result: AuthResult) => void;
+  readonly onAuthenticated: (result: AuthResult, email: string) => void;
 }
 
 /** FR-REC-05: the five dietary preferences the user may declare at registration (UC-01). */
@@ -52,7 +52,7 @@ export const AuthScreen = ({ onAuthenticated }: Props) => {
               baselineCalories: Number(baselineCalories),
               dietaryPreferences,
             });
-      onAuthenticated(result);
+      onAuthenticated(result, email);
     } catch (err) {
       setError(toErrorMessage(err, 'Could not reach the server.'));
     } finally {
