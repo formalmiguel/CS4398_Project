@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
-import type { Interval, Placement, Slot, Task } from '@capstone/shared';
+import type { Interval, Placement, Slot, Task, TaskType } from '@capstone/shared';
 
 import {
   RescheduleResult,
@@ -25,6 +25,16 @@ interface Props {
   readonly onDateChange: (date: string) => void;
   readonly schedulableDay: Interval;
 }
+
+/** Same fixed order as `styles.css`'s `--type-*` tokens and the `type-dot--*` classes they key. */
+const TYPE_LEGEND: ReadonlyArray<{ type: TaskType; label: string }> = [
+  { type: 'CLASS', label: 'Class' },
+  { type: 'MEETING', label: 'Meeting' },
+  { type: 'HABIT', label: 'Habit' },
+  { type: 'WORKOUT', label: 'Workout' },
+  { type: 'MEAL', label: 'Meal' },
+  { type: 'OTHER', label: 'Other' },
+];
 
 /** UI-01/FR-DSH-01/02: one day, a vertical time axis, ◀/▶ navigation. UI-05: every action re-renders in place. */
 export const ScheduleView = ({ date, onDateChange, schedulableDay }: Props) => {
@@ -185,17 +195,50 @@ export const ScheduleView = ({ date, onDateChange, schedulableDay }: Props) => {
       const isRetired = (p: Placement): boolean => p.status === 'MISSED' || p.status === 'SKIPPED';
       const timelinePlacements = sortedPlacements.filter((p) => !isRetired(p));
       const history = sortedPlacements.filter(isRetired);
-      const placedTaskIds = new Set(sortedPlacements.map((p) => p.taskId));
+      // A retired row (missed/skipped) that found no successor holds no live placement — the
+      // task is currently unplaced, same as one that never found a slot at all, and belongs in
+      // the "Unplaced" section below, not just the "Rescheduled" history. Built from LIVE
+      // placements only, so a retired row with a real successor elsewhere still counts as placed
+      // (via that successor), while one with none does not.
+      const placedTaskIds = new Set(timelinePlacements.map((p) => p.taskId));
       const awaitingIds = new Set(data?.awaitingChoice ?? []);
       return {
         taskById: byId,
         placements: timelinePlacements,
         rescheduledHistory: history,
-        unplacedTasks: (data?.tasks ?? []).filter((t) => !placedTaskIds.has(t.id)),
+        // FLEXIBLE only: "no valid slot found today" describes the engine failing to place a
+        // task, which cannot be what happened to a FIXED commitment (never engine-placed at
+        // all) — a fixed occurrence with no live placement is simply retired (MISSED), and the
+        // "Rescheduled" panel above is where that belongs, with no "unplaced" implication.
+        unplacedTasks: (data?.tasks ?? []).filter(
+          (t) => t.flexibility === 'FLEXIBLE' && !placedTaskIds.has(t.id),
+        ),
         awaitingChoiceIds: awaitingIds,
         awaitingChoiceCount: awaitingIds.size,
       };
     }, [data]);
+
+  // Splits the retired rows into what's DONE (has a "was X → now Y" pairing, or is a fixed
+  // commitment with nowhere to go) and what still NEEDS a reschedule (flexible, retired, and no
+  // successor was ever found — the same "Reschedule" offer that used to sit inside the
+  // "Rescheduled" list itself, now its own section so it reads as something to act on).
+  const { rescheduledDone, needsRescheduling } = useMemo(() => {
+    const done: Placement[] = [];
+    const needsAction: Placement[] = [];
+    for (const p of rescheduledHistory) {
+      const task = taskById.get(p.taskId);
+      // Same successor lookup the "Rescheduled" list itself uses: this session's own exact
+      // pairing first, then a same-day fallback (a reload, or Skip/Auto reschedule/an automatic
+      // miss, none of which move a task to a different day).
+      const successor = justRescheduled.get(p.id) ?? placements.find((live) => live.taskId === p.taskId);
+      if (successor !== undefined || task?.flexibility !== 'FLEXIBLE') {
+        done.push(p);
+      } else {
+        needsAction.push(p);
+      }
+    }
+    return { rescheduledDone: done, needsRescheduling: needsAction };
+  }, [rescheduledHistory, placements, taskById, justRescheduled]);
 
   return (
     <div className={viewMode === 'month' ? 'schedule-view schedule-view--month' : 'schedule-view'}>
@@ -220,6 +263,15 @@ export const ScheduleView = ({ date, onDateChange, schedulableDay }: Props) => {
         >
           Month
         </button>
+      </div>
+
+      <div className="schedule-view__legend" aria-label="Task type color legend">
+        {TYPE_LEGEND.map(({ type, label }) => (
+          <span key={type} className="schedule-view__legend-item">
+            <span className={`schedule-view__legend-dot type-dot--${type}`} aria-hidden="true" />
+            {label}
+          </span>
+        ))}
       </div>
 
       {viewMode === 'month' ? (
@@ -361,11 +413,11 @@ export const ScheduleView = ({ date, onDateChange, schedulableDay }: Props) => {
             <span className="schedule-view__axis-label">Day End: {minuteToLabel(schedulableDay.end)}</span>
           </div>
 
-          {rescheduledHistory.length > 0 && (
+          {rescheduledDone.length > 0 && (
             <div className="schedule-view__rescheduled">
               <h3>Rescheduled</h3>
               <ul>
-                {rescheduledHistory.map((p) => {
+                {rescheduledDone.map((p) => {
                   const task = taskById.get(p.taskId);
                   // This session's own exact pairing (from the Reschedule form, `onRescheduled`)
                   // is accurate even across a day change; a same-day successor lookup is the
@@ -384,16 +436,32 @@ export const ScheduleView = ({ date, onDateChange, schedulableDay }: Props) => {
                           </>
                         )}
                       </span>
-                      {successor === undefined && (
-                        <button
-                          type="button"
-                          className="link"
-                          disabled={busyPlacementId === p.id}
-                          onClick={() => void onMoveToNextDay(p.id, p.taskId)}
-                        >
-                          Reschedule
-                        </button>
-                      )}
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          )}
+
+          {needsRescheduling.length > 0 && (
+            <div className="schedule-view__needs-reschedule">
+              <h3>Needs Rescheduling</h3>
+              <ul>
+                {needsRescheduling.map((p) => {
+                  const task = taskById.get(p.taskId);
+                  return (
+                    <li key={p.id} className="schedule-view__needs-reschedule-item">
+                      <span>
+                        {task?.title ?? '(task unavailable)'} — was {minuteToLabel(p.start)}–{minuteToLabel(p.end)}
+                      </span>
+                      <button
+                        type="button"
+                        className="link"
+                        disabled={busyPlacementId === p.id}
+                        onClick={() => void onMoveToNextDay(p.id, p.taskId)}
+                      >
+                        Reschedule
+                      </button>
                     </li>
                   );
                 })}

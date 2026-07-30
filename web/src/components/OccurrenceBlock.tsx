@@ -92,9 +92,14 @@ export const OccurrenceBlock = ({
           <button type="button" onClick={onComplete} disabled={busy}>
             ○ complete
           </button>
-          <button type="button" onClick={onSkip} disabled={busy}>
-            ⤼ skip
-          </button>
+          {/* FR-RSC-08's skip is flexible-only — the server already no-ops it for a FIXED task
+              (RescheduleService.occurrence returns NOT_FLEXIBLE), so showing the button here
+              was a dead click with no visible effect. */}
+          {!isFixed && (
+            <button type="button" onClick={onSkip} disabled={busy}>
+              ⤼ skip
+            </button>
+          )}
           {/* Expands INLINE rather than as a floating popover — the timeline container clips
               overflow (for its rounded corners), which would cut off an absolutely-positioned
               menu instead of letting it float above the surrounding content. */}

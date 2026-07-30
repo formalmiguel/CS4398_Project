@@ -342,6 +342,28 @@ label {
   color: var(--accent-ink);
 }
 
+.schedule-view__legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem 1rem;
+  margin-bottom: 1.25rem;
+  font-size: 0.75rem;
+  color: var(--ink-secondary);
+}
+
+.schedule-view__legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.schedule-view__legend-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
 .schedule-view__nav {
   display: flex;
   align-items: center;
@@ -502,6 +524,42 @@ label {
   /* Grayed, not crossed out — distinct from occurrence--done's strikethrough treatment, so a
      missed occurrence never reads as though it were completed. */
   opacity: 0.6;
+}
+
+.schedule-view__needs-reschedule {
+  margin-top: 1.5rem;
+}
+
+.schedule-view__needs-reschedule h3 {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--danger);
+  margin: 0 0 0.5rem;
+}
+
+.schedule-view__needs-reschedule ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+/* Unlike .schedule-view__rescheduled-item's dimmed opacity (pure history), this is something
+   to act on — full contrast, with a left accent to draw the eye down the list. */
+.schedule-view__needs-reschedule-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.6rem 0.85rem;
+  background: var(--surface);
+  border: 1px solid var(--gridline);
+  border-left: 3px solid var(--danger);
+  border-radius: 10px;
+  font-size: 0.85rem;
 }
 
 /* ─── Occurrence rows (§3.7.1's blocks) ───────────────────────────────── */
