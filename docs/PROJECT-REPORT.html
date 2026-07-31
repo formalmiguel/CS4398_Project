@@ -1,0 +1,1631 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Adaptive Habit, Schedule &amp; Wellness System — Architecture-Driven Agentic Development</title>
+<style>
+  /* ------------------------------------------------------------------
+     Self-contained by design: no fonts, no CDN, no network, nothing to
+     fail in front of a room or on a machine that isn't ours. Same rule
+     as PRESENTATION.html and PRODUCT-OVERVIEW.html.
+
+     This document is a REPORT, not a deck. It follows the running order
+     of the course methodology lecture (Module of Thought, 4 Mar 2026)
+     section for section, with this project as the worked example.
+     ------------------------------------------------------------------ */
+
+  :root {
+    --paper:        #f7f6f3;
+    --paper-raised: #ffffff;
+    --paper-sunk:   #eeece6;
+    --ink:          #1c1a17;
+    --ink-dim:      #5f5a52;
+    --ink-faint:    #8b857b;
+    --rule:         #ded9d0;
+    --rule-strong:  #c3bcb0;
+    --accent:       #8a4b2a;   /* burnt sienna — headings, section numbers */
+    --accent-soft:  #f3e3d8;
+    --link:         #1f5f8b;
+    --good:         #2f6b46;
+    --good-soft:    #dfeee5;
+    --warn:         #9a3b2f;
+    --warn-soft:    #f6e2de;
+    --code-bg:      #f0ede7;
+    --shadow: 0 1px 2px rgba(28,26,23,.06), 0 8px 24px rgba(28,26,23,.07);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --paper:#15140f; --paper-raised:#1d1c17; --paper-sunk:#100f0b;
+      --ink:#eeeae0; --ink-dim:#b0a99c; --ink-faint:#7d766a;
+      --rule:#332f27; --rule-strong:#4a453a;
+      --accent:#d5885c; --accent-soft:#392418;
+      --link:#7fb6da; --good:#7cc39a; --good-soft:#1c3226;
+      --warn:#e08b7e; --warn-soft:#3a201c; --code-bg:#221f19;
+      --shadow: 0 1px 2px rgba(0,0,0,.4), 0 10px 30px rgba(0,0,0,.45);
+    }
+  }
+  :root[data-theme="dark"] {
+    --paper:#15140f; --paper-raised:#1d1c17; --paper-sunk:#100f0b;
+    --ink:#eeeae0; --ink-dim:#b0a99c; --ink-faint:#7d766a;
+    --rule:#332f27; --rule-strong:#4a453a;
+    --accent:#d5885c; --accent-soft:#392418;
+    --link:#7fb6da; --good:#7cc39a; --good-soft:#1c3226;
+    --warn:#e08b7e; --warn-soft:#3a201c; --code-bg:#221f19;
+    --shadow: 0 1px 2px rgba(0,0,0,.4), 0 10px 30px rgba(0,0,0,.45);
+  }
+  :root[data-theme="light"] {
+    --paper:#f7f6f3; --paper-raised:#ffffff; --paper-sunk:#eeece6;
+    --ink:#1c1a17; --ink-dim:#5f5a52; --ink-faint:#8b857b;
+    --rule:#ded9d0; --rule-strong:#c3bcb0;
+    --accent:#8a4b2a; --accent-soft:#f3e3d8;
+    --link:#1f5f8b; --good:#2f6b46; --good-soft:#dfeee5;
+    --warn:#9a3b2f; --warn-soft:#f6e2de; --code-bg:#f0ede7;
+    --shadow: 0 1px 2px rgba(28,26,23,.06), 0 8px 24px rgba(28,26,23,.07);
+  }
+
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, "Times New Roman", serif;
+    font-size: 17px;
+    line-height: 1.62;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 46rem; margin: 0 auto; padding: 0 1.5rem 8rem; }
+
+  /* ---------- theme toggle ---------- */
+  #themer {
+    position: fixed; top: .9rem; right: .9rem; z-index: 50;
+    background: var(--paper-raised); color: var(--ink-dim);
+    border: 1px solid var(--rule); border-radius: 999px;
+    padding: .38rem .8rem; font: 600 .72rem/1 ui-sans-serif, system-ui, sans-serif;
+    letter-spacing: .06em; text-transform: uppercase; cursor: pointer;
+    box-shadow: var(--shadow);
+  }
+  #themer:hover { color: var(--ink); border-color: var(--rule-strong); }
+
+  /* ---------- cover ---------- */
+  .cover { padding: 5.5rem 0 3rem; border-bottom: 3px double var(--rule-strong); margin-bottom: 3rem; }
+  .eyebrow {
+    font: 600 .74rem/1.5 ui-sans-serif, system-ui, sans-serif;
+    letter-spacing: .16em; text-transform: uppercase; color: var(--accent);
+    margin-bottom: 1.4rem;
+  }
+  h1 {
+    font-size: clamp(1.9rem, 4.6vw, 2.9rem); line-height: 1.14;
+    margin: 0 0 1rem; font-weight: 600; letter-spacing: -.012em;
+  }
+  .subtitle { font-size: 1.16rem; color: var(--ink-dim); margin: 0 0 2.4rem; line-height: 1.5; }
+  .byline { display: grid; gap: .55rem; font: .9rem/1.5 ui-sans-serif, system-ui, sans-serif; }
+  .byline .row { display: grid; grid-template-columns: 8.5rem 1fr; gap: 1rem; }
+  .byline dt { color: var(--ink-faint); font-size: .78rem; letter-spacing: .1em; text-transform: uppercase; padding-top: .12rem; }
+  .byline dd { margin: 0; }
+  .byline strong { font-weight: 600; }
+
+  /* ---------- table of contents ---------- */
+  nav.toc {
+    background: var(--paper-sunk); border: 1px solid var(--rule);
+    border-radius: 4px; padding: 1.4rem 1.6rem; margin: 0 0 3.5rem;
+    font: .88rem/1.5 ui-sans-serif, system-ui, sans-serif;
+  }
+  nav.toc h2 {
+    font-size: .74rem; letter-spacing: .14em; text-transform: uppercase;
+    color: var(--ink-faint); margin: 0 0 .9rem; border: 0; padding: 0;
+  }
+  nav.toc ol { margin: 0; padding: 0; list-style: none; counter-reset: toc; }
+  nav.toc li { counter-increment: toc; padding: .22rem 0; display: flex; gap: .7rem; }
+  nav.toc li::before {
+    content: counter(toc); color: var(--accent); font-variant-numeric: tabular-nums;
+    font-weight: 600; min-width: 1.3rem; text-align: right;
+  }
+  nav.toc a { color: var(--ink); text-decoration: none; border-bottom: 1px solid transparent; }
+  nav.toc a:hover { border-bottom-color: var(--accent); }
+
+  /* ---------- sections ---------- */
+  section { margin: 0 0 3.6rem; scroll-margin-top: 1.5rem; }
+  h2 {
+    font-size: 1.5rem; line-height: 1.25; margin: 0 0 1.1rem; font-weight: 600;
+    letter-spacing: -.008em; padding-top: 1.4rem; border-top: 1px solid var(--rule);
+    display: flex; gap: .85rem; align-items: baseline;
+  }
+  h2 .num {
+    font: 600 .78rem/1 ui-sans-serif, system-ui, sans-serif;
+    color: var(--accent); letter-spacing: .1em; flex: none; padding-top: .3rem;
+  }
+  h3 {
+    font-size: 1.06rem; margin: 2rem 0 .7rem; font-weight: 600;
+    font-family: ui-sans-serif, system-ui, sans-serif; letter-spacing: -.005em;
+  }
+  h4 {
+    font: 600 .76rem/1.4 ui-sans-serif, system-ui, sans-serif;
+    letter-spacing: .12em; text-transform: uppercase; color: var(--ink-faint);
+    margin: 1.6rem 0 .55rem;
+  }
+  p { margin: 0 0 1.05rem; }
+  .lede { font-size: 1.08rem; color: var(--ink-dim); }
+  a { color: var(--link); }
+  strong { font-weight: 600; }
+  em { font-style: italic; }
+  ul, ol { margin: 0 0 1.05rem; padding-left: 1.4rem; }
+  li { margin-bottom: .42rem; }
+  li > ul, li > ol { margin-top: .42rem; }
+
+  code, kbd, samp {
+    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+    font-size: .845em; background: var(--code-bg); padding: .1em .34em;
+    border-radius: 3px; word-break: break-word;
+  }
+  pre {
+    background: var(--code-bg); border: 1px solid var(--rule); border-radius: 4px;
+    padding: .9rem 1.05rem; overflow-x: auto; margin: 0 0 1.05rem;
+    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+    font-size: .8rem; line-height: 1.62;
+  }
+  pre code { background: none; padding: 0; font-size: 1em; }
+  pre .c { color: var(--ink-faint); }
+  pre .ok { color: var(--good); }
+
+  /* ---------- callouts ---------- */
+  .box {
+    border: 1px solid var(--rule); border-left: 3px solid var(--accent);
+    background: var(--paper-raised); border-radius: 0 4px 4px 0;
+    padding: 1rem 1.2rem; margin: 0 0 1.3rem;
+  }
+  .box > :last-child { margin-bottom: 0; }
+  .box.warn  { border-left-color: var(--warn); background: var(--warn-soft); }
+  .box.good  { border-left-color: var(--good); background: var(--good-soft); }
+  .box .tag {
+    font: 600 .7rem/1.4 ui-sans-serif, system-ui, sans-serif;
+    letter-spacing: .12em; text-transform: uppercase; color: var(--accent);
+    display: block; margin-bottom: .45rem;
+  }
+  .box.warn .tag { color: var(--warn); }
+  .box.good .tag { color: var(--good); }
+
+  blockquote {
+    margin: 1.4rem 0; padding: 0 0 0 1.3rem;
+    border-left: 3px solid var(--accent-soft);
+    font-size: 1.1rem; line-height: 1.5; color: var(--ink);
+  }
+  blockquote p:last-child { margin-bottom: 0; }
+  blockquote cite { display: block; margin-top: .55rem; font-style: normal;
+    font: .82rem/1.4 ui-sans-serif, system-ui, sans-serif; color: var(--ink-faint); }
+
+  /* ---------- tables ---------- */
+  .scroller { overflow-x: auto; margin: 0 0 1.3rem; -webkit-overflow-scrolling: touch; }
+  table { border-collapse: collapse; width: 100%; min-width: 30rem;
+    font: .86rem/1.45 ui-sans-serif, system-ui, sans-serif; }
+  th, td { text-align: left; padding: .52rem .7rem; border-bottom: 1px solid var(--rule); vertical-align: top; }
+  thead th {
+    font-size: .72rem; letter-spacing: .09em; text-transform: uppercase;
+    color: var(--ink-faint); border-bottom: 1px solid var(--rule-strong); font-weight: 600;
+  }
+  tbody tr:last-child td { border-bottom: 0; }
+  td code { font-size: .8rem; }
+  .num-cell { font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+  /* ---------- metric strip ---------- */
+  /* Exactly six metrics — 3x2 always fills, so no dead cell at any width. */
+  .metrics { display: grid; grid-template-columns: repeat(3, 1fr);
+    gap: 1px; background: var(--rule); border: 1px solid var(--rule);
+    border-radius: 4px; overflow: hidden; margin: 0 0 1.4rem; }
+  @media (max-width: 30rem) { .metrics { grid-template-columns: repeat(2, 1fr); } }
+  .metrics div { background: var(--paper-raised); padding: .9rem 1rem; }
+  .metrics .v {
+    font: 600 1.5rem/1.1 ui-sans-serif, system-ui, sans-serif;
+    font-variant-numeric: tabular-nums; letter-spacing: -.02em; display: block;
+  }
+  .metrics .k {
+    font: .72rem/1.35 ui-sans-serif, system-ui, sans-serif; color: var(--ink-faint);
+    display: block; margin-top: .3rem;
+  }
+
+  /* ---------- two-column compare ---------- */
+  .compare { display: grid; grid-template-columns: 1fr 1fr; gap: 1px;
+    background: var(--rule); border: 1px solid var(--rule); border-radius: 4px;
+    overflow: hidden; margin: 0 0 1.3rem; }
+  .compare > div { background: var(--paper-raised); padding: 1rem 1.1rem; }
+  .compare h4 { margin-top: 0; }
+  .compare p:last-child, .compare ul:last-child { margin-bottom: 0; }
+  @media (max-width: 34rem) { .compare { grid-template-columns: 1fr; } }
+
+  /* ---------- architecture diagram ---------- */
+  .arch { margin: 0 0 1.3rem; }
+  .arch svg { width: 100%; height: auto; display: block; }
+  .arch text { font-family: ui-sans-serif, system-ui, sans-serif; }
+
+  /* ---------- figure gallery ---------- */
+  .act { margin: 2.4rem 0 0; }
+  .act > h3 { display: flex; align-items: baseline; gap: .7rem; margin-bottom: .4rem; }
+  .act > h3 .badge {
+    font: 600 .68rem/1 ui-sans-serif, system-ui, sans-serif; letter-spacing: .1em;
+    text-transform: uppercase; color: var(--paper-raised); background: var(--accent);
+    padding: .3rem .5rem; border-radius: 3px; flex: none;
+  }
+  figure { margin: 1.2rem 0 1.6rem; }
+  figure img {
+    width: 100%; height: auto; display: block; border: 1px solid var(--rule);
+    border-radius: 4px; box-shadow: var(--shadow); background: var(--paper-sunk);
+  }
+  figcaption {
+    font: .82rem/1.5 ui-sans-serif, system-ui, sans-serif;
+    color: var(--ink-dim); margin-top: .6rem; padding-left: .1rem;
+  }
+  figcaption .fignum { color: var(--accent); font-weight: 600; margin-right: .4rem; }
+  figcaption .reqs { color: var(--ink-faint); }
+
+  /* ---------- footer ---------- */
+  footer {
+    border-top: 3px double var(--rule-strong); margin-top: 4rem; padding-top: 1.6rem;
+    font: .82rem/1.6 ui-sans-serif, system-ui, sans-serif; color: var(--ink-faint);
+  }
+  footer p { margin-bottom: .6rem; }
+
+  /* ---------- print ---------- */
+  @media print {
+    :root {
+      --paper:#fff; --paper-raised:#fff; --paper-sunk:#f6f5f2; --ink:#000;
+      --ink-dim:#333; --ink-faint:#666; --rule:#ccc; --rule-strong:#999;
+      --accent:#7a3f22; --code-bg:#f4f2ee; --shadow:none;
+    }
+    body { font-size: 11pt; }
+    #themer { display: none; }
+    .wrap { max-width: none; padding: 0; }
+    section { page-break-inside: auto; }
+    h2 { page-break-after: avoid; }
+    figure, .box, table, .metrics, .compare { page-break-inside: avoid; }
+    .cover { page-break-after: always; }
+    nav.toc { page-break-after: always; }
+    a { color: #000; text-decoration: none; }
+  }
+</style>
+</head>
+<body>
+
+<button id="themer" type="button">Theme</button>
+
+<div class="wrap">
+
+<!-- ==================================================================== -->
+<header class="cover">
+  <p class="eyebrow">CS 4398 · Software Engineering Capstone · Texas State University</p>
+  <h1>Adaptive Habit, Schedule &amp; Wellness System</h1>
+  <p class="subtitle">
+    Architecture-driven agentic development with a frozen-specification prompt pack —
+    method, structure, process, verification, and the running system.
+  </p>
+  <dl class="byline">
+    <div class="row"><dt>Team</dt><dd>
+      <strong>Patrick Rucker</strong> — Scheduling Algorithm Lead<br>
+      <strong>Ryan Woosley</strong> — Data &amp; Wearable Integration Lead<br>
+      <strong>Miguel Alvarez</strong> — Frontend &amp; Backend Lead
+    </dd></div>
+    <div class="row"><dt>Presented</dt><dd>30 July 2026</dd></div>
+    <div class="row"><dt>Specification</dt><dd><code>docs/SRS-v2.md</code> v2.41 — 136 FR/NFR, 33 CON/DR/SI/DEP/UI</dd></div>
+    <div class="row"><dt>Verified</dt><dd>30 July 2026 · <code>npm run verify</code> · exit 0</dd></div>
+  </dl>
+</header>
+
+<!-- ==================================================================== -->
+<nav class="toc">
+  <h2>Contents</h2>
+  <ol>
+    <li><a href="#s1">The method: persistent context and incremental packets</a></li>
+    <li><a href="#s2">Context documents in the master prompt</a></li>
+    <li><a href="#s3">The architectural style</a></li>
+    <li><a href="#s4">The architectural style, stated in a prompt</a></li>
+    <li><a href="#s5">Requirements — the worked example</a></li>
+    <li><a href="#s6">Process prescription</a></li>
+    <li><a href="#s7">Architecture-based implementation plan</a></li>
+    <li><a href="#s8">Verification and validation prescription</a></li>
+    <li><a href="#s9">Incremental prompts — the anatomy of a packet</a></li>
+    <li><a href="#s10">Structure verification: prescription vs. produced code</a></li>
+    <li><a href="#s11">Rigorous verification and validation</a></li>
+    <li><a href="#s12">Highest assurance: the property-based proof</a></li>
+    <li><a href="#s13">Demonstration</a></li>
+    <li><a href="#s14">What the process caught, and what it did not</a></li>
+    <li><a href="#s15">Summary</a></li>
+    <li><a href="#s16">Honest gaps and future work</a></li>
+  </ol>
+</nav>
+
+<!-- ==================================================================== -->
+<section id="s1">
+  <h2><span class="num">01</span><span>The method: persistent context and incremental packets</span></h2>
+
+  <p>
+    The method has two halves: a <strong>master context document</strong> that never goes stale,
+    and a <strong>sequence of incremental prompts</strong> derived from it. The first prevents
+    drift across sessions; the second keeps any single session inside what a model — and a
+    human reviewer — can actually hold.
+  </p>
+
+  <h3>The persistent knowledge base</h3>
+  <p>
+    <code>CLAUDE.md</code> sits at the repository root and is loaded automatically at the start
+    of every agent session. It carries six things:
+  </p>
+  <ol>
+    <li><strong>Domain knowledge</strong> — what a task, an occurrence, a placement and a
+      schedulable day are, and how they relate.</li>
+    <li><strong>System architecture</strong> — every component, its dependencies, and the module
+      seams work is allowed to follow.</li>
+    <li><strong>Quantitative success thresholds</strong> — 90% engine line coverage (NFR-MNT-01),
+      1,000 property cases with no overlapping placement (NFR-COR-01).</li>
+    <li><strong>Baseline requirements</strong> that must survive every increment, including the
+      one the whole project is built around (FR-REC-04).</li>
+    <li><strong>Technical specification</strong> — the contract types, the <code>Minute</code>
+      time convention, the priority scale, the constraint that the engine declares zero
+      dependencies.</li>
+    <li><strong>Decisions already made</strong>, each with the rejected alternative and the reason
+      it was rejected.</li>
+  </ol>
+
+  <div class="box">
+    <span class="tag">The section that earns its keep</span>
+    <p>
+      §4 of <code>CLAUDE.md</code> is titled <em>"Decisions Already Made — Do Not
+      Re-Litigate."</em> It exists because an agent re-proposes a rejected idea fluently and
+      confidently, and a tired human accepts it. §4.1 records that the official Garmin Health
+      API is off the critical path — gated behind a partner-approval review with a lead time
+      that cannot be scheduled against 30 July — so no session proposes it twice.
+    </p>
+    <p>
+      <strong>We are not only documenting what we did. We are documenting what we decided
+      <em>not</em> to do, and why — because that is what an agent will otherwise quietly undo.</strong>
+    </p>
+  </div>
+
+  <h3>The standing instruction</h3>
+  <p>
+    The first thing in the context file is not a fact about the system. It is an instruction
+    to every agent that reads it: <strong>when a decision is made or something changes, update
+    the affected file in the same turn.</strong> It ships with a <em>when X happens → update Y</em>
+    table — a requirement change updates the SRS <em>and</em> its revision history <em>and</em>
+    its cross-references; a resolved question updates the decision log with the answer, because
+    a closed issue with no recorded answer is not closed.
+  </p>
+  <p>
+    The result is a dated decision log (<code>docs/TEAM-MEETING.md</code>) recording the reasoning
+    for every significant call across the project, and it is the reason a session opened on
+    day 19 can be productive in its first minute.
+  </p>
+</section>
+
+<!-- ==================================================================== -->
+<section id="s2">
+  <h2><span class="num">02</span><span>Context documents in the master prompt</span></h2>
+
+  <p>
+    A packet is not written from scratch. It is assembled from five standing context documents,
+    each answering a different question, each versioned in the repository beside the code it
+    governs.
+  </p>
+
+  <div class="scroller">
+  <table>
+    <thead><tr><th>Context</th><th>Document</th><th>What it supplies to a packet</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><strong>Functionality + NFRs</strong></td>
+        <td><code>docs/SRS-v2.md</code></td>
+        <td>Formal use cases, 136 numbered verifiable requirements each with a verification
+          method — (T)est, (D)emonstration, (I)nspection, (A)nalysis — and an
+          Essential / Conditional / Optional priority.</td>
+      </tr>
+      <tr>
+        <td><strong>Interface description</strong></td>
+        <td>SRS §4 wireframes</td>
+        <td>Textual and drawn mock-ups of the five views, plus the UI requirements
+          (UI-01 … UI-04) they satisfy.</td>
+      </tr>
+      <tr>
+        <td><strong>Architecture prescription</strong></td>
+        <td><code>shared/src/contract.ts</code> + SRS §3.6</td>
+        <td>The domain types, human-authored once before any agent runs and transcribed
+          verbatim into every packet; the class diagram; the module seams.</td>
+      </tr>
+      <tr>
+        <td><strong>Process prescription</strong></td>
+        <td><code>docs/AGENTIC-TDD-WORKFLOW.md</code></td>
+        <td>The RED/GREEN session split, the human gate, the freeze, and the three ways the
+          method fails silently if any of them is skipped.</td>
+      </tr>
+      <tr>
+        <td><strong>Implementation plan</strong></td>
+        <td><code>prompts/</code> (28 packets)</td>
+        <td>Architecture components mapped onto ordered increments, each naming its
+          requirement IDs, its owner, its files, and the files it must <em>not</em> touch.</td>
+      </tr>
+      <tr>
+        <td><strong>V&amp;V prescription</strong></td>
+        <td>SRS §6 + <code>docs/TESTING.md</code> + <code>scripts/</code></td>
+        <td>The acceptance scenario, the quantitative thresholds, the tool choices with their
+          rejected alternatives, and the six guards in executable form.</td>
+      </tr>
+    </tbody>
+  </table>
+  </div>
+
+  <div class="box">
+    <span class="tag">Why the contract is human-owned</span>
+    <p>
+      <code>shared/src/contract.ts</code> is written by a human <em>once</em>, before any agent
+      runs, and given verbatim to every packet. An agent that wants to change it must stop and
+      escalate to a person.
+    </p>
+    <p>
+      <strong>Rejected:</strong> letting each module's agent define the types it needs. Three
+      agents produce three locally-reasonable, mutually incompatible <code>Task</code> types,
+      each passing its own tests, and integration becomes a rewrite. Agents make this failure
+      <em>worse</em> rather than better, because they generate plausible types faster than a
+      human notices the three disagree.
+    </p>
+  </div>
+</section>
+
+<!-- ==================================================================== -->
+<section id="s3">
+  <h2><span class="num">03</span><span>The architectural style</span></h2>
+
+  <p>
+    The style is a <strong>pure functional core inside an imperative shell</strong>, with the
+    core reduced to a single function and its purity enforced structurally rather than by
+    convention.
+  </p>
+
+  <div class="arch">
+  <svg viewBox="0 0 660 340" role="img" aria-label="Layered architecture: web client over an HTTP API, over a server layer of reschedule, recommendation, wearable, catalog and db modules, all of which call into a single pure engine function.">
+    <defs>
+      <marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+        <path d="M0,0 L10,5 L0,10 z" fill="currentColor"/>
+      </marker>
+    </defs>
+    <g fill="none" stroke="currentColor" stroke-width="1.2" color="var(--rule-strong)">
+      <!-- web -->
+      <rect x="30" y="16" width="600" height="44" rx="4" fill="var(--paper-raised)"/>
+      <!-- api -->
+      <rect x="30" y="80" width="600" height="44" rx="4" fill="var(--paper-raised)"/>
+      <!-- server modules -->
+      <rect x="30" y="144" width="112" height="60" rx="4" fill="var(--paper-raised)"/>
+      <rect x="152" y="144" width="132" height="60" rx="4" fill="var(--paper-raised)"/>
+      <rect x="294" y="144" width="112" height="60" rx="4" fill="var(--paper-raised)"/>
+      <rect x="416" y="144" width="102" height="60" rx="4" fill="var(--paper-raised)"/>
+      <rect x="528" y="144" width="102" height="60" rx="4" fill="var(--paper-raised)"/>
+      <!-- engine -->
+      <rect x="150" y="248" width="360" height="66" rx="4" fill="var(--accent-soft)" stroke="var(--accent)" stroke-width="1.6"/>
+    </g>
+    <g color="var(--rule-strong)" stroke="currentColor" stroke-width="1.2" fill="none" marker-end="url(#ah)">
+      <path d="M330 60 L330 76"/>
+      <path d="M86 124 L86 140"/>
+      <path d="M218 124 L218 140"/>
+      <path d="M350 124 L350 140"/>
+      <path d="M467 124 L467 140"/>
+      <path d="M579 124 L579 140"/>
+      <path d="M86 204 L86 281 L146 281"/>
+      <path d="M218 204 L218 244"/>
+      <path d="M350 204 L350 244"/>
+    </g>
+    <g fill="var(--ink)" font-size="12.5" font-weight="600" text-anchor="middle">
+      <text x="330" y="43">web/ — React + TypeScript client</text>
+      <text x="330" y="107">server/src/api — Express routes, auth, SystemClock</text>
+      <text x="86"  y="172">reschedule</text>
+      <text x="218" y="172">recommendation</text>
+      <text x="350" y="172">wearable</text>
+      <text x="467" y="172">catalog</text>
+      <text x="579" y="172">db</text>
+      <text x="330" y="277" fill="var(--accent)">engine/src — findCandidateSlots()</text>
+    </g>
+    <g fill="var(--ink-faint)" font-size="10.5" text-anchor="middle">
+      <text x="86"  y="190">FR-RSC</text>
+      <text x="218" y="190">FR-REC</text>
+      <text x="350" y="190">FR-WER</text>
+      <text x="467" y="190">FR-LIB</text>
+      <text x="579" y="190">Mongo</text>
+      <text x="330" y="296">pure · zero dependencies · no clock, no I/O</text>
+      <text x="330" y="332">The only function in the system that produces a placement.</text>
+    </g>
+  </svg>
+  </div>
+
+  <h3>Three rules, and what each one buys</h3>
+  <ol>
+    <li>
+      <strong>There is exactly one scheduling engine.</strong> FR-SCH specifies a pure function —
+      given a day's busy intervals and a task, return the valid slots. FR-RSC specifies
+      <em>when that same function is called again</em>. Rescheduling is not a second algorithm.
+      All three reschedule triggers — an inferred miss, a user-declared skip, a displacement —
+      route through one service that re-invokes the one engine.
+    </li>
+    <li>
+      <strong>The engine is pure: no clock, no database, no side effects.</strong> It declares an
+      empty dependency block, permanently. <em>An engine that cannot import anything cannot
+      import a clock.</em> That purity is what allows it to be property-tested over 1,000
+      randomized days with no database and no browser, and held to 100% coverage.
+    </li>
+    <li>
+      <strong>Time is an integer <code>Minute</code></strong> — minutes since local midnight. The
+      engine never sees a <code>Date</code>. The convention is what makes purity structural
+      rather than aspirational: there is no clock-shaped type in scope to reach for.
+    </li>
+  </ol>
+
+  <div class="box warn">
+    <span class="tag">The failure this prevents</span>
+    <p>
+      Ask an agent to implement FR-RSC-02 — repair the schedule when a commitment displaces a
+      task — and it will write a tidy little <code>findNextFreeSlot()</code> inside the reschedule
+      service, because locally that is the simplest correct thing to do. FR-RSC-03 is now false,
+      the system has two placement algorithms that will diverge, and <strong>no test
+      fails.</strong> Code review catches this on a hand-written codebase. With three agents
+      out-generating three reviewers, it does not. §10 is the response.
+    </p>
+  </div>
+</section>
+
+<!-- ==================================================================== -->
+<section id="s4">
+  <h2><span class="num">04</span><span>The architectural style, stated in a prompt</span></h2>
+
+  <p>
+    The style above is not left implicit for the agent to infer. Every packet restates the
+    component obligations it is working inside, in the packet's own text:
+  </p>
+
+  <pre><code><span class="c">## Core components — the obligations this packet works inside</span>
+
+**Engine** (`engine/src`) — a PURE function. Given a schedulable day, a set of
+busy intervals and a task, it returns ranked candidate placements. It reads no
+clock, opens no socket, touches no database, and declares ZERO dependencies.
+It is the ONLY function in this System that produces a placement.
+
+**Reschedule service** (`server/src/reschedule`) — the POLICY layer. It decides
+WHEN the engine is called again (miss inferred, skip declared, displacement)
+and what to do with the result. It MUST NOT compute a placement itself; it
+re-invokes the engine. (FR-RSC-03)
+
+**Recommendation** (`server/src/recommendation`) — turns a Daily Metric Set into
+a Recommendation via content-agnostic rules, then turns an ACCEPTED
+recommendation into a real Task placed by the engine above. (FR-REC-04)
+
+**Adapter** (`server/src/wearable`) — parses a vendor export into the Daily
+Metric Set. One adapter per vendor; the rules never learn a vendor's shape.
+
+<span class="c">### Files you must NOT touch</span>
+- `shared/src/contract.ts` — human-owned. If you need it changed, STOP and escalate.
+- any file under a frozen test directory listed in `scripts/frozen-tests.json`.</code></pre>
+
+  <p>
+    Two things in that block are doing most of the work. <strong>The obligation is stated
+    negatively</strong> — what the module must not do — because the positive form
+    (<em>"the reschedule service calls the engine"</em>) is satisfied by code that also does the
+    forbidden thing. And <strong>the packet names the files it may not touch</strong>, which is
+    the only instruction that survives an agent deciding it has a better idea.
+  </p>
+</section>
+
+<!-- ==================================================================== -->
+<section id="s5">
+  <h2><span class="num">05</span><span>Requirements — the worked example</span></h2>
+
+  <p class="lede">
+    A web application combining an adaptive scheduling engine with real wearable health data.
+  </p>
+
+  <p>
+    Every commitment in a user's day — class, meeting, habit, workout, meal — is a
+    <em>task</em> with a duration, a priority, a preferred time window and a flexibility flag.
+    A single scheduling function places tasks around fixed commitments and re-invokes itself to
+    repair the schedule when a task is missed, when the user declares one skipped, or when a
+    new commitment displaces one. Separately, the system reads the user's Garmin data — sleep
+    score and active calories — and adapts its recommendations: poor sleep lowers workout
+    intensity, high activity raises the day's calorie target.
+  </p>
+
+  <div class="box good">
+    <span class="tag">FR-REC-04 — the load-bearing requirement</span>
+    <p>
+      <strong>A recommended workout is created as a task and placed by the same engine, subject
+      to the same conflict detection and rescheduling as any user-created task.</strong>
+    </p>
+    <p>
+      This is what makes the project one integrated system rather than a scheduler and a fitness
+      app sharing a login. <strong>If everything else shipped and FR-REC-04 did not, the project
+      would have failed at its own thesis while appearing complete.</strong> The scope rule that
+      follows is explicit in the context file: if the schedule forces a cut, cut anything else
+      first.
+    </p>
+  </div>
+
+  <h3>Requirements are classified, and the classification is binding</h3>
+  <p>
+    Following IEEE 830 §4.3.4, every requirement is <strong>Essential</strong>,
+    <strong>Conditional</strong> or <strong>Optional</strong>, and only Essential requirements
+    are conditions of acceptance. SRS §2.7.1 defines a <em>Core Demonstrable Capability</em> —
+    the irreducible set carrying the system's central claim — from which nothing may be cut.
+  </p>
+  <p>
+    On 26 July, with the presentation imminent, the team cut <strong>all</strong> remaining
+    Conditional work definitively, recording the decision and its reasoning rather than letting
+    it lapse quietly. Two Conditionals already shipped and tested (the <code>.ics</code> export,
+    the month navigator) were kept: a forward-looking scope cut does not un-build sunk work.
+  </p>
+
+  <h4>Design constraints that shaped the build</h4>
+  <ul>
+    <li><strong>CON-05 / §4.9 — the system is not a medical device.</strong> It does not estimate
+      basal metabolic rate; it <em>asks</em> the user for a calorie baseline. The Garmin export
+      contains a <code>bmrKilocalories</code> field, and using it is the most tempting trap in
+      the file; the prohibition is written into the context file for that reason.</li>
+    <li><strong>A dietary preference never relaxes</strong> — not at any point, for any reason,
+      even when no compliant item can be found.</li>
+    <li><strong>Workout and meal libraries are locally seeded, not runtime API calls.</strong> A
+      push-up is the same push-up in July as in January. The consequence is that the entire
+      acceptance demonstration runs with outbound network access disabled — and FR-LIB-02
+      requires us to <em>prove</em> that rather than assume it (§10).</li>
+    <li><strong>CON-06 — the nineteen-day window.</strong> No Essential requirement may depend on
+      a third party's approval. This is the single constraint behind the largest architectural
+      decision in the project (§1).</li>
+  </ul>
+</section>
+
+<!-- ==================================================================== -->
+<section id="s6">
+  <h2><span class="num">06</span><span>Process prescription</span></h2>
+
+  <p>
+    The process is test-driven, incremental, and split across <strong>two separate agent
+    sessions per increment</strong>. The split is the load-bearing part.
+  </p>
+
+  <pre><code>  RED session                human gate            GREEN session
+  ───────────                ──────────            ─────────────
+  sees: SRS + contract   →   a SECOND human    →   sees: the failing tests
+  never: an implementation    reads every test       never: permission to edit one
+        ↓                     against the SRS              ↓
+  writes the test suite   →   FREEZE (sha256)   →   writes the implementation
+  + one throwing stub         per file               until the suite is green
+
+  <span class="c">If the GREEN agent believes a test is wrong, it STOPS.
+  A human adjudicates it against the SRS. The agent may not edit,
+  skip, rename or weaken a test — ever.</span></code></pre>
+
+  <h3>Why it cannot be collapsed into one pass "for speed"</h3>
+  <p>
+    When a single agent writes the test and the implementation together, the test encodes what
+    the code <em>does</em> rather than what the requirement <em>says</em>. It goes green, it
+    looks entirely reasonable, and it is wrong — and you find out on presentation day.
+    <strong>This is not a prompting problem and cannot be fixed by asking the agent to be
+    careful.</strong> It is structural, and the session split is the fix.
+  </p>
+
+  <h3>The freeze is content-addressed, not commit-based</h3>
+  <p>
+    Once a RED suite passes its human gate, <code>npm run freeze</code> records a
+    <strong>sha256 per file</strong> in <code>scripts/frozen-tests.json</code>;
+    <code>npm run guard:tests-frozen</code> re-hashes and compares on every build. Eight suites,
+    33 files, are pinned this way.
+  </p>
+  <p>
+    A commit-based freeze needs a repository <em>and</em> that commit reachable. Neither holds
+    in a shallow CI checkout, and neither holds during a rebuild from the specification — which
+    freezes its suites before it commits anything. <strong>A freeze that only works in the
+    repository that created it cannot protect a rebuild, which is the case it most needs to
+    protect.</strong> Hashing is also strictly stronger than the diff it replaced: it catches an
+    edited test, an edited-<em>and-committed</em> test, a deleted test, and a file quietly
+    <em>added</em> to a frozen suite.
+  </p>
+  <p>
+    The git sha is still recorded as <em>provenance</em> — it attests when the freeze happened,
+    from something other than the manifest, and it is what catches a suite edited and then
+    re-frozen to cover the edit.
+  </p>
+
+  <h3>The commit log is the third piece of project memory</h3>
+  <p>
+    After the documents and the specification. On an agentic project it is the only durable
+    record of what an agent actually did — the session that wrote the code is gone, and the
+    diff is what is left. A commit is therefore <strong>the unit of review, not the unit of
+    work</strong>: one packet, one reviewable diff, one human who has read it. Every commit
+    carries an <code>Owner:</code> trailer naming that person, and every behavior change carries
+    a <code>Requirements:</code> trailer — <em>a behavior change that cites no requirement is
+    somebody's opinion.</em> 203 commits, 20 of them explicit RED/GREEN boundary commits.
+  </p>
+  <p style="font:.85rem/1.5 ui-sans-serif,system-ui,sans-serif;color:var(--ink-dim);">
+    No AI credit lines appear on any commit, by team decision. Authorship of a commit is the
+    human named in <code>Owner:</code>, because that trailer means <em>"I read this diff and I
+    can defend it,"</em> which is a thing only a person can assert.
+  </p>
+</section>
+
+<!-- ==================================================================== -->
+<section id="s7">
+  <h2><span class="num">07</span><span>Architecture-based implementation plan</span></h2>
+
+  <p>
+    Architecture components map onto ordered increments. <strong>The numbers are the delivery
+    order; the folders are the ownership.</strong> Two different axes, both binding. Each owner
+    authors their own packet immediately before running it — authoring is the first half of the
+    work item, not batchable overhead, because a prompt written weeks before its module is
+    designed encodes guesses, and an agent implements a guess as faithfully as a requirement.
+  </p>
+
+  <div class="scroller">
+  <table>
+    <thead><tr><th>#</th><th>Packet</th><th>Component</th><th>Requirements</th><th>Owner</th></tr></thead>
+    <tbody>
+      <tr><td class="num-cell">01–02</td><td>Scaffold, toolchain, CI gates, guards</td><td>workspace</td><td>NFR-MNT</td><td>Patrick</td></tr>
+      <tr><td class="num-cell">03</td><td>The domain contract <em>(human-authored, transcribed)</em></td><td><code>shared/</code></td><td>DR-01…04</td><td>Patrick</td></tr>
+      <tr><td class="num-cell">04 <strong>RED</strong></td><td>Engine test suite — 30 tests, frozen</td><td><code>engine/test</code></td><td>FR-SCH, NFR-COR-01</td><td>Patrick</td></tr>
+      <tr><td class="num-cell">05 <strong>GREEN</strong></td><td><code>findCandidateSlots</code></td><td><code>engine/src</code></td><td>FR-SCH-01…10</td><td>Patrick</td></tr>
+      <tr><td class="num-cell">06–07</td><td>Reschedule service — 156 tests, frozen</td><td><code>server/src/reschedule</code></td><td>FR-RSC-01…10</td><td>Patrick</td></tr>
+      <tr><td class="num-cell">08</td><td>Garmin adapter + Daily Metric Set</td><td><code>server/src/wearable</code></td><td>FR-WER-04…10</td><td>Ryan</td></tr>
+      <tr><td class="num-cell">09–10</td><td>Recommendation rules + content-agnostic engine</td><td><code>server/src/recommendation</code></td><td>FR-REC-01…13</td><td>Ryan</td></tr>
+      <tr><td class="num-cell">11</td><td>Catalog + seeded workout/meal libraries</td><td><code>server/src/catalog</code></td><td>FR-LIB-01…08</td><td>Ryan</td></tr>
+      <tr><td class="num-cell">12</td><td>REST API, auth, persistence</td><td><code>server/src/api</code>, <code>db</code></td><td>FR-USR, FR-TSK, FR-CAL</td><td>Miguel</td></tr>
+      <tr><td class="num-cell">13–13b</td><td>Dashboard, month navigator, theme</td><td><code>web/</code></td><td>FR-DSH-01…08</td><td>Miguel</td></tr>
+      <tr><td class="num-cell">14a–14b</td><td>Wellness backend + view</td><td><code>web/</code>, API</td><td>FR-WEL-01…04</td><td>Ryan</td></tr>
+      <tr><td class="num-cell">15a–15c</td><td>Analytics — streaks, completion rate</td><td><code>server/src/analytics</code></td><td>FR-ANL-01…04</td><td>Ryan</td></tr>
+      <tr><td class="num-cell">16a–16b</td><td>Executable guards for the (I) requirements</td><td><code>scripts/</code></td><td>NFR-MNT-07</td><td>Patrick</td></tr>
+      <tr><td class="num-cell">17a–17d</td><td>Acceptance suite + the FR-REC-04 wiring</td><td><code>server/src/recommendation</code></td><td><strong>FR-REC-04</strong>, §6</td><td>Patrick</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <p>
+    Cross-person blocks were kept to the minimum the dependency graph forces: every RED gate
+    needs a second human; the guards wait on the modules they guard; FR-REC-04 waits on the
+    engine, the rules and the API; the acceptance packet waits on everything. Beyond those,
+    work runs in parallel along the module seams the specification already draws, so three
+    people's agents do not collide in the same files.
+  </p>
+</section>
+
+<!-- ==================================================================== -->
+<section id="s8">
+  <h2><span class="num">08</span><span>Verification and validation prescription</span></h2>
+
+  <p>
+    The V&amp;V prescription is written into the packets as concrete, checkable obligations —
+    not as an instruction to "test thoroughly." Three groups, in the order they were specified.
+  </p>
+
+  <h3>1 · Boundary and partition cases, enumerated in the specification</h3>
+  <p>
+    FR-SCH-09 ships an <strong>eight-row boundary table</strong> quoted verbatim into packet 04.
+    These are input-domain partitions for the placement function, and the RED agent is required
+    to write a test per row:
+  </p>
+  <ul>
+    <li>A gap <em>exactly</em> the task's duration — must be accepted.</li>
+    <li>A gap <strong>one minute short</strong> — must be rejected, <em>and the scan must
+      continue to the next gap</em> rather than returning a partial fit or silently dropping
+      the task.</li>
+    <li>A task whose preferred window is entirely occupied — must return ranked alternatives,
+      not an empty result and not a failure.</li>
+    <li>Adjacent busy intervals that touch but do not overlap; an all-day commitment; a task
+      that cannot fit anywhere in the schedulable day; ties in priority; ties in proximity.</li>
+  </ul>
+  <p>
+    Ranking is specified too, so it cannot be settled by whichever comparison the agent happened
+    to write first: proximity to the preferred window, then earliest start (FR-SCH-03), with
+    priority ties broken by creation instant (FR-SCH-10).
+  </p>
+
+  <h3>2 · Behavioral V&amp;V — what must be true of the running system</h3>
+  <ol>
+    <li>An occurrence whose window elapses with no completion must be classified
+      <strong>missed by inference</strong>, without waiting to be told (FR-RSC-01) — and the
+      classification must be a proposal the user can overturn, not a verdict: marking the
+      original complete <em>withdraws</em> the system's own reschedule (FR-RSC-09).</li>
+    <li>A fixed commitment dropped onto a flexible task must displace it and the schedule must
+      repair itself, with the displacement <strong>stated in plain language</strong> rather than
+      happening silently (FR-DSH-07).</li>
+    <li>A fixed commitment must never be displaced to resolve a conflict (FR-CAL-03); a new
+      fixed commitment landing on an existing one must be <strong>rejected</strong>, not
+      silently overlapped.</li>
+    <li>A recommended workout must be defended <em>identically to a user task</em> — the same
+      displacement, the same repair, the same engine (FR-REC-04).</li>
+    <li>An accepted recommendation that replaces a scheduled workout must be
+      <strong>durable across a retrieval sweep</strong> — the replaced occurrence must not
+      resurrect (FR-RSC-05/06).</li>
+  </ol>
+
+  <h3>3 · Quantitative thresholds and inspection guards</h3>
+  <div class="scroller">
+  <table>
+    <thead><tr><th>Requirement</th><th>Threshold</th><th>Method</th><th>Measured</th></tr></thead>
+    <tbody>
+      <tr><td>NFR-MNT-01</td><td>≥ 90% line coverage on the engine</td><td>(A)nalysis</td><td class="num-cell"><strong>100%</strong> stmts/branch/funcs/lines</td></tr>
+      <tr><td>NFR-COR-01</td><td>1,000 randomized days, no placement overlaps a busy interval</td><td>(T)est</td><td class="num-cell"><strong>1,000</strong> cases, 0 violations</td></tr>
+      <tr><td>FR-SCH-05</td><td>The engine is pure — no clock, RNG, timer, network, process global</td><td>(I)nspection</td><td class="num-cell">guard, green</td></tr>
+      <tr><td>FR-RSC-03</td><td>Exactly one placement function in the system</td><td>(I)nspection</td><td class="num-cell">guard, green</td></tr>
+      <tr><td>FR-LIB-02</td><td>The recommendation path imports no network client</td><td>(I)nspection</td><td class="num-cell">guard, green</td></tr>
+      <tr><td>FR-REC-11 / FR-WER-04</td><td>A new metric is two additions and zero modifications</td><td>(I)nspection</td><td class="num-cell">guard, green</td></tr>
+      <tr><td>NFR-MNT-07</td><td>Every (I) requirement has an executable guard</td><td>(I)nspection</td><td class="num-cell">4 of 4 covered</td></tr>
+      <tr><td>SRS §6</td><td>The full acceptance scenario, end to end</td><td>(D)emonstration</td><td class="num-cell">performed — §13</td></tr>
+    </tbody>
+  </table>
+  </div>
+</section>
+
+<!-- ==================================================================== -->
+<section id="s9">
+  <h2><span class="num">09</span><span>Incremental prompts — the anatomy of a packet</span></h2>
+
+  <p>
+    Every packet has the same eight parts, in the same order. The shape follows the course's
+    house style — the Sandwich Method, Attention Anchoring, Visual Emphasis, Clear Delimiters,
+    and Selective Context — and each part exists to close a specific failure we had seen or
+    could name.
+  </p>
+
+  <div class="scroller">
+  <table>
+    <thead><tr><th>Part</th><th>Contents</th><th>The failure it closes</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Header</strong></td><td>Packet number, phase, human owner, branch name</td><td>Work with no named owner is not done, however green the tests are.</td></tr>
+      <tr><td><strong>Objective</strong></td><td>One paragraph — what exists after this packet that did not before</td><td>An agent optimizing for a vague goal produces plausible scope creep.</td></tr>
+      <tr><td><strong>Selective context</strong></td><td>Only the requirements this packet touches, quoted <em>verbatim</em> with their IDs</td><td>Paraphrasing a requirement into a prompt silently rewrites it.</td></tr>
+      <tr><td><strong>The contract</strong></td><td>Type signatures and boundary tables — obligations, never implementations</td><td>Three agents inventing three incompatible <code>Task</code> types.</td></tr>
+      <tr><td><strong>Files you may create</strong></td><td>An explicit list</td><td>An agent tidying a neighboring module nobody asked it to touch.</td></tr>
+      <tr><td><strong>⛔ Files you must NOT touch</strong></td><td>The contract; every frozen suite; other owners' modules</td><td>A weakened test inside a GREEN diff, indistinguishable forever after from a test that was always that way.</td></tr>
+      <tr><td><strong>Escalation clause</strong></td><td>Ambiguity found → <strong>stop and ask a human</strong>, do not guess</td><td>An agent resolving a specification ambiguity by picking one reading, fluently.</td></tr>
+      <tr><td><strong>Definition of done</strong></td><td>The exact commands that must exit 0, and what must be recorded in the report</td><td>"It works" as a completion criterion.</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <div class="box good">
+    <span class="tag">The escalations are the highest-value output</span>
+    <p>
+      An ambiguity the RED agent found and <em>refused to guess at</em> is the most useful thing
+      a packet produces, and it exists nowhere else once the session ends. Packet 04's escalations
+      are recorded in its report and in the body of the freeze commit; several became requirement
+      corrections in the SRS rather than assumptions in the code.
+    </p>
+  </div>
+
+  <h3>A packet is not finished when its code merges</h3>
+  <p>
+    It is finished when the prompt that produced it is <strong>on disk</strong>. We learned this
+    on 30 July, during the final rehearsal: two packets had genuinely been run — the commits
+    were in the history and the implementations existed — but the prompt text was never saved out
+    of its session. A replay in numerical order would freeze two suites it then could not make
+    green, and the pack's index listed one of them as done, naming a file that had never existed.
+  </p>
+  <p>
+    The pack had already named two failure modes: <em>a prompt that does not exist is visibly
+    missing; a prompt written from speculation is invisibly wrong.</em> This was a third —
+    <strong>written, used, and never saved is invisibly absent</strong> — and it is the worst of
+    the three, because the code merges, the report gets filed, and the status table says
+    <em>done</em>. Both packets were authored from the specification and the frozen suites (never
+    from the committed implementation) and the pack now generates the system end to end again.
+  </p>
+</section>
+
+<!-- ==================================================================== -->
+<section id="s10">
+  <h2><span class="num">10</span><span>Structure verification: prescription vs. produced code</span></h2>
+
+  <p class="lede">
+    An inspection-only requirement gets a test that enforces it, or it silently becomes false.
+  </p>
+
+  <p>
+    The specification marks four requirements <strong>(I)</strong> — verifiable by inspection.
+    Inspection means a human reads the code and confirms a structural property holds. On this
+    project that is exactly the check that does not scale, so each one was compiled into a script
+    that runs in <code>npm run verify</code> and in CI on every push.
+  </p>
+
+  <pre><code>$ npm run verify   <span class="c"># excerpt — the six guards</span>
+
+<span class="ok">engine and shared declare zero runtime dependencies (FR-SCH-05)</span>
+
+<span class="ok">engine/src reaches no clock, RNG, timer, network or process global;
+imports only from shared/src/contract (FR-SCH-05, purity half)</span>
+
+<span class="ok">exactly one placement definition (findCandidateSlots, engine/src); no
+PlacementResult-returning or FindCandidateSlots-bodied function elsewhere;
+no re-implementation vocabulary tripped (FR-RSC-03, NFR-MNT-03)</span>
+
+<span class="ok">recommendation path (server/src/{recommendation,catalog,wearable}) imports
+no network client, calls no ambient network global, and server/package.json
+declares none (FR-LIB-02, inspection half)</span>
+
+<span class="ok">metric extensibility: engine names no rule/metric/decision-kind, rules
+import no sibling or engine, and 2 derived metric name(s) [activeCalories,
+sleepScore] appear only in their own rule and the wearable adapter
+(FR-REC-11, FR-WER-04, NFR-MNT-06)</span>
+
+<span class="ok">P04: engine/test unchanged, frozen at ac06e70 (30 tests)
+P06: server/test/reschedule unchanged, frozen at 8b56986 (156 tests)
+P08: server/test/wearable unchanged, frozen at 1199d80
+P09: server/test/recommendation unchanged, frozen at 59f4e8a (27 tests)
+P17a: server/test/acceptance unchanged, frozen at 8809158 (8 tests)
+P17c: server/test/replacement unchanged, frozen at 47bb301 (1 tests)
+P11: server/test/catalog unchanged, frozen at 4b1fd4e
+P15a: server/test/analytics unchanged, frozen at 3fd6371</span></code></pre>
+
+  <p>
+    Note what each line says: <strong>every guard names the requirement it enforces</strong>, and
+    several name the limit of what they check. The offline guard states in its own output that it
+    performs the inspection half and that the offline demonstration is a rehearsal it does not
+    perform. The extensibility guard states that it checks the shape that makes an addition cheap,
+    <em>not</em> a proof of extensibility — that would be a different requirement, and it was cut.
+    A guard that overstates its own scope is a guard that will be trusted for something it never
+    checked.
+  </p>
+
+  <div class="box warn">
+    <span class="tag">The rule that makes a guard mean anything</span>
+    <p style="font-size:1.06rem;"><strong>A guard that has never been observed to fail does not count.</strong></p>
+    <p>
+      Before any guard is trusted, <em>every individual check inside it</em> is watched failing
+      against a deliberately introduced violation, and the failing output is recorded in the
+      packet's report. Packet 16b produced <strong>fourteen must-fail transcripts where eleven
+      were required</strong>.
+    </p>
+    <p>
+      The reason is simple and it is not paperwork: <strong>a green guard that enforces nothing
+      exits 0 exactly like a working one.</strong> From outside, the two are indistinguishable.
+      This project has shipped that mistake twice and caught it both times, which is why the rule
+      is written down rather than held as a good intention.
+    </p>
+  </div>
+
+  <h3>The guards are human-owned, like the contract</h3>
+  <p>
+    <code>scripts/</code> is the second exemption from the rule that the pack generates
+    everything, and it is earned by a distinct argument: <strong>you cannot verify a verifier
+    with the thing it verifies.</strong> A regenerated guard that came back ten percent weaker is
+    indistinguishable, from outside, from one that came back right — both exit 0. Every other
+    packet is checked by something downstream; the guards <em>are</em> that something.
+  </p>
+  <p>
+    A guard may enter the build by exactly two routes: <strong>transcription</strong> (human-authored,
+    copied in verbatim, like the contract), or <strong>generation from a human-authored
+    specification with every individual check watched to fail</strong>. Five of the nine files in
+    <code>scripts/</code> are generated by that second route; four are transcribed. Neither route
+    permits a check that has never been observed to fail.
+  </p>
+  <p style="font:.85rem/1.55 ui-sans-serif,system-ui,sans-serif;color:var(--ink-dim);">
+    Route 2 is, for the property at issue, the stronger of the two. The danger is a guard that
+    enforces nothing while exiting 0 — route 2 tests that <em>behaviorally</em>, whereas
+    transcription only attests to provenance. A hand-typed guard with a typo in its regex is
+    inert, and nothing about having been typed by a human reveals it.
+  </p>
+</section>
+
+<!-- ==================================================================== -->
+<section id="s11">
+  <h2><span class="num">11</span><span>Rigorous verification and validation</span></h2>
+
+  <p>
+    Deterministic methods at varying levels of assurance, applied where each is worth its cost.
+    All 510 tests, both static analyzers, and all six guards run from one command.
+  </p>
+
+  <div class="metrics">
+    <div><span class="v">510</span><span class="k">tests, 41 suites, exit 0</span></div>
+    <div><span class="v">100%</span><span class="k">engine coverage — stmts, branch, funcs, lines</span></div>
+    <div><span class="v">1,000</span><span class="k">randomized days, property-tested</span></div>
+    <div><span class="v">6</span><span class="k">executable structure guards</span></div>
+    <div><span class="v">8</span><span class="k">frozen suites, 33 files, sha256-pinned</span></div>
+    <div><span class="v">28</span><span class="k">ordered prompt packets</span></div>
+  </div>
+  <p style="font:.8rem/1.5 ui-sans-serif,system-ui,sans-serif;color:var(--ink-faint);margin-top:-.6rem;">
+    Measured 30 July 2026 by <code>npm run verify</code>, not quoted from a document. Every figure
+    in this report has a command that reproduces it — listed at the end of this section.
+  </p>
+
+  <h3>The testing suites used, and what kind of testing each performs</h3>
+  <p>
+    <strong>Five third-party frameworks, and no more.</strong> Each was adopted because a
+    requirement or an open question forced it, and each is recorded with the alternatives that
+    were costed and rejected — so the choice is a decision rather than a habit.
+  </p>
+
+  <div class="scroller">
+  <table>
+    <thead><tr><th>Suite</th><th>Ver.</th><th>Kind of testing</th><th>What it tests here</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><strong>Jest</strong> + <strong>ts-jest</strong></td>
+        <td class="num-cell">30.4.2<br>29.4.11</td>
+        <td>Test runner, assertion framework and <strong>coverage instrumentation</strong>
+          (example-based unit and integration testing)</td>
+        <td>Every workspace — it is the harness the other four run inside. It produces the
+          coverage figure NFR-MNT-01 is measured against. <code>ts-jest</code> keeps tests in
+          TypeScript against the same types as production code, so a test cannot compile against
+          a stale interface.</td>
+      </tr>
+      <tr>
+        <td><strong>fast-check</strong></td>
+        <td class="num-cell">4.9.0</td>
+        <td><strong>Property-based / generative testing</strong>, with automatic shrinking of any
+          counterexample to a minimal failing case</td>
+        <td>The scheduling engine. Rather than asserting one example, it generates 1,000 random
+          days and checks a universal claim over all of them — NFR-COR-01.</td>
+      </tr>
+      <tr>
+        <td><strong>supertest</strong></td>
+        <td class="num-cell">7.0.0</td>
+        <td><strong>HTTP integration / contract testing</strong> — real requests against a real
+          Express app, no port bound</td>
+        <td>All 21 REST routes, exercised over HTTP with real authentication, rather than by
+          calling handler functions directly. Cross-user access, injection payloads, and latency
+          under concurrent load are all asserted at this layer.</td>
+      </tr>
+      <tr>
+        <td><strong>mongodb-<wbr>memory-server</strong></td>
+        <td class="num-cell">10.1.4</td>
+        <td><strong>Persistence / repository testing</strong> against a genuine MongoDB running
+          in-process</td>
+        <td>The database layer, with real indexes and real upsert semantics — no external
+          database, and no mocks that could pass while the same query fails against real Mongo.</td>
+      </tr>
+      <tr>
+        <td><strong>ESLint</strong> + <strong>TypeScript</strong></td>
+        <td class="num-cell">8.57.1<br>5.9.3</td>
+        <td><strong>Static analysis</strong></td>
+        <td>All source. Includes the per-module import restriction that prevents the engine from
+          importing anything at all — the lint half of FR-SCH-05.</td>
+      </tr>
+    </tbody>
+  </table>
+  </div>
+
+  <div class="scroller">
+  <table>
+    <thead><tr><th>Suite</th><th>What forced the choice</th></tr></thead>
+    <tbody>
+      <tr><td>Jest + ts-jest</td><td>Named in SRS §3.1 — <em>"Jest (or equivalent)"</em>; pinned by packet 02.</td></tr>
+      <tr><td>fast-check</td><td><strong>NFR-COR-01</strong> — <em>"≥ 1,000 generated cases."</em> A number that large is only reachable with a generator, so the requirement selects the category; packet 04 mandated <code>numRuns: 1000</code>.</td></tr>
+      <tr><td>Coverage thresholds</td><td><strong>NFR-MNT-01</strong> — 90% engine lines, with the threshold itself proven by deliberately dropping coverage and watching the build fail.</td></tr>
+      <tr><td>ESLint + <code>tsc</code></td><td>Named directly in SRS §3.1.</td></tr>
+      <tr><td>mongodb-memory-server</td><td><strong>OPEN-19.</strong> A real local <code>mongod</code> was rejected as environment-dependent; a hand-rolled in-memory fake was rejected because it could pass while the same query fails against real Mongo.</td></tr>
+      <tr><td>supertest</td><td>Not specified in advance. Packet 12 stated <em>what</em> to test — cross-user access on every data-bearing endpoint (NFR-SEC-03), injection payloads returned as literal text (NFR-SEC-05), p95 latency under 10 concurrent users (NFR-PERF-02) — and left the mechanism open. Selected during that packet and adopted as house style after.</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <p style="font:.85rem/1.55 ui-sans-serif,system-ui,sans-serif;color:var(--ink-dim);">
+    <strong>Three suites were costed and rejected</strong>, and are recorded in
+    <code>docs/TESTING.md</code> and the decision log so nobody re-proposes them: Postman/Newman
+    (duplicates what supertest already does, and adds a second place for the API contract to live),
+    Vitest + React Testing Library, and Playwright/Cypress. The specification names testing
+    <em>properties</em>; a packet binds the <em>package</em>.
+  </p>
+
+  <h3>Levels of testing represented</h3>
+
+  <div class="scroller">
+  <table>
+    <thead><tr><th>Level</th><th>What it establishes</th><th>Where</th><th>Count</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><strong>Static analysis</strong></td>
+        <td>Type soundness across the workspace; lint rules that forbid the engine importing anything</td>
+        <td><code>tsc</code>, ESLint with <code>engine/**</code> overrides</td>
+        <td class="num-cell">2 tools</td>
+      </tr>
+      <tr>
+        <td><strong>Structure verification</strong></td>
+        <td>The produced code still matches the architectural prescription</td>
+        <td><code>scripts/guard-*.mjs</code></td>
+        <td class="num-cell">6 guards</td>
+      </tr>
+      <tr>
+        <td><strong>Unit</strong></td>
+        <td>Input-domain partitioning over the placement function — the eight FR-SCH-09 boundary rows</td>
+        <td><code>engine/test</code> (frozen)</td>
+        <td class="num-cell">30 tests</td>
+      </tr>
+      <tr>
+        <td><strong>Property</strong></td>
+        <td>Over 1,000 randomized days, no returned placement ever overlaps a busy interval</td>
+        <td><code>engine/test/property.test.ts</code></td>
+        <td class="num-cell">1,000 cases</td>
+      </tr>
+      <tr>
+        <td><strong>Integration</strong></td>
+        <td>The reschedule policy layer against the real engine — all three triggers, idempotent sweeps</td>
+        <td><code>server/test/reschedule</code> (frozen)</td>
+        <td class="num-cell">156 tests</td>
+      </tr>
+      <tr>
+        <td><strong>Contract / transport</strong></td>
+        <td>HTTP surface, auth, validation, persistence round-trips</td>
+        <td><code>server/test/api</code>, <code>db</code></td>
+        <td class="num-cell">—</td>
+      </tr>
+      <tr>
+        <td><strong>Performance</strong></td>
+        <td>NFR-PERF-01 — a 50-interval day decided at the 95th percentile of 100 consecutive invocations</td>
+        <td><code>engine/test/performance.test.ts</code></td>
+        <td class="num-cell">p95</td>
+      </tr>
+      <tr>
+        <td><strong>System / acceptance</strong></td>
+        <td>The SRS §6 scenario end to end, including FR-REC-04's defended-identically clause —
+          with no stub anywhere near a placement decision</td>
+        <td><code>server/test/acceptance</code> (frozen)</td>
+        <td class="num-cell">8 tests</td>
+      </tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h3>Reproducing every figure in this report</h3>
+  <pre><code>npx jest --selectProjects engine --coverage   <span class="c"># 100% — stmts, branch, funcs, lines</span>
+npx jest engine/test/property.test.ts        <span class="c"># NFR-COR-01, 1,000 randomized days</span>
+npm run guard:single-placement               <span class="c"># FR-RSC-03</span>
+npm run guard:engine-purity                  <span class="c"># FR-SCH-05</span>
+npm run guard:tests-frozen                   <span class="c"># 8 suites, 33 files, by sha256</span>
+npm run verify                               <span class="c"># everything: 510 tests, 41 suites, exit 0</span></code></pre>
+</section>
+
+<!-- ==================================================================== -->
+<section id="s12">
+  <h2><span class="num">12</span><span>Highest assurance: the property-based proof</span></h2>
+
+  <p>
+    The strongest correctness claim in the project is not a test case. It is a
+    <strong>universally quantified property</strong>, checked by randomized generation over
+    1,000 independently constructed days.
+  </p>
+
+  <pre><code><span class="c">NFR-COR-01 — stated as a property, not as an example</span>
+
+  ∀ day ∈ SchedulableDays,
+  ∀ busy ⊆ Intervals(day),
+  ∀ task ∈ Tasks :
+
+      ∀ slot ∈ findCandidateSlots(day, busy, task) :
+
+          slot.duration = task.duration
+        ∧ slot ⊆ day
+        ∧ ∀ b ∈ busy : ¬ overlaps(slot, b)
+
+  <span class="c">Checked over 1,000 randomly generated (day, busy, task) triples.
+  fast-check shrinks any counterexample to a minimal failing case.</span></code></pre>
+
+  <h3>Why the property is checkable at all</h3>
+  <p>
+    Because the engine is pure. It takes data and returns data — no clock, no database, no
+    network, no hidden state — so a thousand independent invocations need no fixtures, no
+    teardown and no browser, and they run in about a second. <strong>The purity is not a stylistic
+    preference; it is what buys the assurance level.</strong>
+  </p>
+  <p>
+    And the purity itself is established structurally rather than by inspection: the engine
+    declares an empty dependency block (checked by <code>guard:engine-deps</code>), reaches no
+    ambient global (checked by <code>guard:engine-purity</code>), and never sees a
+    <code>Date</code> because time crosses its boundary as an integer <code>Minute</code>. Three
+    independent mechanisms, none of which relies on anyone remembering.
+  </p>
+
+  <div class="box">
+    <span class="tag">The falsifiable claim this structure makes</span>
+    <p>
+      <strong>Delete <code>engine/src/</code>, re-run packet 05, and the 30 frozen engine tests
+      and the 1,000-case property still pass.</strong>
+    </p>
+    <p>
+      A differently-shaped implementation — a different gap-merging strategy, a different
+      comparison order — must still satisfy the same specification in its executable form. That
+      is the whole reason the tests are written first and frozen before any implementation
+      exists. <em>The implementation is disposable. The specification and its executable form
+      are not.</em>
+    </p>
+  </div>
+</section>
+
+<!-- ==================================================================== -->
+<section id="s13">
+  <h2><span class="num">13</span><span>Demonstration</span></h2>
+
+  <p class="lede">
+    The SRS §6 acceptance scenario, performed against the running system on 30 July 2026 —
+    real Express server, real MongoDB, real browser.
+  </p>
+
+  <p>
+    The figures below are captured from that run, in order. Each caption names the requirement
+    being exercised. <strong>Act III is the project's central claim</strong>; the rest is the
+    apparatus that makes it meaningful.
+  </p>
+
+  <!-- ---------- Act 0 ---------- -->
+  <div class="act">
+    <h3><span class="badge">Act 0</span><span>First contact</span></h3>
+    <p>
+      Registration captures the schedulable day and the calorie baseline. The baseline is
+      <em>asked for</em>, never estimated — CON-05, and the reason the export's
+      <code>bmrKilocalories</code> field is prohibited by name.
+    </p>
+
+    <figure>
+      <img loading="lazy" src="screenshots/01-login.png" alt="The login screen of the Adaptive Habit, Schedule and Wellness System.">
+      <figcaption><span class="fignum">Fig. 1</span>Login screen. <span class="reqs">UI-01</span></figcaption>
+    </figure>
+
+    <figure>
+      <img loading="lazy" src="screenshots/02-register.png" alt="Registration form showing schedulable day bounds of 07:00 to 23:00 and a calorie baseline field.">
+      <figcaption><span class="fignum">Fig. 2</span>UC-01 registration — the schedulable day (07:00–23:00) and the <em>asked-for</em> calorie baseline. <span class="reqs">CON-05, FR-REC-09: the system never estimates it.</span></figcaption>
+    </figure>
+
+    <figure>
+      <img loading="lazy" src="screenshots/03-schedule-empty.png" alt="An empty schedule dashboard showing only the schedulable window.">
+      <figcaption><span class="fignum">Fig. 3</span>The schedule dashboard on an empty day — the schedulable window only. <span class="reqs">FR-DSH-01</span></figcaption>
+    </figure>
+  </div>
+
+  <!-- ---------- Act I ---------- -->
+  <div class="act">
+    <h3><span class="badge">Act I</span><span>The engine places, and offers alternatives rather than failing</span></h3>
+    <p>
+      A flexible task is handed to the engine, which chooses the time. When the preferred window
+      is already occupied, the engine returns <em>ranked alternatives</em> — it does not fail,
+      and it does not silently drop the task.
+    </p>
+
+    <figure>
+      <img loading="lazy" src="screenshots/04-add-task-modal.png" alt="Add Task dialog configuring a high-intensity run as a flexible task.">
+      <figcaption><span class="fignum">Fig. 4</span>Add Task (UC-02): a HIGH-intensity run, FLEXIBLE — so the engine chooses the time.</figcaption>
+    </figure>
+
+    <figure>
+      <img loading="lazy" src="screenshots/05-scheduled-fits.png" alt="The schedule timeline showing the run placed by the engine.">
+      <figcaption><span class="fignum">Fig. 5</span>UC-02 result — the engine placed the run. <span class="reqs">FR-SCH-01, FR-SCH-03</span></figcaption>
+    </figure>
+
+    <figure>
+      <img loading="lazy" src="screenshots/06-conflicting-task-modal.png" alt="Add Task dialog for a flexible task whose preferred window is already occupied.">
+      <figcaption><span class="fignum">Fig. 6</span>UC-03: a FLEXIBLE task whose preferred window is already taken by the fixed standup.</figcaption>
+    </figure>
+
+    <figure>
+      <img loading="lazy" src="screenshots/07-candidate-picker.png" alt="Candidate picker dialog listing ranked alternative time slots.">
+      <figcaption><span class="fignum">Fig. 7</span>Candidate picker — the engine offers <strong>ranked alternatives</strong> rather than failing or silently dropping the task. <span class="reqs">UC-03, FR-SCH-04</span></figcaption>
+    </figure>
+
+    <figure>
+      <img loading="lazy" src="screenshots/08-candidate-accepted.png" alt="The schedule after the user accepted one of the offered slots.">
+      <figcaption><span class="fignum">Fig. 8</span>UC-03 resolved — the user chose one of the offered slots.</figcaption>
+    </figure>
+  </div>
+
+  <!-- ---------- Act II ---------- -->
+  <div class="act">
+    <h3><span class="badge">Act II</span><span>Real wearable data changes the plan</span></h3>
+    <p>
+      A sleep score of 40 and 850 active calories are ingested. Two independent rules consume
+      them — neither knows the other exists — and the day's recommendation changes: the intensity
+      tier drops, and the calorie target rises off the baseline the user supplied at registration.
+    </p>
+
+    <figure>
+      <img loading="lazy" src="screenshots/09-wellness-before.png" alt="Wellness view before any wearable data, showing the 2000 kcal baseline and no metrics.">
+      <figcaption><span class="fignum">Fig. 9</span>The wellness view <em>before</em> any wearable data: the baseline 2,000 kcal target, and no metrics recorded for today. <span class="reqs">UI-03</span></figcaption>
+    </figure>
+
+    <figure>
+      <img loading="lazy" src="screenshots/10-wellness-after-injection.png" alt="Wellness view after injecting a sleep score of 40, showing a LOW intensity tier and a 2850 kcal target.">
+      <figcaption><span class="fignum">Fig. 10</span><strong>SRS §6 step 1</strong> — sleep score 40 and 850 active calories ingested: the intensity tier drops to <strong>LOW</strong> and the calorie target rises 2,000 → <strong>2,850</strong>. <span class="reqs">FR-REC-01/03/08/13</span></figcaption>
+    </figure>
+  </div>
+
+  <!-- ---------- Act III ---------- -->
+  <div class="act">
+    <h3><span class="badge">Act III</span><span>The claim — a recommendation becomes a real task, defended identically</span></h3>
+
+    <div class="box good">
+      <span class="tag">This is the load-bearing sequence</span>
+      <p>
+        FR-REC-04 says a recommended workout is created as a task and placed by the same engine,
+        <strong>subject to the same conflict detection and rescheduling as any user-created
+        task</strong>. Figures 11–14 show that clause performed rather than asserted: first the
+        recommendation becomes a real placement, then a fixed commitment is dropped directly on
+        top of it and the same engine displaces and re-places it.
+      </p>
+    </div>
+
+    <figure>
+      <img loading="lazy" src="screenshots/11-recovery-placed.png" alt="The schedule showing the high-intensity run superseded and a low-intensity recovery session placed on the calendar.">
+      <figcaption><span class="fignum">Fig. 11</span><strong>SRS §6 step 2</strong> — the HIGH run is <code>SUPERSEDED</code> and a LOW recovery session now sits on the real calendar, placed by <strong>the same engine that places user tasks</strong>. <span class="reqs">FR-REC-04</span></figcaption>
+    </figure>
+
+    <figure>
+      <img loading="lazy" src="screenshots/12-fixed-commitment-modal.png" alt="Dialog adding a fixed commitment at 16:30, directly on top of the recovery session.">
+      <figcaption><span class="fignum">Fig. 12</span>UC-06: a FIXED commitment dropped directly onto the recovery session at 16:30.</figcaption>
+    </figure>
+
+    <figure>
+      <img loading="lazy" src="screenshots/13-displacement-notice.png" alt="A plain-language notice stating that a task was displaced and the schedule repaired itself.">
+      <figcaption><span class="fignum">Fig. 13</span>The system states <strong>in plain language</strong> that it displaced a task and repaired the schedule itself. <span class="reqs">FR-DSH-07</span></figcaption>
+    </figure>
+
+    <figure>
+      <img loading="lazy" src="screenshots/14-displaced-and-replaced.png" alt="The schedule showing the recovery session automatically re-placed at a new time.">
+      <figcaption><span class="fignum">Fig. 14</span><strong>SRS §6 step 3</strong> — the recovery session was automatically <strong>re-placed by the same engine</strong>. FR-REC-04's clause that a recommended task is defended identically to a user task, shown rather than asserted. <span class="reqs">FR-RSC-02, FR-RSC-03</span></figcaption>
+    </figure>
+  </div>
+
+  <!-- ---------- Act IV ---------- -->
+  <div class="act">
+    <h3><span class="badge">Act IV</span><span>Three triggers, one placement function</span></h3>
+    <p>
+      The schedule repairs itself from three different causes — a user-declared skip, an inferred
+      miss, and a displacement. All three route through the same service into the same engine.
+      And the inference is a <em>proposal</em>: the user can overturn it, and the system withdraws
+      its own reschedule.
+    </p>
+
+    <figure>
+      <img loading="lazy" src="screenshots/15-skipped-and-moved.png" alt="The schedule after the user declared a session skipped and the engine moved it.">
+      <figcaption><span class="fignum">Fig. 15</span><strong>SRS §6 step 4</strong> — the user declared the session SKIPPED and the same engine moved it again. A different trigger, still exactly one placement function. <span class="reqs">FR-RSC-08, FR-RSC-03</span></figcaption>
+    </figure>
+
+    <figure>
+      <img loading="lazy" src="screenshots/16-inferred-missed.png" alt="The schedule showing a task inferred as missed after its window elapsed, and rescheduled.">
+      <figcaption><span class="fignum">Fig. 16</span><strong>SRS §6 step 5a</strong> — the window elapsed with no completion, so the system <strong>inferred</strong> a miss and rescheduled it automatically. Nobody had to report it. <span class="reqs">FR-RSC-01</span></figcaption>
+    </figure>
+
+    <figure>
+      <img loading="lazy" src="screenshots/17-reschedule-withdrawn.png" alt="The schedule after the user marked the original occurrence complete, with the automatic reschedule withdrawn.">
+      <figcaption><span class="fignum">Fig. 17</span><strong>SRS §6 step 5b</strong> — the user marked the <em>original</em> occurrence complete and the system <strong>withdrew its own reschedule</strong>. The classification is a proposal, not a verdict. <span class="reqs">FR-RSC-09</span></figcaption>
+    </figure>
+
+    <figure>
+      <img loading="lazy" src="screenshots/18-reschedule-menu.png" alt="A menu offering to let the engine pick a new time automatically or to choose one by hand.">
+      <figcaption><span class="fignum">Fig. 18</span>The reschedule choice: let the engine pick, or choose a time by hand.</figcaption>
+    </figure>
+  </div>
+
+  <!-- ---------- Act V ---------- -->
+  <div class="act">
+    <h3><span class="badge">Act V</span><span>The rest of the surface</span></h3>
+
+    <figure>
+      <img loading="lazy" src="screenshots/19-mini-month-popup.png" alt="A mini month date picker popup.">
+      <figcaption><span class="fignum">Fig. 19</span>The mini-month date picker. <span class="reqs">FR-DSH-08</span></figcaption>
+    </figure>
+
+    <figure>
+      <img loading="lazy" src="screenshots/20-month-view.png" alt="A full month overview of the schedule.">
+      <figcaption><span class="fignum">Fig. 20</span>Month overview — a full-page alternative to the day timeline. <span class="reqs">FR-DSH-08</span></figcaption>
+    </figure>
+
+    <figure>
+      <img loading="lazy" src="screenshots/21-analytics.png" alt="The analytics view showing per-habit streaks and completion rates.">
+      <figcaption><span class="fignum">Fig. 21</span>Analytics — per-habit streaks and completion rate. <span class="reqs">UI-04, FR-ANL-01/02/04</span></figcaption>
+    </figure>
+
+    <figure>
+      <img loading="lazy" src="screenshots/22-light-theme.png" alt="The same schedule dashboard rendered in the light theme.">
+      <figcaption><span class="fignum">Fig. 22</span>The same dashboard in the light theme.</figcaption>
+    </figure>
+  </div>
+
+  <h3>Real data, not synthetic</h3>
+  <p>
+    Separately from the scripted scenario above, <strong>50 real daily metric sets</strong> from a
+    teammate's own Garmin export were ingested through the adapter and the live API: real sleep
+    scores driving real intensity tiers (14, 40, 37 → LOW; 76, 83 → HIGH) and real active calories
+    driving real targets. This is what satisfies FR-WER-10, the requirement that a metric from a
+    real device drives a real recommendation — the injection path used in Fig. 10 is synthetic by
+    design and deliberately cannot satisfy it.
+  </p>
+  <p style="font:.85rem/1.55 ui-sans-serif,system-ui,sans-serif;color:var(--ink-dim);">
+    The export is a real person's health record. It never entered the repository: it was read from
+    a local path, the ingestion ran, and the working copy was deleted. Test fixtures are
+    <em>derived</em> from it, never copies of it.
+  </p>
+</section>
+
+<!-- ==================================================================== -->
+<section id="s14">
+  <h2><span class="num">14</span><span>What the process caught, and what it did not</span></h2>
+
+  <p>
+    A verification story is only worth something if it includes the case where verification lost.
+    Here is ours, from the final rehearsal.
+  </p>
+
+  <h3>The bug</h3>
+  <p>
+    While rehearsing the demonstration against the running server, applying a recommendation to
+    <em>tomorrow's</em> schedule returned <code>409 — no workout above LOW to replace</code>, for a
+    workout that had plainly not started. The code asked
+    <code>placement.start &lt;= clock.nowMinute()</code>: a minute-of-day comparison carrying no
+    calendar. It was wrong in both directions — a <em>future</em> date's workout read as already
+    begun once the wall clock passed its start minute, and a <em>past</em> date's read as still
+    upcoming whenever the clock had not reached it, so a finished day's history could be rewritten.
+  </p>
+
+  <div class="box warn">
+    <span class="tag">The honest part</span>
+    <p>
+      <strong>507 passing tests did not catch it</strong>, because every frozen suite applies the
+      recommendation to the clock's own date — the one configuration in which this bug is
+      invisible. The acceptance transcript captured two days earlier was real, and it was also
+      <em>time-lucky</em>. We found the bug by running the system, not by running the suite.
+    </p>
+    <p>
+      The failure mode compounds it: a <code>409</code> is indistinguishable from the system
+      correctly having nothing to replace. Nothing looked broken.
+    </p>
+  </div>
+
+  <h3>What the process then did correctly</h3>
+  <ul>
+    <li>Fixed with a date-aware <code>hasBegun(date, startMinute)</code> mirroring the
+      <code>hasElapsed</code> check the reschedule service had already grown for the same defect
+      shape a day earlier — <em>the same class of bug, in a class that never received the
+      equivalent fix.</em></li>
+    <li>Pinned by <strong>three new tests in a new, unfrozen directory</strong> that imports the
+      <em>frozen</em> acceptance harness, so the real engine and the real reschedule service run.
+      <strong>Two of the three were watched failing against the pre-fix source first</strong>; the
+      third pins the case that must keep refusing.</li>
+    <li>The requirement was corrected in place in the SRS (v2.41), with revision history — not
+      silently patched in code while the document went on asserting the old behavior.</li>
+    <li><strong>No frozen file was touched.</strong> All 8 freeze entries verified unchanged;
+      510 green.</li>
+  </ul>
+
+  <blockquote>
+    <p>
+      Systematic testing tells you what you checked. It does not tell you what you forgot to
+      check. That is why we still rehearse against a running server.
+    </p>
+  </blockquote>
+</section>
+
+<!-- ==================================================================== -->
+<section id="s15">
+  <h2><span class="num">15</span><span>Summary</span></h2>
+
+  <ul>
+    <li>
+      <strong>Scale was managed by prescription and incrementality.</strong> A persistent context
+      document that no session may let go stale, plus 28 ordered packets each sized to one agent
+      session and one reviewable diff, kept a three-person team's agents from producing a codebase
+      nobody understood.
+    </li>
+    <li>
+      <strong>Trust came from structure, not from reading the output.</strong> The RED/GREEN
+      session split means no agent ever wrote both a test and the code it tests. The sha256 freeze
+      means the specification's executable form cannot be weakened to make a build go green. Six
+      guards mean the architectural prescription is checked mechanically on every commit — and
+      every one of them was watched failing before it was trusted.
+    </li>
+    <li>
+      <strong>Quantitative targets were met and are reproducible in seconds.</strong> 100% engine
+      coverage against a 90% threshold; 1,000 randomized days with no overlapping placement;
+      510 tests across five levels; all four inspection-only requirements enforced executably.
+    </li>
+    <li>
+      <strong>The system demonstrates its own central claim end to end.</strong> A real metric from
+      a real device changes a recommendation, the recommendation becomes a real task on the real
+      calendar, and that task is then displaced and repaired by exactly the same engine that
+      defends everything else on the day.
+    </li>
+  </ul>
+
+  <blockquote>
+    <p>
+      Not a scheduler and a fitness app sharing a login. One system — where a recommendation is
+      defended by the same logic as everything else on the calendar.
+    </p>
+  </blockquote>
+</section>
+
+<!-- ==================================================================== -->
+<section id="s16">
+  <h2><span class="num">16</span><span>Honest gaps and future work</span></h2>
+
+  <div class="scroller">
+  <table>
+    <thead><tr><th>Gap</th><th>Status</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><strong>FR-WEL-04 is not satisfied.</strong> The seven-day wellness panel was removed at
+          the requirement owner's request late in the build.</td>
+        <td>Flagged, recorded as OPEN-37, and the SRS updated to say so — rather than letting the
+          document assert a capability the build no longer has.</td>
+      </tr>
+      <tr>
+        <td><strong>No Conditional work was undertaken.</strong> Priority displacement, the live
+          Garmin API, the external content API, the extensibility <em>proof</em>, and whole-system
+          coverage are all out of scope.</td>
+        <td>Cut definitively on 26 July with the reasoning recorded. Two Conditionals that had
+          already shipped were kept.</td>
+      </tr>
+      <tr>
+        <td><strong>Late ad hoc frontend work has no automated coverage</strong> — the wellness
+          click-to-schedule path, the background sweep timer, and an opt-in elapsed-classification
+          mode.</td>
+        <td>Flagged rather than implied. The two <em>requirement-level</em> corrections made in the
+          same window are pinned, in a re-frozen suite.</td>
+      </tr>
+      <tr>
+        <td><strong>An opt-in alternative to FR-RSC-01's classification exists but is not adopted.</strong>
+          Marking an elapsed occurrence complete in place, rather than missed.</td>
+        <td>A genuine candidate for a future release. Recorded as OPEN-38 and built as an
+          off-by-default flag, not shipped as behavior.</td>
+      </tr>
+      <tr>
+        <td><strong>Two prompt packets have never been run.</strong> They were authored on 30 July
+          from the specification and the frozen suites to close a hole in the pack (§9).</td>
+        <td>They are, by construction, the least-tested prompts in the pack. The first replay is
+          their first real test, and an escalation out of either is information about the packet.</td>
+      </tr>
+      <tr>
+        <td><strong>The <code>.ics</code> export was never verified by importing it into a real
+          calendar application</strong> — its own verification line requires that.</td>
+        <td>Verified against the running server only. Flagged rather than assumed.</td>
+      </tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h3>What we would build next</h3>
+  <ul>
+    <li><strong>Priority displacement</strong> (FR-SCH-07/08) — a higher-priority task able to move
+      a lower-priority one rather than only fitting around it. Deliberately not started: it is the
+      most seductive way to lose a week on a nineteen-day project.</li>
+    <li><strong>A third metric</strong> — stress or HRV. The extensibility <em>shape</em> is guarded
+      and demonstrated self-maintaining against a temporary third rule; the requirement that
+      <em>proves</em> it by actually adding one (FR-REC-12) was cut for schedule.</li>
+    <li><strong>The live Garmin Health API</strong> as a second adapter behind the same port, once
+      partner approval is no longer on a nineteen-day critical path. The recommendation engine
+      would not change — that is what the adapter seam was for.</li>
+  </ul>
+</section>
+
+<!-- ==================================================================== -->
+<footer>
+  <p>
+    <strong>Adaptive Habit, Schedule &amp; Wellness System</strong> · CS 4398 Software Engineering
+    Capstone · Texas State University · 30 July 2026<br>
+    Patrick Rucker · Ryan Woosley · Miguel Alvarez
+  </p>
+  <p>
+    Companion documents in this repository: <code>docs/SRS-v2.md</code> (the specification),
+    <code>docs/AGENTIC-TDD-WORKFLOW.md</code> (the method), <code>docs/TESTING.md</code> (tools and
+    the ones rejected), <code>docs/TEAM-MEETING.md</code> (the dated decision log),
+    <code>docs/REPLAY.md</code> (rebuilding from the specification), <code>prompts/</code> (the pack).
+  </p>
+  <p>
+    All figures were captured from the running system on 30 July 2026. All metrics were measured
+    by <code>npm run verify</code> on the same date, not quoted from a document. This page is
+    self-contained — no network requests, no external fonts, no CDN.
+  </p>
+</footer>
+
+</div>
+
+<script>
+  // Theme toggle. Defaults to the OS preference; the button pins an override.
+  (function () {
+    var btn = document.getElementById('themer');
+    var root = document.documentElement;
+    function current() {
+      if (root.dataset.theme) return root.dataset.theme;
+      return matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    }
+    btn.addEventListener('click', function () {
+      root.dataset.theme = current() === 'dark' ? 'light' : 'dark';
+    });
+  })();
+</script>
+
+</body>
+</html>

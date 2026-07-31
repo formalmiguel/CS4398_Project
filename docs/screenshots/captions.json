@@ -1,0 +1,94 @@
+{
+  "email": "acceptance.demo.1785444132489@example.com",
+  "date": "2026-07-30",
+  "shots": [
+    {
+      "file": "01-login.png",
+      "caption": "Login screen (UI-01) — the System on first contact."
+    },
+    {
+      "file": "02-register.png",
+      "caption": "UC-01 registration — the schedulable day (07:00–23:00) and the ASKED-FOR calorie baseline. CON-05/FR-REC-09: the System never estimates it."
+    },
+    {
+      "file": "03-schedule-empty.png",
+      "caption": "FR-DSH-01 schedule dashboard on an empty day — the schedulable window only."
+    },
+    {
+      "file": "04-add-task-modal.png",
+      "caption": "POP-UP — Add Task (UC-02): a HIGH-intensity run, FLEXIBLE, so the engine chooses the time."
+    },
+    {
+      "file": "05-scheduled-fits.png",
+      "caption": "UC-02 result — the engine placed the run (FR-SCH-01/03)."
+    },
+    {
+      "file": "06-conflicting-task-modal.png",
+      "caption": "POP-UP — UC-03: a FLEXIBLE task whose preferred window is already taken by the fixed standup."
+    },
+    {
+      "file": "07-candidate-picker.png",
+      "caption": "POP-UP — Candidate picker (UC-03, FR-SCH-04): the engine offers ranked alternatives rather than failing or silently dropping the task."
+    },
+    {
+      "file": "08-candidate-accepted.png",
+      "caption": "UC-03 resolved — the user chose one of the offered slots."
+    },
+    {
+      "file": "09-wellness-before.png",
+      "caption": "UI-03 wellness view BEFORE any wearable data: the baseline 2,000 kcal target and no metrics for today."
+    },
+    {
+      "file": "10-wellness-after-injection.png",
+      "caption": "SRS §6 STEP 1 — sleep score 40 and 850 active calories injected: the intensity tier drops to LOW and the calorie target rises 2,000 → 2,850 (FR-REC-01/03/08/13)."
+    },
+    {
+      "file": "11-recovery-placed.png",
+      "caption": "SRS §6 STEP 2 — FR-REC-04: the HIGH run is SUPERSEDED and a LOW recovery session now sits on the real calendar, placed by the SAME engine that places user tasks."
+    },
+    {
+      "file": "12-fixed-commitment-modal.png",
+      "caption": "POP-UP — UC-06: a FIXED commitment dropped directly on the recovery session at 16:30."
+    },
+    {
+      "file": "13-displacement-notice.png",
+      "caption": "POP-UP — FR-DSH-07: the System states in plain language that it displaced a task and repaired the schedule itself."
+    },
+    {
+      "file": "14-displaced-and-replaced.png",
+      "caption": "SRS §6 STEP 3 — the recovery session was automatically RE-PLACED by the same engine (FR-RSC-02/03). FR-REC-04’s clause that a recommended task is defended identically to a user task, shown rather than asserted."
+    },
+    {
+      "file": "15-skipped-and-moved.png",
+      "caption": "SRS §6 STEP 4 — FR-RSC-08: the user declared the session SKIPPED and the same engine moved it again. A different trigger, still exactly one placement function (FR-RSC-03)."
+    },
+    {
+      "file": "16-inferred-missed.png",
+      "caption": "SRS §6 STEP 5a — FR-RSC-01: the window elapsed with no completion, so the System INFERRED a miss and rescheduled it automatically. Nobody had to report it."
+    },
+    {
+      "file": "17-reschedule-withdrawn.png",
+      "caption": "SRS §6 STEP 5b — FR-RSC-09: the user marked the ORIGINAL occurrence complete and the System WITHDREW its own reschedule. The classification is a proposal, not a verdict."
+    },
+    {
+      "file": "18-reschedule-menu.png",
+      "caption": "POP-UP — the reschedule choice: let the engine pick (Auto) or choose a time by hand."
+    },
+    {
+      "file": "19-mini-month-popup.png",
+      "caption": "POP-UP — the mini-month date picker (FR-DSH-08)."
+    },
+    {
+      "file": "20-month-view.png",
+      "caption": "FR-DSH-08 month overview — a full-page alternative to the day timeline."
+    },
+    {
+      "file": "21-analytics.png",
+      "caption": "UI-04 analytics view — per-habit streaks and completion rate (FR-ANL-01/02/04)."
+    },
+    {
+      "file": "22-light-theme.png",
+      "caption": "The same dashboard in the light theme (theme toggle, packet 13b)."
+    }
+  ]
+}
