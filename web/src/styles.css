@@ -1,0 +1,1296 @@
+:root {
+  color-scheme: light dark;
+  font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+
+  --page: #f9f9f7;
+  --surface: #fcfcfb;
+  --ink: #0b0b0b;
+  --ink-secondary: #52514e;
+  --ink-muted: #898781;
+  --gridline: #e1e0d9;
+  --border: rgba(11, 11, 11, 0.1);
+  --accent: #2a78d6;
+  --accent-ink: #ffffff;
+  --danger: #d03b3b;
+
+  /* TaskType categorical dots — fixed order per the shared contract's TaskType union
+     (CLASS, MEETING, HABIT, WORKOUT, MEAL, OTHER), never cycled or reassigned. */
+  --type-class: #2a78d6;
+  --type-meeting: #eb6834;
+  --type-habit: #1baf7a;
+  --type-workout: #eda100;
+  --type-meal: #e87ba4;
+  --type-other: #008300;
+}
+
+/* OS-level dark preference — wins unless the viewer has explicitly picked light via the toggle. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    color-scheme: dark;
+    --page: #0d0d0d;
+    --surface: #1a1a19;
+    --ink: #ffffff;
+    --ink-secondary: #c3c2b7;
+    --ink-muted: #898781;
+    --gridline: #2c2c2a;
+    --border: rgba(255, 255, 255, 0.1);
+    --accent: #3987e5;
+    --danger: #e66767;
+
+    --type-class: #3987e5;
+    --type-meeting: #d95926;
+    --type-habit: #199e70;
+    --type-workout: #c98500;
+    --type-meal: #d55181;
+    --type-other: #008300;
+  }
+}
+
+/* Explicit picks from the toggle (App.tsx / theme.ts) — win over OS preference either way. */
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --page: #0d0d0d;
+  --surface: #1a1a19;
+  --ink: #ffffff;
+  --ink-secondary: #c3c2b7;
+  --ink-muted: #898781;
+  --gridline: #2c2c2a;
+  --border: rgba(255, 255, 255, 0.1);
+  --accent: #3987e5;
+  --danger: #e66767;
+
+  --type-class: #3987e5;
+  --type-meeting: #d95926;
+  --type-habit: #199e70;
+  --type-workout: #c98500;
+  --type-meal: #d55181;
+  --type-other: #008300;
+}
+
+:root[data-theme='light'] {
+  color-scheme: light;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--page);
+  color: var(--ink);
+}
+
+button {
+  font-family: inherit;
+  cursor: pointer;
+}
+
+input,
+select {
+  font: inherit;
+  color: var(--ink);
+  background: var(--surface);
+  border: 1px solid var(--gridline);
+  border-radius: 10px;
+  padding: 0.55rem 0.7rem;
+}
+
+input:focus,
+select:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.link {
+  background: none;
+  border: none;
+  color: var(--accent);
+  cursor: pointer;
+  text-decoration: underline;
+  padding: 0;
+  font: inherit;
+}
+
+.error {
+  color: var(--danger);
+  font-size: 0.85rem;
+}
+
+/* ─── Icon buttons — shared circular-button shape (header, day nav, both calendars) ────── */
+
+.icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  padding: 0;
+  flex-shrink: 0;
+}
+
+.icon-button--lg {
+  width: 34px;
+  height: 34px;
+  font-size: 0.95rem;
+}
+
+.icon-button--md {
+  width: 32px;
+  height: 32px;
+  font-size: 1.1rem;
+}
+
+.icon-button--sm {
+  width: 26px;
+  height: 26px;
+  font-size: 0.75rem;
+}
+
+.icon-button--filled {
+  border: 1px solid var(--gridline);
+  background: var(--surface);
+  color: var(--ink-secondary);
+}
+
+.icon-button--filled:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--gridline);
+}
+
+.icon-button--ghost {
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--ink-muted);
+}
+
+.icon-button--ghost:hover {
+  color: var(--accent);
+  background: var(--gridline);
+}
+
+/* ─── Header ──────────────────────────────────────────────────────────── */
+
+.app__header {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  padding: 1rem 1.5rem;
+  background: var(--surface);
+  border-bottom: 1px solid var(--gridline);
+}
+
+.app__header h1 {
+  font-size: 1.05rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  margin: 0;
+}
+
+.app__header nav {
+  flex: 1;
+  font-size: 0.85rem;
+  color: var(--ink-secondary);
+}
+
+.app__logout {
+  border: 1px solid var(--gridline);
+  background: var(--surface);
+  color: var(--ink-secondary);
+  border-radius: 999px;
+  padding: 0.5rem 1rem;
+  font-weight: 600;
+  font-size: 0.85rem;
+  white-space: nowrap;
+}
+
+.app__logout:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* ─── Auth screen ─────────────────────────────────────────────────────── */
+
+.auth-screen {
+  max-width: 360px;
+  margin: 4rem auto;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 2rem 1.75rem;
+  background: var(--surface);
+  border: 1px solid var(--gridline);
+  border-radius: 16px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.06);
+}
+
+.auth-screen h1 {
+  margin: 0;
+  font-size: 1.3rem;
+  text-align: center;
+}
+
+.auth-screen form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.auth-screen button[type='submit'] {
+  background: var(--accent);
+  color: var(--accent-ink);
+  border: none;
+  border-radius: 999px;
+  padding: 0.65rem 1rem;
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--ink-secondary);
+}
+
+/* The visible label for the boxed group below — sits above it like every other field's label,
+   which a native <legend> can't do (it always straddles the fieldset's top border). */
+.dietary-preferences-label {
+  margin: 0;
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--ink-secondary);
+}
+
+/* A `<fieldset>` carries its own UA border by default — restyle it to match the rest of the
+   form (same border color/radius as inputs) rather than the browser's default groove. */
+.dietary-preferences {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0.75rem 0.85rem;
+  border: 1px solid var(--gridline);
+  border-radius: 10px;
+}
+
+/* Overrides the generic `label` column layout — a checkbox option is one row, box then text,
+   not a stacked field. */
+.checkbox {
+  flex-direction: row;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 400;
+}
+
+.checkbox input[type='checkbox'] {
+  width: 1rem;
+  height: 1rem;
+  flex-shrink: 0;
+  padding: 0;
+}
+
+/* ─── Schedule view ───────────────────────────────────────────────────── */
+
+/* `min(<cap>, <vw>)` rather than a bare pixel cap — a fixed cap stops scaling the instant the
+   window passes it, so on a genuinely large monitor (well past 640px) all the remaining width
+   just sits empty no matter how wide the browser gets. The `vw` term keeps it growing; the `px`
+   term is still there to stop occurrence rows on an ultrawide monitor from stretching into
+   unreadably long lines. */
+.schedule-view {
+  max-width: min(900px, 90vw);
+  margin: 0 auto;
+  padding: 1.5rem 1rem 6rem;
+}
+
+/* FR-DSH-08: the month view is a full-page calendar, not the day column's narrow width — and
+   benefits even more from the extra room than Day view's single-column list does. */
+.schedule-view--month {
+  max-width: min(1600px, 94vw);
+}
+
+/* ─── Day / Month mode toggle (FR-DSH-01/02 vs FR-DSH-08) ────────────────── */
+
+.schedule-view__mode-toggle {
+  display: inline-flex;
+  gap: 0.2rem;
+  padding: 0.2rem;
+  margin-bottom: 1.25rem;
+  background: var(--surface);
+  border: 1px solid var(--gridline);
+  border-radius: 999px;
+}
+
+.schedule-view__mode-tab {
+  border: none;
+  background: transparent;
+  color: var(--ink-secondary);
+  border-radius: 999px;
+  padding: 0.4rem 1.1rem;
+  font-weight: 600;
+  font-size: 0.85rem;
+}
+
+.schedule-view__mode-tab:hover {
+  color: var(--accent);
+}
+
+.schedule-view__mode-tab--active {
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+.schedule-view__legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem 1rem;
+  margin-bottom: 1.25rem;
+  font-size: 0.75rem;
+  color: var(--ink-secondary);
+}
+
+.schedule-view__legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.schedule-view__legend-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.schedule-view__nav {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 1.25rem;
+}
+
+.schedule-view__date-wrap {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  min-width: 0;
+  max-width: 60vw;
+}
+
+.schedule-view__date-wrap h2 {
+  font-size: 1.05rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.schedule-view__nav-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-left: auto;
+}
+
+.schedule-view__add-task {
+  background: var(--accent);
+  color: var(--accent-ink);
+  border: none;
+  border-radius: 999px;
+  padding: 0.5rem 1rem;
+  font-weight: 600;
+  font-size: 0.85rem;
+  white-space: nowrap;
+}
+
+/* FR-CAL-07: a secondary action next to the primary "+ Add Task" CTA — outlined, not filled. */
+.schedule-view__export {
+  background: transparent;
+  color: var(--ink);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 0.5rem 1rem;
+  font-weight: 600;
+  font-size: 0.85rem;
+  white-space: nowrap;
+}
+
+.schedule-view__banner {
+  background: color-mix(in srgb, var(--type-workout) 18%, var(--surface));
+  color: var(--ink);
+  padding: 0.6rem 0.85rem;
+  border-radius: 10px;
+  font-size: 0.85rem;
+  margin: 0 0 1rem;
+}
+
+.schedule-view__timeline {
+  background: var(--surface);
+  border: 1px solid var(--gridline);
+  border-radius: 14px;
+  overflow: hidden;
+}
+
+.schedule-view__axis-label {
+  display: block;
+  padding: 0.6rem 1rem;
+  font-size: 0.7rem;
+  color: var(--ink-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.schedule-view__axis-label:first-child {
+  border-bottom: 1px solid var(--gridline);
+}
+
+.schedule-view__axis-label:last-child {
+  border-top: 1px solid var(--gridline);
+}
+
+.schedule-view__free {
+  margin: 0;
+  padding: 0.4rem 1rem;
+  color: var(--ink-muted);
+  font-style: italic;
+  font-size: 0.85rem;
+}
+
+.schedule-view__unplaced {
+  margin-top: 1.5rem;
+}
+
+.schedule-view__unplaced h3 {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--ink-muted);
+  margin: 0 0 0.5rem;
+}
+
+.schedule-view__unplaced ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.schedule-view__unplaced li {
+  padding: 0.6rem 0.85rem;
+  background: var(--surface);
+  border: 1px dashed var(--gridline);
+  border-radius: 10px;
+  font-size: 0.85rem;
+  color: var(--ink-secondary);
+}
+
+.schedule-view__rescheduled {
+  margin-top: 1.5rem;
+}
+
+.schedule-view__rescheduled h3 {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--ink-muted);
+  margin: 0 0 0.5rem;
+}
+
+.schedule-view__rescheduled ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.schedule-view__rescheduled-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.6rem 0.85rem;
+  background: var(--surface);
+  border: 1px solid var(--gridline);
+  border-radius: 10px;
+  font-size: 0.85rem;
+  /* Grayed, not crossed out — distinct from occurrence--done's strikethrough treatment, so a
+     missed occurrence never reads as though it were completed. */
+  opacity: 0.6;
+}
+
+.schedule-view__needs-reschedule {
+  margin-top: 1.5rem;
+}
+
+.schedule-view__needs-reschedule h3 {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--danger);
+  margin: 0 0 0.5rem;
+}
+
+.schedule-view__needs-reschedule ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+/* Unlike .schedule-view__rescheduled-item's dimmed opacity (pure history), this is something
+   to act on — full contrast, with a left accent to draw the eye down the list. */
+.schedule-view__needs-reschedule-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.6rem 0.85rem;
+  background: var(--surface);
+  border: 1px solid var(--gridline);
+  border-left: 3px solid var(--danger);
+  border-radius: 10px;
+  font-size: 0.85rem;
+}
+
+/* ─── Occurrence rows (§3.7.1's blocks) ───────────────────────────────── */
+
+.occurrence {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding: 0.85rem 1rem;
+  border-top: 1px solid var(--gridline);
+}
+
+.schedule-view__timeline .occurrence:first-child {
+  border-top: none;
+}
+
+.occurrence--rescheduled {
+  background: color-mix(in srgb, var(--type-meeting) 6%, transparent);
+}
+
+.occurrence--done {
+  opacity: 0.6;
+}
+
+.occurrence__header {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+}
+
+.occurrence__dot {
+  width: 10px;
+  height: 10px;
+  margin-top: 0.35rem;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: var(--type-other);
+}
+
+/* FIXED commitments keep the wireframe's double-rule treatment (§3.7.1's ═), just thinner. */
+.occurrence--fixed .occurrence__dot {
+  outline: 2px solid var(--gridline);
+  outline-offset: 2px;
+}
+
+.occurrence__marker {
+  color: var(--ink-secondary);
+  font-size: 0.85rem;
+}
+
+.occurrence__title {
+  font-weight: 600;
+  flex: 1;
+}
+
+.occurrence--done .occurrence__title {
+  text-decoration: line-through;
+  color: var(--ink-muted);
+}
+
+.occurrence__time {
+  font-size: 0.8rem;
+  color: var(--ink-muted);
+  white-space: nowrap;
+}
+
+.occurrence__badge {
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  padding: 0.15rem 0.45rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--ink) 8%, transparent);
+  color: var(--ink-secondary);
+}
+
+.occurrence__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  padding-left: 1.3rem;
+}
+
+.occurrence__actions button {
+  border: 1px solid var(--gridline);
+  background: var(--surface);
+  color: var(--ink-secondary);
+  border-radius: 999px;
+  padding: 0.25rem 0.7rem;
+  font-size: 0.75rem;
+}
+
+.occurrence__actions button:hover:not(:disabled) {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.occurrence__reason {
+  margin: 0;
+  padding-left: 1.3rem;
+  font-size: 0.8rem;
+  font-style: italic;
+  color: var(--ink-secondary);
+}
+
+/* ─── Modal / forms ───────────────────────────────────────────────────── */
+
+.modal {
+  background: var(--surface);
+  border: 1px solid var(--gridline);
+  border-radius: 16px;
+  padding: 1.25rem;
+  margin-bottom: 1.25rem;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+}
+
+.task-form,
+.candidate-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.task-form__actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 0.25rem;
+}
+
+.task-form__actions button:not(.link) {
+  background: var(--accent);
+  color: var(--accent-ink);
+  border: none;
+  border-radius: 999px;
+  padding: 0.55rem 1.1rem;
+  font-weight: 600;
+  font-size: 0.85rem;
+}
+
+.candidate-picker ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.candidate-picker li button {
+  width: 100%;
+  text-align: left;
+  padding: 0.6rem 0.85rem;
+  border: 1px solid var(--gridline);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 0.85rem;
+}
+
+.candidate-picker li button:hover:not(:disabled) {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 8%, var(--surface));
+}
+
+.candidate-picker__actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.4rem;
+}
+
+/* ─── Month calendar (FR-DSH-08 — full-page month view, docs/full.png) ────── */
+
+.month-calendar {
+  background: var(--surface);
+  border: 1px solid var(--gridline);
+  border-radius: 14px;
+  padding: 0.85rem 0.75rem 1rem;
+  margin-bottom: 1rem;
+}
+
+.month-calendar--full {
+  padding: 1rem 1rem 1.25rem;
+}
+
+.month-calendar__nav {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  margin-bottom: 0.75rem;
+}
+
+.month-calendar__heading {
+  font-weight: 700;
+  font-size: 1.05rem;
+  min-width: 10rem;
+  text-align: center;
+}
+
+.month-calendar__weekdays {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  margin-bottom: 0.3rem;
+  /* Matches `.month-calendar__grid--full`'s 1px border so the header's columns land exactly
+     over the date grid's columns beneath it, not just approximately. */
+  padding: 0 1px;
+}
+
+.month-calendar__weekdays span {
+  /* Same `min-width: auto` grid-item trap as `.month-calendar__day--full` — without this a
+     label can't shrink below "WED"'s own width, so squeezing the window narrower than that
+     pushes it into the neighboring column instead of truncating in place. */
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-align: center;
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--ink-muted);
+  padding-bottom: 0.4rem;
+}
+
+.month-calendar__grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+}
+
+.month-calendar__day {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 0.55rem 0 0.6rem;
+  border: none;
+  background: none;
+  border-radius: 10px;
+  color: var(--ink);
+}
+
+.month-calendar__day:hover {
+  background: var(--gridline);
+}
+
+.month-calendar__day--outside {
+  color: var(--ink-muted);
+  opacity: 0.5;
+}
+
+/* Sized for the compact variant's own cell width — `.schedule-view` (its container) scales with
+   the viewport (`min(900px, 90vw)`), so a size tuned for the old fixed 640px column looked lost
+   once the cell grew wider around it. `.month-calendar__day--full` below overrides this back
+   down for the full-page grid, which packs an events list into the same cell and needs the room. */
+.month-calendar__day-number {
+  width: 34px;
+  height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  font-size: 1rem;
+}
+
+.month-calendar__day--selected .month-calendar__day-number {
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-weight: 700;
+}
+
+/* Compact variant's dots (`variant="compact"` — the Day view mini-navigator). */
+.month-calendar__dots {
+  display: flex;
+  gap: 4px;
+  height: 7px;
+}
+
+.month-calendar__dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--type-other);
+}
+
+/* ── Full-page grid: each cell lists its events (title + time) like docs/full.png,
+     instead of the small navigator's plain dots. ── */
+
+.month-calendar__grid--full {
+  gap: 1px;
+  background: var(--gridline);
+  border: 1px solid var(--gridline);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.month-calendar__day--full {
+  align-items: stretch;
+  justify-content: flex-start;
+  /* Grid items default to `min-width: auto`, which sizes a column to its widest UNWRAPPED
+     content (`.month-calendar__item-title`'s `white-space: nowrap`) rather than its fair 1fr
+     share — pushing the grid wider than its container and clipping the last (Sunday) column via
+     `overflow: hidden` above. `min-width: 0` lets this cell shrink to its actual track width, so
+     the title's own `text-overflow: ellipsis` truncates instead of the whole grid overflowing. */
+  min-width: 0;
+  min-height: 108px;
+  padding: 0.4rem 0.45rem 0.5rem;
+  border-radius: 0;
+  background: var(--surface);
+  gap: 0.3rem;
+}
+
+.month-calendar__day--full .month-calendar__day-number {
+  align-self: flex-end;
+  width: 24px;
+  height: 24px;
+  font-size: 0.8rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-muted);
+}
+
+.month-calendar__day--full.month-calendar__day--outside .month-calendar__day-number {
+  color: var(--ink-muted);
+}
+
+/* "Today" — a filled circle, the picture's own way of marking the current date. */
+.month-calendar__day-number--today {
+  background: var(--danger);
+  color: var(--accent-ink);
+  font-weight: 700;
+}
+
+.month-calendar__items {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  width: 100%;
+  text-align: left;
+}
+
+.month-calendar__item {
+  display: flex;
+  align-items: baseline;
+  gap: 0.35rem;
+  min-width: 0;
+  /* Once the bar+time's own combined minimum no longer fits (deep into a squeeze, past the
+     point the title's ellipsis alone can absorb), clip here rather than bleed into the next
+     day's cell — a squeezed calendar stays squeezed, never overlapping. */
+  overflow: hidden;
+}
+
+.month-calendar__item-bar {
+  width: 3px;
+  align-self: stretch;
+  border-radius: 2px;
+  flex-shrink: 0;
+  background: var(--type-other);
+}
+
+.month-calendar__item-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.month-calendar__item-time {
+  flex-shrink: 0;
+  font-size: 0.68rem;
+  color: var(--ink-muted);
+  white-space: nowrap;
+}
+
+.month-calendar__item-more {
+  font-size: 0.72rem;
+  color: var(--ink-muted);
+  padding-left: calc(3px + 0.35rem);
+}
+
+/* Squeezing the window narrower shrinks each of the 7 columns proportionally. Past this width
+   there isn't room for both a title and a time on one line without one of them losing the fight
+   — drop the time first, since the title (what task it is) matters more at a glance than when it
+   starts. Everything above still degrades safely on its own (ellipsis, `overflow: hidden`); this
+   just chooses what goes first, rather than letting both squeeze until neither is readable. */
+@media (max-width: 720px) {
+  .month-calendar__item-time {
+    display: none;
+  }
+  .month-calendar__heading {
+    min-width: 0;
+  }
+  .month-calendar__day--full {
+    padding: 0.3rem 0.3rem 0.4rem;
+  }
+}
+
+/* TaskType → color, shared by every dot marker (fixed order per the shared contract's
+   TaskType union — CLASS, MEETING, HABIT, WORKOUT, MEAL, OTHER — never cycled or reassigned).
+   Applied alongside .occurrence__dot / .month-calendar__dot, which own sizing only. */
+.type-dot--CLASS {
+  background: var(--type-class);
+}
+.type-dot--MEETING {
+  background: var(--type-meeting);
+}
+.type-dot--HABIT {
+  background: var(--type-habit);
+}
+.type-dot--WORKOUT {
+  background: var(--type-workout);
+}
+.type-dot--MEAL {
+  background: var(--type-meal);
+}
+.type-dot--OTHER {
+  background: var(--type-other);
+}
+
+/* ─── Navigation tabs (UI-03) ─────────────────────────────────────────── */
+.app__nav {
+  display: flex;
+  gap: 0.25rem;
+}
+.app__nav-tab {
+  border: none;
+  background: transparent;
+  color: var(--ink-secondary);
+  border-radius: 999px;
+  padding: 0.45rem 1rem;
+  font-weight: 600;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+.app__nav-tab:hover {
+  color: var(--accent);
+}
+.app__nav-tab--active {
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+/* ─── Wellness view (FR-WEL) ──────────────────────────────────────────── */
+.wellness {
+  display: grid;
+  gap: 1rem;
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 1.5rem;
+}
+.wellness__panel {
+  background: var(--surface);
+  border: 1px solid var(--gridline);
+  border-radius: 12px;
+  padding: 1.1rem 1.25rem;
+}
+.wellness__panel h2 {
+  font-size: 0.95rem;
+  font-weight: 700;
+  margin: 0 0 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+.wellness__panel-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.75rem;
+}
+.wellness__panel-head h2 {
+  margin: 0;
+}
+.wellness__meta,
+.wellness__tier {
+  font-size: 0.8rem;
+  color: var(--ink-muted);
+  white-space: nowrap;
+}
+.wellness__tier {
+  font-weight: 600;
+  color: var(--ink-secondary);
+}
+.wellness__muted {
+  color: var(--ink-muted);
+  font-size: 0.9rem;
+  margin: 0;
+}
+.wellness__metrics,
+.wellness__meals {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.5rem;
+}
+.wellness__metric {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+}
+.wellness__metric-name {
+  font-weight: 600;
+}
+.wellness__metric-value {
+  font-variant-numeric: tabular-nums;
+}
+.wellness__metric-value em {
+  color: var(--ink-muted);
+  font-style: normal;
+  font-size: 0.85rem;
+}
+.wellness__metric-value--unavailable {
+  color: var(--ink-muted);
+  font-style: italic;
+}
+.wellness__history {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+  font-variant-numeric: tabular-nums;
+}
+.wellness__history th,
+.wellness__history td {
+  text-align: right;
+  padding: 0.35rem 0.5rem;
+  border-bottom: 1px solid var(--gridline);
+}
+.wellness__history th:first-child,
+.wellness__history td:first-child {
+  text-align: left;
+  color: var(--ink-secondary);
+}
+.wellness__history th {
+  color: var(--ink-muted);
+  font-weight: 600;
+}
+.wellness__reason {
+  margin: 0 0 0.85rem;
+  font-size: 0.9rem;
+  color: var(--ink-secondary);
+}
+.wellness__workouts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
+.wellness__workout {
+  flex: 1 1 8rem;
+  border: 1px solid var(--gridline);
+  border-radius: 10px;
+  padding: 0.7rem 0.85rem;
+  display: grid;
+  gap: 0.15rem;
+  background: none;
+  font: inherit;
+  text-align: left;
+  color: inherit;
+  cursor: pointer;
+  transition: border-color 0.12s ease, box-shadow 0.12s ease;
+}
+.wellness__workout:hover {
+  border-color: var(--accent);
+}
+.wellness__workout span {
+  font-size: 0.8rem;
+  color: var(--ink-muted);
+}
+.wellness__workout--selected {
+  border-color: var(--accent);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+.wellness__workout span.wellness__workout-badge {
+  justify-self: start;
+  margin-top: 0.15rem;
+  padding: 0.1rem 0.45rem;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-size: 0.7rem;
+  font-weight: 600;
+}
+.wellness__meal {
+  display: grid;
+  grid-template-columns: 6rem 1fr auto;
+  align-items: baseline;
+  gap: 0.75rem;
+  font-size: 0.9rem;
+}
+.wellness__meal-type {
+  color: var(--ink-muted);
+  text-transform: capitalize;
+  font-size: 0.8rem;
+}
+.wellness__meal-kcal {
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-secondary);
+}
+.wellness__flags {
+  grid-column: 2 / -1;
+  color: var(--type-habit);
+  font-size: 0.78rem;
+}
+.wellness__meal--total {
+  border-top: 1px solid var(--gridline);
+  padding-top: 0.5rem;
+  margin-top: 0.15rem;
+  font-weight: 700;
+}
+.wellness__meal--skipped-text {
+  opacity: 0.5;
+  text-decoration: line-through;
+}
+.wellness__meal-actions {
+  grid-column: 2 / -1;
+  display: flex;
+  gap: 0.5rem;
+}
+.wellness__meal-action {
+  border: 1px solid var(--gridline);
+  border-radius: 999px;
+  padding: 0.15rem 0.7rem;
+  background: none;
+  font: inherit;
+  font-size: 0.78rem;
+  color: inherit;
+  cursor: pointer;
+  transition: border-color 0.12s ease, color 0.12s ease;
+}
+.wellness__meal-action:hover {
+  border-color: var(--accent);
+}
+.wellness__meal-action--active {
+  border-color: var(--type-habit);
+  color: var(--type-habit);
+}
+.wellness__meal-action--primary {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+/* ─── Analytics view (FR-ANL-04, UI-04) ─────────────────────────────────── */
+.analytics {
+  display: grid;
+  gap: 1rem;
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 1.5rem;
+}
+.analytics__panel {
+  background: var(--surface);
+  border: 1px solid var(--gridline);
+  border-radius: 12px;
+  padding: 1.1rem 1.25rem;
+}
+.analytics__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+.analytics__table th,
+.analytics__table td {
+  padding: 0.6rem 0.5rem;
+  border-bottom: 1px solid var(--gridline);
+  text-align: left;
+  vertical-align: middle;
+}
+.analytics__table th {
+  color: var(--ink-muted);
+  font-weight: 600;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+.analytics__table tr:last-child td {
+  border-bottom: none;
+}
+.analytics__rate-head {
+  width: 55%;
+}
+.analytics__title {
+  font-weight: 600;
+  color: var(--ink);
+}
+.analytics__streak {
+  white-space: nowrap;
+  color: var(--ink-secondary);
+  font-variant-numeric: tabular-nums;
+}
+.analytics__rate {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+.analytics__bar {
+  flex: 1 1 6rem;
+  min-width: 4rem;
+  height: 0.55rem;
+  background: color-mix(in srgb, var(--accent) 14%, var(--surface));
+  border: 1px solid var(--gridline);
+  border-radius: 999px;
+  overflow: hidden;
+}
+.analytics__bar-fill {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 999px;
+}
+.analytics__pct {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  min-width: 2.6rem;
+  text-align: right;
+}
+.analytics__fraction {
+  color: var(--ink-muted);
+  font-size: 0.82rem;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.analytics__note {
+  margin: 0;
+  padding: 0 0.25rem;
+  font-size: 0.85rem;
+  color: var(--ink-secondary);
+  line-height: 1.5;
+}
+

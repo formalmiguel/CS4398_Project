@@ -30,8 +30,12 @@ You are an expert TypeScript engineer writing a test suite. **CRITICAL**: You ar
 > **There is exactly one scheduling engine in this System.** […] The engine is required to be a **pure function** (FR-SCH-05): no clock, no database, no side effects. […] its purity is exactly what allows it to be property-tested over a thousand randomized days with no database and no browser (NFR-COR-01), and held to 90% coverage (NFR-MNT-01).
 
 - **FR-SCH-01.** *(Essential, T)* Given busy intervals and a task, the engine shall determine whether the task's preferred window contains a free interval of length ≥ its duration, and if so return a placement within that window.
-- **FR-SCH-02.** *(Essential, T)* If the preferred window contains no sufficient free interval, the engine shall search the remainder of the schedulable day and return **up to three ranked candidate slots**.
-- **FR-SCH-03.** *(Essential, T)* The engine shall rank candidates by, in order: (a) proximity of start time to the preferred window; (b) the task's priority relative to neighbors; (c) earlier start time as final tiebreaker. **Ranking shall be deterministic**: identical inputs always produce identical output ordering.
+- **FR-SCH-02.** *(Essential, T)* If the preferred window contains no sufficient free interval, the engine shall search the remainder of the schedulable day and return **up to three ranked candidate slots**. Where a free interval is **longer than the task's duration**, the candidate's start shall be the fitting position **closest to the preferred window**; where several positions are equally close, the **earliest** shall be used.
+
+  > *The positioning sentence was added at SRS **v2.9** (22 Jul), closing OPEN-13. It matters only for free intervals lying **before** the preferred window — after it, closest and earliest coincide. **Inside** the preferred window every position is equally close, so **earliest** governs there, which is what FR-SCH-09's first boundary row already requires. Raised by this packet's first run; Appendix A could not settle it, because all three of its ranked candidates sit in intervals where the two readings agree.*
+- **FR-SCH-03.** *(Essential, T)* The engine shall rank candidates by, in order: (a) proximity of start time to the preferred window; (b) earlier start time as final tiebreaker. **Ranking shall be deterministic**: identical inputs always produce identical output ordering.
+
+  > *Quoted at SRS **v2.7**. A former criterion (b), "the task's priority relative to neighbors", was removed on 22 Jul: `Interval` carries no priority, so the engine cannot evaluate it. **This packet's first run is what found that** — it escalated instead of inventing a tiebreak. See `docs/P04-RED-REPORT.md`, E1.*
 - **FR-SCH-04.** *(Essential, T)* No placement shall overlap any busy interval, and none shall fall outside the schedulable day.
 - **FR-SCH-05.** *(Essential, T)* The engine shall be a **pure function**: called twice with identical inputs it returns identical outputs; it performs no database write, no HTTP call, and no mutation of its arguments.
 - **FR-SCH-06.** *(Essential, T)* Where no valid slot exists, the engine shall return an **explicit empty result with a reason**, and the System shall tell the user the task could not be placed and why. It shall **not** silently drop the task, and shall **not** place it in violation of its constraints.
@@ -145,6 +149,11 @@ Generate a random schedulable day, a random set of busy intervals (**deliberatel
   - **⛔ A test that PASSES means you wrote the engine.**
 - [ ] `git diff --stat engine/src/` shows **~1 line** — the throwing stub — and nothing else
 - [ ] Post the failing-test count to the team. **That number is prompt 05's target.**
+- [ ] **After the human gate — and BEFORE any implementation is written — freeze the suite:**
+
+      npm run freeze -- --packet 04 --path engine/test --tests <the count you just posted>
+
+  **A frozen suite that is not in `scripts/frozen-tests.json` is not protected**, because `npm run guard:tests-frozen` only checks what it is told about — **and CI passes either way, which is exactly why this is the step that gets skipped.** *(NFR-MNT-08. The freeze is hash-based and needs no commit, so it works here, now, before anything is committed. **Do not hand-edit the manifest** — that is editing the test, one level removed.)*
 
 ---
 

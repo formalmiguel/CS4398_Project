@@ -26,9 +26,23 @@ Separately, the System reads the user's Garmin data — sleep score and active c
 
 ## Status
 
-**Specification complete. No code yet.**
+**Build complete. The System demonstrates its own central claim end to end.**
 
-The SRS is at **v2.5** — ~84 numbered verifiable requirements, formal use cases, UML diagrams, wireframes, a traceability matrix, and a sign-off page. The development method is written down and the first five work packets are ready to run.
+The SRS is at **v2.34** — ~84 numbered verifiable requirements, formal use cases, UML diagrams, wireframes, a traceability matrix, and a sign-off page.
+
+**All work packets `01`–`17d` are implemented, verified, and merged to `dev`.** `npm run verify` is **498 tests green**: the engine at 100% coverage, four `(I)`-requirement guards passing, and eight frozen test suites intact. The full spine is wired into the running application and was exercised against a live server — a wearable metric drives the recommendation engine, which produces a real scheduled task that the same rescheduling logic defends (FR-REC-04). Real Garmin data has been ingested end to end (FR-WER-10), and the frontend has been observed rendering in a browser.
+
+| Layer | State |
+|---|---|
+| **Engine** (scheduling + rescheduling) | ✅ packets 04–07, 100% coverage, property-tested over 1,000 days |
+| **Wearable → recommendation** (adapter, rules, libraries, ingest CLI) | ✅ packets 08–11, real export ingested |
+| **Backend** (API, accounts, persistence, `.ics` export) | ✅ packet 12 + FR-CAL-07 |
+| **Frontend** (schedule, wellness, analytics) | ✅ packets 13–15 |
+| **Verification** (`(I)`-requirement guards, acceptance suite) | ✅ packets 16a/16b, 17a–17d |
+
+Work was sequenced by dependency, not by date — see **THE BUILD ORDER** in `docs/TEAM-MEETING.md`.
+
+> ⚠️ **`main` deliberately sits behind `dev`.** All the work above lives on **`dev`**; `main` is held at the 21 Jul pre-implementation state and would be promoted in a single merge if the team chooses to. **If you clone and land on `main`, you will see the documents but none of the build — switch to `dev` (`git checkout dev`).** This is intentional, not a mistake.
 
 ---
 
@@ -65,8 +79,6 @@ The SRS is at **v2.5** — ~84 numbered verifiable requirements, formal use case
 
 ## Dependencies and Setup
 
-> ⚠️ **Not applicable yet.** There is no `package.json` in this repository today — it holds documents only. **Work packets `01` and `02` create the manifests and install everything.** This section describes how it will work once they have run, so you know what you're getting.
-
 ### The shape: four packages, one install
 
 This is an **npm workspaces** monorepo. One language across the whole stack, so any of the three of us can review any file.
@@ -98,11 +110,14 @@ You run **one command at the root**. npm reads all five manifests, resolves the 
 ```bash
 git clone https://github.com/formalmiguel/CS4398_Project.git
 cd CS4398_Project
+git checkout dev          # the build lives on dev; main is held behind it (see Status)
 npm ci
-npm test
+npm run verify           # typecheck, lint, the (I)-requirement guards, and the 498-test suite
 ```
 
 **Use `npm ci`, not `npm install`, on a fresh clone.** `npm install` can silently drift the lock file, which means your tree and Miguel's stop being identical — and **CON-10** requires this project to be runnable on a clean machine from one documented command sequence. `npm ci` is what makes that true rather than hopeful.
+
+`npm run verify` is the full gate — typecheck, ESLint, all five executable `(I)`-requirement guards, the frozen-test check, and the coverage suite. It needs **no database and no network**: the server tests spin up `mongodb-memory-server` in-process. **Running the server itself** does need a Mongo connection — copy `server/.env.example` to `server/.env` and set `MONGODB_URI` (a local `mongod` or an Atlas string) and a `JWT_SECRET`. `.env` is gitignored and never committed; only `.env.example` is tracked.
 
 ### Why `package-lock.json` is committed
 
@@ -118,7 +133,7 @@ That is not tidiness. **FR-SCH-05** requires the engine to be a pure function �
 
 *(This constrains runtime `dependencies` only. Jest, ts-jest and fast-check are dev tooling, live in the **root** `devDependencies`, and are hoisted to all four packages — otherwise the guard would fire the moment anyone added a test runner, and people would switch it off.)*
 
-**One caveat contributors should know:** because npm hoists everything to the root `node_modules/`, Node will happily resolve `import { MongoClient } from 'mongodb'` *from inside `engine/`*, even though `engine/package.json` declares nothing. The CI guard checks the **manifest**, not the **imports** — so it catches `npm install mongodb -w engine` but not a stray import line. A lint rule restricting `engine/**` to relative imports plus the contract closes that gap; it belongs to packet 16 with the other **(I)**-requirement guards.
+**One caveat contributors should know:** because npm hoists everything to the root `node_modules/`, Node will happily resolve `import { MongoClient } from 'mongodb'` *from inside `engine/`*, even though `engine/package.json` declares nothing. The `guard:engine-deps` script checks the **manifest** — so it catches `npm install mongodb -w engine` but not a stray import line. That gap is closed by `guard:engine-purity` and an `engine/**` lint override restricting the engine to relative imports plus the contract; both landed with packet 16's other **(I)**-requirement guards and run on every `npm run verify`.
 
 ---
 

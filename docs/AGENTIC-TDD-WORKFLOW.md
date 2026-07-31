@@ -163,7 +163,7 @@ Some choices inside it are load-bearing and deserve to be understood rather than
 | **Time is `Minute`** — an integer, minutes since local midnight. The engine never sees a `Date`. | FR-SCH-05 forbids the engine a clock. **An engine that cannot represent a timestamp cannot accidentally read one.** It makes the purity requirement *structurally* true instead of merely intended — and it kills an entire class of timezone bugs. |
 | **`PlacementResult` is a union, not a `Slot[]`** | FR-SCH-06 requires an *"explicit empty result **with a reason**."* An empty array carries no reason, and lets a caller ignore a failed placement by iterating nothing — which is the exact silent task-dropping FR-SCH-06 forbids. **A bare `Slot[]` makes FR-SCH-06 unsatisfiable at the type level.** |
 | **Metrics are a keyed map, not `{ sleepScore, activeCalories }`** | FR-WER-04 requires adding a metric to be an **addition, not a modification.** A struct with two named fields would ship this release fine and quietly make every future metric a type change *and* a schema migration. |
-| **`priority` is 1–5, 1 = highest** | The ERD said only `int priority`. FR-SCH-03 uses it as a ranking tiebreak, so **the direction has to be pinned before an agent writes a comparator and silently picks the other one.** |
+| **`priority` is 1–5, 1 = highest** | The ERD said only `int priority`. **The direction has to be pinned before an agent writes a comparator and silently picks the other one.** *(Originally pinned because FR-SCH-03 used priority as a ranking tiebreak. It no longer does — that criterion was removed in SRS v2.7, being uncomputable from the engine's inputs. The convention still stands, and still matters, for **FR-SCH-07** displacement and for every module that displays or sorts tasks.)* |
 | **`engine/` has an empty `dependencies` block, permanently — CI fails if you add one** | Same reasoning as `Minute`, enforced by packaging rather than discipline. An engine that can't import anything can't import a clock, a DB client, or an HTTP library. |
 
 ### Rule 2 — RED and GREEN are separate agent sessions with different permissions
@@ -176,7 +176,7 @@ Some choices inside it are load-bearing and deserve to be understood rather than
 | **Never sees** | **Any implementation** | — |
 | **Writes** | **Test files only** | **Implementation files only** |
 | **Absolutely forbidden** | Writing any implementation (beyond a one-line throwing stub so the tests compile) | **Editing, deleting, renaming, skipping, or weakening any test file** |
-| **Success looks like** | A suite that **fails** | A suite that passes with **`git diff --stat <tests>` empty** |
+| **Success looks like** | A suite that **fails** | A suite that passes with **`npm run guard:tests-frozen` green** |
 
 **The GREEN agent may not touch a test. Not to fix a typo. Not to correct an assertion that is *obviously* wrong. Not to add `.skip` to one that seems unreasonable.** If it cannot make a test pass, it **stops and reports the test as suspect**, naming the test and the requirement it cites — and a human adjudicates it against the SRS.
 
@@ -283,7 +283,7 @@ The extensibility requirements exist because **the grader wants the principle de
    │  Agent writes: IMPLEMENTATION ONLY.                        │
    │                                                            │
    │  ► MAY NOT EDIT A TEST. Stuck ⇒ escalate to a human.       │
-   │  ► Verify: `git diff --stat <tests>` is EMPTY.             │
+   │  ► Verify: `npm run guard:tests-frozen` passes.            │
    └───────────────────────────┬───────────────────────────────┘
                                ▼
    ┌─ 👤 OWNER CHECK ──────────────────────────────────────────┐
@@ -333,9 +333,9 @@ git add engine/test/ && git commit -m "P04 RED: engine test suite (frozen)"
 /clear
 # paste prompts/engine/05-engine-implementation-GREEN.md
 npx jest engine --coverage
-git diff --stat engine/test/
-#   ✅ EXPECT: empty. Nothing in engine/test/ changed.
-#   ☠️ NOT empty = GREEN touched a test. `git checkout -- engine/test/`, re-run,
+npm run guard:tests-frozen
+#   ✅ EXPECT: passes. Nothing in engine/test/ changed since the freeze sha.
+#   ☠️ FAILS = GREEN touched a test. `git checkout <RED-sha> -- engine/test/`, re-run,
 #      and ASK IT WHAT IT WAS TRYING TO FIX.
 #      That question is usually where you discover the requirement was ambiguous —
 #      which is worth more than the fix was.

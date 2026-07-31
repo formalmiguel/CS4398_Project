@@ -4,7 +4,7 @@
 
 This directory contains **18 prompts** (a summary plus 17 sequential packets) designed to guide an AI coding agent through the complete implementation of a web application that combines an **adaptive scheduling engine** with **real wearable health data**.
 
-The System demonstrates a **pure-function scheduling core** with **observer-free, side-effect-free placement logic**, a **registry-based recommendation engine**, and an **adapter-isolated wearable data layer**, built against a formal SRS of ~84 verifiable requirements (`docs/SRS-v2.md`, v2.5).
+The System demonstrates a **pure-function scheduling core** with **observer-free, side-effect-free placement logic**, a **registry-based recommendation engine**, and an **adapter-isolated wearable data layer**, built against a formal SRS of ~84 verifiable requirements (`docs/SRS-v2.md`, v2.6).
 
 ---
 
@@ -22,7 +22,7 @@ The System demonstrates a **pure-function scheduling core** with **observer-free
 - **`engine/05-engine-implementation-GREEN.md`** — Makes the suite pass. **May not edit a test.**
 
 ### **Phase 3: Automatic Rescheduling (Prompts 6–7)**
-- **`engine/06-reschedule-service-tests-RED.md`** — Trigger tests: missed, skipped, displaced, corrected
+- **`engine/06-reschedule-service-tests-RED.md`** — Trigger tests: missed, skipped, displaced, corrected — **plus FR-SCH-10 placement order, which is the service's obligation and is tested here, never in `engine/test/`**
 - **`engine/07-reschedule-service-GREEN.md`** — The service. **Calls the engine of Phase 2 — no new placement logic.**
 
 ### **Phase 4: Wearable Data and Recommendations (Prompts 8–10)**

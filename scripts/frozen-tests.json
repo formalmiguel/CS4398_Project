@@ -1,0 +1,140 @@
+{
+  "comment": [
+    "Frozen test suites. One entry per RED packet, written by `npm run freeze`.",
+    "",
+    "A RED packet's tests are the requirements in executable form. Once frozen, the GREEN",
+    "agent implementing against them may not edit, skip, rename or weaken one - see",
+    "CLAUDE.md 8.3 and AGENTIC-TDD-WORKFLOW.md 5. That rule used to be enforced by a human",
+    "remembering to run a git command, which was documented wrong in six places and could",
+    "not have caught a test that was edited AND committed. It is now enforced here.",
+    "",
+    "`files` IS THE ENFORCEMENT: a sha256 per file. It needs no git history, so it holds",
+    "in a shallow clone and mid-replay, before any commit exists. It catches an edited",
+    "test, an edited-and-committed one, a deleted one, and a test quietly ADDED to a",
+    "frozen suite. `sha` is PROVENANCE, not enforcement - it attests when the freeze",
+    "happened, from something other than this file, and a re-freeze that does not match",
+    "it is reported as a provenance mismatch. An entry with no `sha` is legitimate: a",
+    "replay freezes before it commits (CLAUDE.md 8.5), and hashes verify it fully.",
+    "",
+    "`tests` is informational and is never compared. A replay produces a different",
+    "number, and a count that gated the build would fail every replay by design.",
+    "",
+    "ADDING AN ENTRY: npm run freeze -- --packet NN --path <dir> --tests <N>",
+    "",
+    "CHANGING OR REMOVING AN ENTRY is how you would defeat this guard, so it is a team",
+    "decision with a row in TEAM-MEETING.md - exactly like editing the tests themselves.",
+    "If a frozen test was genuinely wrong, a HUMAN adjudicates it against the SRS, fixes",
+    "it in a RED-style commit with the reasoning in the body, and re-freezes. Re-running",
+    "`npm run freeze` to make a build go green is editing the test, one level removed."
+  ],
+  "frozen": [
+    {
+      "packet": "04",
+      "path": "engine/test",
+      "sha": "ac06e70",
+      "frozenOn": "2026-07-22",
+      "owner": "Patrick Rucker",
+      "tests": 30,
+      "files": {
+        "engine/test/boundary.test.ts": "d9f2aada232d7f1b92d4567ccb405ac5f50f84ec00abd09f2d48a73f3970aeda",
+        "engine/test/no-slot.test.ts": "267df6d6962ebf7a8b9d80f6209a48856b49f956e13512f8fafb96d64e99248f",
+        "engine/test/performance.test.ts": "d9170c763e00b51b56a9f1c614a500543e18c84bb54b11c29b79aa6ce6c07109",
+        "engine/test/property.test.ts": "6263b4a3b306511c19b4064afaa3122b7961fa11957739e2f13fd523316be398",
+        "engine/test/purity.test.ts": "d488360e17af233814c52760bc12a54ac5fab0d27fd926050246e68339875bc0",
+        "engine/test/ranking.test.ts": "4b92b3fe5ec2049566d42365c51c9cc001db389eb4c09772eedf691eaa7b1728"
+      }
+    },
+    {
+      "packet": "06",
+      "path": "server/test/reschedule",
+      "sha": "8b56986",
+      "frozenOn": "2026-07-22",
+      "refrozenFrom": "8b24320 - one defective fixture corrected in c30e784, a RED-style commit. See TEAM-MEETING.md, 22 Jul. RE-FROZEN AGAIN 30 Jul at 8b56986: elapsed-sweep, single-engine and triggers corrected for the FR-RSC-01 and 3.8.5 rule 2 fixes, a team decision per CLAUDE.md 4.12(b). See TEAM-MEETING.md, 30 Jul.",
+      "shaBackfilledBy": "Hand edit, 30 Jul. The 30 Jul re-freeze ran while the fixes were uncommitted, so freeze correctly recorded no sha (freeze-tests.mjs 108-113). 8b56986 is the commit that carried both the corrected tests and that re-freeze; `git diff 8b56986 -- server/test/reschedule` is empty. Edited by hand rather than re-run with --sha, so the per-file hashes were not recomputed.",
+      "owner": "Patrick Rucker",
+      "tests": 156,
+      "files": {
+        "server/test/reschedule/completion.test.ts": "ea87d46f00be196dd8fe5d24aff5d626e32fa95835f22b80de95d4e9b691d36a",
+        "server/test/reschedule/elapsed-sweep.test.ts": "4f68722c9c5064894c3a3baabe5fc9a3e6b3da2d09b1afe561a163a4e3c090a7",
+        "server/test/reschedule/idempotence.test.ts": "10bbf15a7009d017c24fbd872f3787c50597815e31b896e0728c500bdb12f85e",
+        "server/test/reschedule/placement-order.test.ts": "3b4d76202fb3a8ad036224310a8401b96fe8b0d599b9f641233572b2177c98a0",
+        "server/test/reschedule/reason.test.ts": "9e3d99285e2d536a0e63df3d414d9954d1fc7dcc2f956592d7d3a38e6bd7c225",
+        "server/test/reschedule/single-engine.test.ts": "74ffa9ebfddc1988542240b86f44c157469eb9d0251b2b12d75dfc38a9451ef4",
+        "server/test/reschedule/support/harness.ts": "c59a97432b53f37850432c980fd75de1bf977f5b845c575347c08133249e57d8",
+        "server/test/reschedule/task-edited.test.ts": "29db0ef7abe56663f1fe282b249ab4dc298f21603b91de78f73026562f362dea",
+        "server/test/reschedule/triggers.test.ts": "27bf086a4a5ea3b80b7f1d24b5323e7e40c652d3d4a58df803934170d4ad4f92",
+        "server/test/reschedule/unplaceable.test.ts": "984ccdf42702e367526a4beb699967d7fdd52bbc4640a108e8ac80b1bfbecc7e"
+      }
+    },
+    {
+      "packet": "08",
+      "path": "server/test/wearable",
+      "frozenOn": "2026-07-25",
+      "files": {
+        "server/test/wearable/GarminExportAdapter.test.ts": "e6b258e857ccd59571345a5ee6d0a28fbea36c21c453b5d1889b3582a01b3da7",
+        "server/test/wearable/MetricStore.test.ts": "af01ec290e38c6a5da9c365d705ff8e60d5c51ff6713565587f1c2b5248ab6c6",
+        "server/test/wearable/fixtures/garmin-export.json": "37045d19767a9e3b610e36b4fb697b98d0d0cda605146e4d01b88547ff9377af",
+        "server/test/wearable/wearableFixtures.ts": "8d540b95786233a0f736536482a5dd69be574e9fc4caac1cc22c7150cf95e099"
+      },
+      "sha": "1199d80",
+      "shaCorrectedFrom": "40a3447 - `npm run freeze` ran before the RED commit and recorded the parent, where these files do not yet exist. The suite is byte-identical to the RED freeze 1199d80: every file hash verifies, and `git diff --stat 1199d80 -- server/test/wearable` is empty. Provenance corrected by hand to point at the commit that actually froze the suite - NOT re-frozen. See TEAM-MEETING.md, 25 Jul."
+    },
+    {
+      "packet": "09",
+      "path": "server/test/recommendation",
+      "frozenOn": "2026-07-25",
+      "tests": 27,
+      "files": {
+        "server/test/recommendation/CaloriesToTargetRule.test.ts": "c07557357df79b10c5a0a1a43e136864a775e46425ebc770d2972eb3d35d1698",
+        "server/test/recommendation/RecommendationEngine.test.ts": "2fb68098b29c87ed77a3b0f3aa5140bd7a1d3618cc7e83cf134548e302912408",
+        "server/test/recommendation/SleepToIntensityRule.test.ts": "fd706efa3593d404dce7f02621b880707d3a0b579b2a9f6f49f22dffb7b26f22"
+      },
+      "sha": "59f4e8a"
+    },
+    {
+      "packet": "17a",
+      "path": "server/test/acceptance",
+      "frozenOn": "2026-07-26",
+      "owner": "Patrick Rucker",
+      "tests": 8,
+      "files": {
+        "server/test/acceptance/reattempt-provenance.test.ts": "adfc0a5a7065e41ba91f0c51278bfd404d31207d934773ea3db685ee1022b104",
+        "server/test/acceptance/recommendation-to-calendar.test.ts": "62571320aa74985d157d6a1e23f89d9488c7dc7d071616ba3c42ef4abe359739",
+        "server/test/acceptance/support/harness.ts": "5552390b62189bfe7d58e2dba31a5b544fa9bde51cddcadc85b4dc00437a2804"
+      },
+      "sha": "8809158"
+    },
+    {
+      "packet": "17c",
+      "path": "server/test/replacement",
+      "frozenOn": "2026-07-27",
+      "tests": 1,
+      "files": {
+        "server/test/replacement/replacement-durability.test.ts": "e415fcf7c2a6048e880475401c8df5cc966875768d37979f52a88e077d5435e2"
+      },
+      "sha": "47bb301"
+    },
+    {
+      "packet": "11",
+      "path": "server/test/catalog",
+      "frozenOn": "2026-07-27",
+      "files": {
+        "server/test/catalog/MealCatalog.test.ts": "4424e59c77ba44784d7411aecaee9c7efd748d1a84f70b8935a9ad1bdb22c52a",
+        "server/test/catalog/WorkoutCatalog.test.ts": "8c1474507f18df80808357a03befecf9163d82c4deae40f6ed746bbcd4135e40",
+        "server/test/catalog/_support.ts": "03c06123ce62ec713828c246fe48ec4ccd8cc7473a66dc995b4fb5804cf9060f",
+        "server/test/catalog/attribution.test.ts": "3f2c8502c863e3961efcbfe1567e5767971e290ca12db9aef332bc49e67fd1b5",
+        "server/test/catalog/intensityTierMapping.test.ts": "00fb7edf56bc4791c680229982d0dbe2145b2a3ce98c08f2b90cb6e4ae7d69f3"
+      },
+      "sha": "4b1fd4e"
+    },
+    {
+      "packet": "15a",
+      "path": "server/test/analytics",
+      "frozenOn": "2026-07-28",
+      "files": {
+        "server/test/analytics/HabitAnalytics.test.ts": "52ab395e8f4c578959b764939b976ffaf1aac6c029a175a1c81ab43e642b5a42"
+      },
+      "sha": "3fd6371"
+    }
+  ]
+}

@@ -12,7 +12,13 @@ jobs:
   verify:
     runs-on: ubuntu-latest
     steps:
+      # fetch-depth: 0 — NOT the default shallow clone. The frozen-tests guard below
+      # diffs the working tree against freeze shas (ac06e70, c30e784) for provenance;
+      # in a depth-1 clone those commits are unreachable and the step fails for a reason
+      # unrelated to any test. The hash check works shallow; the provenance check does not.
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - uses: actions/setup-node@v4
         with:
@@ -43,6 +49,46 @@ jobs:
       # engine/package.json declares nothing.
       - name: Engine purity guard (FR-SCH-05)
         run: npm run guard:engine-deps
+
+      # FR-SCH-05 / CON-04, ambient-global level: the engine reaches no clock, RNG,
+      # timer, network or process global. This is the only FR-SCH-05 guard that sees a
+      # call needing no import and no dependency (Date.now(), Math.random(), fetch()...),
+      # which the deps guard and the lint override both miss by construction.
+      - name: Engine ambient-purity guard (FR-SCH-05)
+        run: npm run guard:engine-purity
+
+      # FR-RSC-03 / NFR-MNT-03: exactly one function produces placements
+      # (findCandidateSlots, engine/src), re-invoked by both the manual and automatic
+      # paths. Guards the most exposed requirement in the repo against a second, local
+      # placement helper being added while every test stays green.
+      - name: Single placement function guard (FR-RSC-03)
+        run: npm run guard:single-placement
+
+      # FR-LIB-02: no component of the recommendation path
+      # (server/src/{recommendation,catalog,wearable}) imports a network client, calls an
+      # ambient network global, or pulls in an HTTP-client dependency. The workouts are
+      # VENDORED on disk (§4.2) and the metrics are in our own database, so 31 July does not
+      # depend on a conference-room network. This is the INSPECTION half only — the
+      # requirement's other half is a rehearsal with outbound access disabled, which no
+      # static scan performs.
+      - name: Offline recommendation path guard (FR-LIB-02)
+        run: npm run guard:offline-recommendation
+
+      # FR-REC-11 / FR-WER-04 / NFR-MNT-06: the engine evaluates registered rules without
+      # knowledge of any rule's content, rules are independent of each other, and a metric
+      # name appears only in the rule that consumes it and the adapter that produces it — so
+      # adding a metric is two additions and no modifications. The metric names and Decision
+      # kinds are DERIVED from source, never hard-coded, so a third rule is covered with no
+      # edit to the script.
+      - name: Metric extensibility guard (FR-REC-11, FR-WER-04)
+        run: npm run guard:metric-extensibility
+
+      # RED/GREEN boundary (CLAUDE.md §8.3): frozen test suites may not change. Added
+      # after this workflow was first written; enforced until now only when a human
+      # remembered to run `verify` locally. Requires fetch-depth: 0 above for its
+      # provenance diff against the freeze shas.
+      - name: Frozen-tests guard (RED/GREEN boundary)
+        run: npm run guard:tests-frozen
 
       # NFR-MNT-01 (Essential): engine coverage >= 90% lines, enforced as a
       # coverageThreshold in jest.config.cjs.

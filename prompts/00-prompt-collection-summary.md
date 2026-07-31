@@ -4,7 +4,7 @@
 
 ### **MANDATORY**: 17 Sequential Prompts
 
-This prompt pack contains **17 detailed prompts** designed to guide an AI coding agent through the complete implementation of the Adaptive Habit, Schedule & Wellness System specified in `docs/SRS-v2.md` (v2.5, ~84 verifiable requirements).
+This prompt pack contains **17 detailed prompts** designed to guide an AI coding agent through the complete implementation of the Adaptive Habit, Schedule & Wellness System specified in `docs/SRS-v2.md` (v2.6, ~84 verifiable requirements).
 
 Each prompt follows the required formatting techniques with **Sandwich Method**, **Attention Anchoring**, **Visual Emphasis**, **Clear Delimiters**, and **Selective Context**.
 
@@ -37,12 +37,27 @@ Each prompt follows the required formatting techniques with **Sandwich Method**,
 | `engine/` | 04–07 | **Patrick Rucker** | FR-SCH, FR-RSC |
 | `wearable/` | 08–11 | **Ryan Woosley** | FR-WER, FR-REC, FR-LIB |
 | `backend/` | 12 | **Miguel Alvarez** | FR-USR, FR-TSK, FR-CAL |
-| `frontend/` | 13–15 | **Miguel Alvarez** | FR-DSH, FR-WEL, FR-ANL |
+| `frontend/` | 13 | **Miguel Alvarez** | FR-DSH |
+| `frontend/` | 14a–15c | **Ryan Woosley** *(per OPEN-09, 23 Jul)* | FR-WEL, FR-ANL |
 | `verification/` | 16–17 | **Patrick Rucker** | the **(I)** guards, integration |
 
 > **⛔ CRITICAL: Run packets in NUMERICAL order — `01` through `17` — regardless of folder.** A folder is not a work queue. `wearable/08` runs after `engine/07` is available, not whenever Ryan gets to it. *(Parallelism is real and documented in `docs/AGENTIC-TDD-WORKFLOW.md` §9 — but it is described there in terms of what each packet is BLOCKED BY, not by folder.)*
 >
 > **MANDATORY**: The **`Human owner` field inside each packet is authoritative.** The folder is a convenience for finding things. **If the two ever disagree, the packet wins** and the folder is the thing to fix.
+
+### ⚠️ **CRITICAL**: That Applies To `prompts/` ONLY — **Source Folders Are Named For The MODULE**
+
+**MANDATORY**: **There is no folder ownership in the source tree** *(Patrick, 22 Jul)*. A packet is a unit of human review; a source folder is a unit of subject matter. **Do not carve `server/src/` up by who wrote it** — name each folder for what the code *is*, so it can be found by the name of the thing you are looking for:
+
+| Module | Source | Tests | Packets |
+|---|---|---|---|
+| Reschedule service | `server/src/reschedule/` | `server/test/reschedule/` | **06–07** |
+| Wearable adapter + Daily Metric Set | `server/src/wearable/` | `server/test/wearable/` | 08 |
+| Recommendation rules | `server/src/recommendation/` | `server/test/recommendation/` | 09–10 |
+| Catalog + seeded libraries | `server/src/catalog/` | `server/test/catalog/` | 11 |
+| HTTP API + persistence | `server/src/api/`, `server/src/db/` | `server/test/api/` | 12 |
+
+> **CRITICAL**: This mirrors **§3.6's class clusters**, so the class diagram and a directory listing read the same way, and it matches the committed `engine/src` ↔ `engine/test` shape. **A packet's *must-NOT-touch* list still fences one packet off from another's files — that is scope, not ownership.**
 
 ---
 
@@ -52,23 +67,37 @@ Each prompt follows the required formatting techniques with **Sandwich Method**,
 |---|---|---|---|
 | 01 | `foundation/01-project-scaffold.md` | SCAFFOLD | ✅ Written |
 | 02 | `foundation/02-toolchain-and-dependencies.md` | SCAFFOLD | ✅ Written |
+| 02b | `foundation/02b-executable-guards.md` | **HUMAN-AUTHORED** | ✅ Written *(24 Jul — the guards + the freeze; runs after 02, before 04)* |
 | 03 | `foundation/03-shared-contract-types.md` | **HUMAN-AUTHORED** | ✅ Written |
 | 04 | `engine/04-engine-tests-RED.md` | 🔴 RED | ✅ Written |
 | 05 | `engine/05-engine-implementation-GREEN.md` | 🟢 GREEN | ✅ Written |
-| 06 | `engine/06-reschedule-service-tests-RED.md` | 🔴 RED | ⬜ Not yet written |
-| 07 | `engine/07-reschedule-service-GREEN.md` | 🟢 GREEN | ⬜ Not yet written |
-| 08 | `wearable/08-wearable-adapter-and-metric-set.md` | 🔴/🟢 | ⬜ Not yet written |
-| 09 | `wearable/09-recommendation-rules-tests-RED.md` | 🔴 RED | ⬜ Not yet written |
-| 10 | `wearable/10-recommendation-rules-GREEN.md` | 🟢 GREEN | ⬜ Not yet written |
-| 11 | `wearable/11-catalog-and-seeded-libraries.md` | 🔴/🟢 | ⬜ Not yet written |
-| 12 | `backend/12-backend-api.md` | 🔴/🟢 | ⬜ Not yet written — **⛔ must carry the OPEN-12 escalation, below** |
-| 13 | `frontend/13-frontend-schedule-dashboard.md` | BUILD | ⬜ Not yet written |
-| 14 | `frontend/14-frontend-wellness-view.md` | BUILD | ⬜ Not yet written |
-| 15 | `frontend/15-frontend-analytics-view.md` | BUILD | ⬜ Not yet written |
-| 16 | `verification/16-inspection-requirement-guards.md` | GUARD | ⬜ Not yet written |
-| 17 | `verification/17-complete-implementation-guide.md` | INTEGRATION | ⬜ Not yet written |
+| 06 | `engine/06-reschedule-service-tests-RED.md` | 🔴 RED | ✅ Written *(22 Jul, immediately before its run)* |
+| 07 | `engine/07-reschedule-service-GREEN.md` | 🟢 GREEN | ✅ Written *(22 Jul, before the implementation existed)* |
+| 08 | `wearable/08-wearable-adapter-RED.md` + `08b-wearable-adapter-GREEN.md` | 🔴/🟢 | ✅ Done 25 Jul — merged to `dev`, frozen at `1199d80` |
+| 09 | `wearable/09-recommendation-rules-RED.md` | 🔴 RED | ✅ Done 25 Jul — frozen at `59f4e8a`, merged to `dev` |
+| 10 | `wearable/10-recommendation-rules-GREEN.md` | 🟢 GREEN | ✅ Done 25 Jul — `npm run verify` green (294), merged to `dev` |
+| 11 | `wearable/11-catalog-and-seeded-libraries-RED.md` + `11b-…-GREEN.md` | 🔴/🟢 | ✅ **Done 27 Jul — RED frozen `4b1fd4e` (134 tests), 11b GREEN `a40d46d`, merged to `dev`, `verify` 453 green** (`docs/P11B-GREEN-REPORT.md`) |
+| 12 | `backend/12-backend-api.md` | 🔴/🟢 | ✅ Written and run, 22 Jul — `npm run verify` green, `docs/P12-REPORT.md` |
+| 13 | `frontend/13-frontend-schedule-dashboard.md` | BUILD | ✅ Written and run, 23 Jul — `npm run verify` green, live smoke test passed, `docs/P13-REPORT.md` |
+| 14a | `frontend/14a-wellness-backend-endpoints.md` | BUILD | ✅ Written 27 Jul — wellness read surface + UC-01 registration capture (`GET /wellness`, metric injection, baseline/dietary-pref capture). Composes packets 08/10/11. ✅ **Run 27 Jul** (`docs/P14A-REPORT.md`), merged to `dev`. |
+| 14b | `frontend/14b-frontend-wellness-view.md` | BUILD | ✅ Written + built 27 Jul — `WellnessView` renders `GET /wellness`; Schedule/Wellness nav (UI-03); verify 460 green, build clean. ✅ **Browser render observed 28 Jul**; merged to `dev`. (`docs/P14B-REPORT.md`) |
+| 15a | `frontend/15a-analytics-computation-RED.md` | 🔴 RED | ✅ **Done — gated (Patrick, 28 Jul) and FROZEN at `3fd6371`; 18 tests**, all red at the `Error('15b')` stub (`server/src/analytics/HabitAnalytics.ts`, pure `analyzeHabit`). Both gate escalations (SUPERSEDED, elapsed-`PLANNED`) ratified into the SRS at **v2.31** before the freeze. `docs/P15A-RED-REPORT.md`. |
+| 15b | `frontend/15b-analytics-computation-GREEN.md` | 🟢 GREEN | ✅ **Run 28 Jul** (`analyzeHabit` + `GET /analytics`, merged to `dev`). ⚠️ **Packet text WRITTEN RETROSPECTIVELY, 30 Jul** — the original session's prompt was never saved (OPEN-39). Re-authored from the SRS, the 15a RED packet and `docs/P15A-RED-REPORT.md`, **never from the committed implementation** (§0.1). |
+| 15c | `frontend/15c-frontend-analytics-view.md` | BUILD | ✅ Written and run — FR-ANL-04, UI-04, `docs/P15C-REPORT.md` *(FR-ANL-05 trend chart is Conditional → out, 26 Jul)* |
+| 16a | `verification/16a-guards-placement-purity.md` | GUARD | ✅ Written *(24 Jul, immediately before its run)* |
+| 16b | `verification/16b-guards-network-extensibility.md` | GUARD | ✅ Written *(27 Jul, immediately before its run — unblocked by 10 and 11 both merging)*; ✅ **RUN 27 Jul** — the FR-LIB-02 and FR-REC-11/FR-WER-04/NFR-MNT-06 guards; 14 must-fail transcripts, no violation found (`docs/P16B-REPORT.md`). Ran after 17c, before 17d |
+| **17d** | `verification/17d-wire-recommendation-path.md` | **INTEGRATION** | ✅ Written *(27 Jul)*, ✅ **RUN 28 Jul — the path IS wired into the app** (`docs/P17D-REPORT.md`; committed `bb82f18`, merged `ba35195`). §6 performed against a live server. Wires the recommendation path into the running app (OPEN-30) and reconciles the two `Catalog` interfaces (OPEN-28). **§6 cannot be demonstrated until it lands.** |
+| 17a | `verification/17a-acceptance-suite-RED.md` | 🔴 RED | ✅ Done 26 Jul — frozen at `8809158`, merged to `dev` (`docs/P17A-RED-REPORT.md`) |
+| 17b | `verification/17b-integration-GREEN.md` | 🟢 GREEN | ✅ Done 26 Jul — FR-REC-04 wiring, acceptance 8/8, merged to `dev` (`docs/P17B-GREEN-REPORT.md`). ⚠️ **Packet text WRITTEN RETROSPECTIVELY, 30 Jul** — this row previously named a file that had never existed, so the gap read as closed (OPEN-39). Re-authored from the SRS, the 17a RED packet and `docs/P17B-GREEN-REPORT.md`, **never from the committed implementation** (§0.1). |
+| 17c | `verification/17c-replacement-durability.md` | 🔴 RED → 🟢 GREEN | 🔴 RED run 26 Jul — durability test `server/test/replacement/`, RED against `dev` (the replaced run resurrects); ✅ **BOTH STAGES DONE 26 Jul** — RED frozen at `47bb301`, then GREEN (the `SUPERSEDED` fix) in a separate session; OPEN-27 closed, merged to `dev` (`docs/P17C-RED-REPORT.md`, `docs/P17C-GREEN-REPORT.md`). |
 
-> **CRITICAL**: Prompts 06–17 are **enumerated but not yet authored.** Their scope, phase, and requirement IDs are fixed below and derived from the SRS; their detailed text is written when the packet is run. **This is deliberate.** A prompt authored weeks before its module is designed encodes guesses, and an agent will implement a guess as faithfully as a requirement. **A prompt that does not exist is visibly missing; a prompt written from speculation is invisibly wrong.**
+> ### ✅ **CORRECTED 30 Jul — EVERY PACKET NOW EXISTS. This note used to say prompts 08–17 were "enumerated but not yet authored," and that has been false for days.**
+>
+> Each was authored immediately before its own run, which is the practice §4.11 requires — **authoring is the first half of the work item, not batchable overhead.** The reasoning that produced that practice still stands and is still worth reading: *a prompt authored weeks before its module is designed encodes guesses, and an agent will implement a guess as faithfully as a requirement. **A prompt that does not exist is visibly missing; a prompt written from speculation is invisibly wrong.***
+>
+> ⚠️ **But there is a third case this file learned the hard way, and it is worse than either — `OPEN-39`, 30 Jul.** **A prompt that was written, used, and never saved is invisibly *absent*.** Packets **15b** and **17b** were run, merged and reported on, while their prompt text stayed only in the agent session that consumed it. **15b at least admitted it** (*"⬜ Not yet written"*); **17b's row said `✅ Done` and named a filename that had never existed**, so nothing about the table revealed the hole. It surfaced only when `docs/REPLAY.md`'s run sheet was audited against the directory listing.
+>
+> **Both have since been re-authored from the SRS, their RED packets and their reports — never from the committed implementation (§0.1)** — so the pack once again generates the System end to end. **The standing lesson: a packet is not finished when its code merges. It is finished when the prompt that produced it is on disk.**
 
 ---
 
@@ -78,24 +107,31 @@ Each prompt follows the required formatting techniques with **Sandwich Method**,
 |---|---|---|
 | 01 | CON-04, CON-08, NFR-MNT-03, NFR-PRT-02 | §2.5, §4.5 |
 | 02 | NFR-MNT-01, NFR-MNT-04, NFR-COR-01 *(tooling only)* | §4.5 |
+| 02b | **NFR-MNT-07, NFR-MNT-08**, NFR-MNT-03, NFR-MNT-04, FR-SCH-05, CON-04 | §4.5, §3.8.4, §3.2 |
 | 03 | §3.6 class diagram; `CLAUDE.md` §4.7 | §3.6 |
 | 04–05 | FR-SCH-01…06, FR-SCH-09, NFR-COR-01…03, NFR-PERF-01 | §3.8.4, §4.1 |
-| 06–07 | FR-RSC-01…10 | §3.8.5 |
+| 06–07 | FR-RSC-01…10, **FR-SCH-10**, **FR-TSK-04** *(the re-placement mechanism only — OPEN-18)* | §3.8.5, §3.8.4, §3.8.2 |
 | 08 | FR-WER-01…10, DR-02, DR-04, DR-05, NFR-ROB-01 | §3.8.6, §5 |
-| 09–10 | FR-REC-01…07, FR-REC-11, FR-REC-13, **FR-REC-04** | §3.8.7 |
+| 09–10 | FR-REC-01…07, FR-REC-11, FR-REC-13 · ⚠️ **FR-REC-04 moved to 17a/17b on 22 Jul** — see below | §3.8.7 |
 | 11 | FR-LIB-01…08, FR-LIB-10 | §3.8.11 |
-| 12 | FR-USR, FR-TSK, FR-CAL, NFR-SEC, NFR-PERF-02 | §3.8.1–3.8.3 |
+| 12 | FR-USR, FR-TSK *(**except FR-TSK-04's mechanism**, which is 06–07 — packet 12 **calls** `onTaskEdited`)*, FR-CAL, NFR-SEC, NFR-PERF-02, **the task-creation placement path incl. FR-SCH-10 ordering (OPEN-17)** | §3.8.1–3.8.3 |
 | 13 | FR-DSH-01…07, UI-01, UI-05, UI-07 | §3.8.8, §3.9.1 |
-| 14 | FR-WEL-01…05, UI-03 | §3.8.9 |
-| 15 | FR-ANL-01…06, UI-04 | §3.8.10 |
-| 16 | FR-RSC-03, FR-LIB-02, FR-SCH-05, FR-REC-11 *(all **(I)** requirements)* | §3.8.5, §3.8.11 |
-| 17 | §6 verification approach, Appendix D acceptance | §6 |
+| 14a | FR-WEL-01…05, FR-REC-08/09, FR-REC-05, FR-WER-07/09, UI-03 *(data)* · UC-01/UC-08 | §3.8.9, §3.8.7, §3.8.6 |
+| 14b | FR-WEL-01…05, UI-03 *(view)* | §3.8.9 |
+| 15a/15b | FR-ANL-01/02/03/06 **(T)** | §3.8.10 |
+| 15c | FR-ANL-04, UI-04 *(FR-ANL-05 Conditional → out)* | §3.8.10 |
+| 16a | FR-RSC-03, **NFR-MNT-03**, FR-SCH-05, **CON-04**, NFR-MNT-04 *(subjects exist now)* | §3.8.5, §3.8.4, §4.5, §3.2 |
+| 16b | FR-LIB-02, FR-REC-11, **FR-WER-04**, **NFR-MNT-06**, NFR-MNT-07 *(10/11 merged 25/27 Jul — unblocked)* | §3.8.7, §3.8.11, §3.8.6, §4.5 |
+| 17a–17b | §6 verification approach, Appendix D acceptance, **FR-REC-04** *(its test is frozen in 17a, the wiring written in 17b — see the note below)* | §6, §3.8.7 |
+| **17d** | **FR-WER-07**, **FR-REC-04**, FR-REC-01/02/03/08/13, FR-LIB-02, FR-RSC-03 *(the composition root + the HTTP surface §6 needs; closes OPEN-30 and OPEN-28)* | §6, §3.8.6, §3.8.7 |
 
 ---
 
 ---
 
 ### ⛔ **CRITICAL**: OPEN-12 — Ask Before Choosing a User Identifier
+
+✅ **ANSWERED 22 Jul, before packet 12 was authored — asked of Miguel directly, per the instruction below.** The identifier is the **Mongo `_id` of the `User` document, stringified**; email is used only to look it up at login; ownership is applied at the **API/persistence boundary** via `TaskRepository.ownerOfTask`, not on the domain types. SRS → v2.18, `docs/TEAM-MEETING.md` decision log (22 Jul). **Left below verbatim, because it is the reason the question got asked instead of silently decided — read it, then use the answer above rather than re-deriving one.**
 
 **MANDATORY**: **`shared/src/contract.ts` carries no `userId` field, and that is deliberate.**
 

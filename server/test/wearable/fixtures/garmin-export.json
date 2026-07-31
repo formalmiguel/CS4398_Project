@@ -1,0 +1,30 @@
+{
+  "_comment": [
+    "DERIVED, minimal Garmin export fixture (§8.4) — NOT a copy of any real person's record.",
+    "Two synthetic source arrays with only the keys the adapter reads, values chosen to exercise",
+    "each requirement case. Sleep and activity are naturally different vintages in the real export",
+    "(no 2026 sleep score exists — OPEN-01/02); here they are co-authored per date only to drive",
+    "the 'both present' code path. `bmrKilocalories` is present ONLY so a test can prove the",
+    "adapter ignores it (CON-05 / §4.9).",
+    "",
+    "UNAVAILABLE SLEEP (2024-01-11): the real export never emits `overallScore: null`. An unscored",
+    "night carries a present `sleepScores` object with feedback/insight and NO `overallScore` key.",
+    "Availability gates on `'overallScore' in sleepScores`, never on `!= null`.",
+    "",
+    "No intra-file duplicate calendarDates — the real export has none (OPEN-26 closed). Last-write-",
+    "wins on re-ingest is the MetricStore upsert's job, not the adapter's."
+  ],
+  "activity": [
+    { "calendarDate": "2026-03-10", "activeKilocalories": 540, "totalSteps": 8200, "includesActivityData": true, "bmrKilocalories": 1500 },
+    { "calendarDate": "2024-01-11", "activeKilocalories": 300, "totalSteps": 5000, "includesActivityData": true, "bmrKilocalories": 1480 },
+    { "calendarDate": "2026-03-17", "activeKilocalories": 0, "totalSteps": 26, "includesActivityData": true, "bmrKilocalories": 1490 },
+    { "calendarDate": "2026-03-18", "activeKilocalories": 0, "includesActivityData": false, "bmrKilocalories": 1490 },
+    { "calendarDate": "2026-02-13", "activeKilocalories": 721, "totalSteps": 9100, "includesActivityData": false, "bmrKilocalories": 1500 },
+    { "calendarDate": "2024-06-01", "activeKilocalories": 410, "totalSteps": 7000, "includesActivityData": true, "bmrKilocalories": 1470 }
+  ],
+  "sleep": [
+    { "calendarDate": "2026-03-10", "sleepScores": { "overallScore": 82 }, "sleepResultType": "ENHANCED_CONFIRMED_FINAL" },
+    { "calendarDate": "2024-01-11", "sleepScores": { "feedback": "NEGATIVE_LONG_BUT_NOT_ENOUGH_REM", "insight": "NONE" }, "sleepResultType": "ENHANCED_CONFIRMED_FINAL" },
+    { "calendarDate": "2024-06-01", "sleepScores": { "overallScore": 75 }, "sleepResultType": "ENHANCED_CONFIRMED_FINAL" }
+  ]
+}

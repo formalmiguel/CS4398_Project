@@ -68,15 +68,72 @@ export interface Task {
   /** Must be > 0. */
   readonly durationMinutes: number;
 
-  /** 1–5, where 1 is the HIGHEST priority. (FR-SCH-03 ranking tiebreak.) */
+  /** 1–5, where 1 is the HIGHEST priority. (FR-SCH-10 placement order; FR-SCH-07 displacement.) */
   readonly priority: number;
 
   readonly preferredWindow: Interval;
   readonly flexibility: Flexibility;
   readonly source: TaskSource;
 
+  /**
+   * When the task was created. FR-SCH-10 breaks a priority tie on the EARLIER-CREATED
+   * task "so that the order is total and repeatable" — and until this field existed there
+   * was nothing on `Task` to read, so the tiebreak could not be evaluated (OPEN-15).
+   *
+   * ⚠️ The ENGINE never reads it. It is a SERVICE-level input: FR-SCH-10 governs the ORDER
+   * IN WHICH the engine is invoked across several tasks, not anything about a single
+   * placement. A timestamp on a type the engine receives does NOT weaken FR-SCH-05 —
+   * purity forbids the engine CONSULTING a clock, not the caller passing it data.
+   *
+   * An INSTANT, not `IsoDate`: two tasks created eleven minutes apart on the same day are
+   * the ordinary case, and a calendar date would tie them again — reopening the very hole
+   * this field closes.
+   *
+   * OPTIONAL in the type, set in practice at the API boundary. It is optional because the
+   * 30 engine tests frozen at ac06e70 construct `Task` literals: a REQUIRED field would
+   * break their typecheck and force a re-freeze, for a field the engine never reads.
+   * ORDERING, and it is a single key rather than a pair of cases (FR-SCH-10, SRS v2.14):
+   * rank on `(has an instant, the instant, id)`. Tasks with a known instant order by it; a
+   * task without one sorts AFTER every task that has one; remaining ties break on `id`.
+   *
+   * ⚠️ NOT "if either is absent, compare that pair by id" — that comparator is NOT TRANSITIVE
+   * and so defines no order at all. A(10:00, id 'a'), B(absent, id 'b'), C(09:00, id 'c')
+   * gives A<B, B<C and C<A, and a sort handed a cycle returns whatever its pivots produce.
+   */
+  readonly createdAt?: IsoTimestamp;
+
+  /**
+   * How often the task repeats. Absent means it does not — FR-TSK-01 lists "no recurrence"
+   * as a valid answer, and the Data Requirements table (§5) has always listed `recurrence`
+   * as a retained Task attribute; this field closes the gap between that table and the
+   * class diagram (added 22 Jul, closing the recurrence half of packet 12's scope).
+   *
+   * FR-TSK-05 expands a recurring task into one Placement PER MATCHING DAY, each
+   * independently completable and reschedulable. That expansion happens in the API layer
+   * (packet 12) — the ENGINE never reads this field and never sees a recurrence rule, only
+   * the concrete per-day Task and Interval produced by expanding it. This is the identical
+   * principle FR-CAL-06 already states for calendar-sourced events ("the engine shall never
+   * receive a recurrence rule — only concrete busy intervals"); it isn't a new rule, only a
+   * second requirement landing on it.
+   */
+  readonly recurrence?: Recurrence;
+
   /** Set only for type === 'WORKOUT'. */
   readonly intensityTier?: IntensityTier;
+}
+
+/** FR-TSK-01: "daily, or specific weekdays." Daily repeats every day by definition. */
+export type RecurrenceFrequency = 'DAILY' | 'WEEKLY';
+
+export interface Recurrence {
+  readonly frequency: RecurrenceFrequency;
+
+  /**
+   * ISO 8601 weekday numbers, 1 (Monday) – 7 (Sunday). Required and non-empty when
+   * `frequency` is `'WEEKLY'` — that is what "specific weekdays" means. Absent and ignored
+   * when `frequency` is `'DAILY'`, which needs no day list to mean every day.
+   */
+  readonly daysOfWeek?: readonly number[];
 }
 
 // ─── Placement ───────────────────────────────────────────────────────────────
@@ -91,7 +148,21 @@ export interface Slot {
   readonly withinPreferredWindow: boolean;
 
   /**
-   * Plain language, for FR-DSH-05. e.g. "4:00 PM — your 2:00 PM slot was taken by CS 401 Lecture."
+   * The ENGINE's account of this slot, in plain language, limited to what the engine can
+   * actually know: the times, whether it falls inside the preferred window, and which
+   * ranked alternative it is. e.g. "5:45 PM to 6:45 PM — alternative 1 of 3, ranked by
+   * nearness to your preferred 5:00 PM start."
+   *
+   * ⚠️ This is NOT the sentence FR-DSH-05 asks the user to read. That one names the
+   * commitment responsible — "Moved to 5:45 PM — your 5:00 PM slot was taken by Advisor" —
+   * and it lives on `Placement.placementReason`, written by RescheduleService and stored
+   * per DR-03. The engine receives `busy` as bare `Interval`s with no titles, so it CANNOT
+   * produce that sentence; only the caller holding the schedule can.
+   *
+   * *(This comment previously carried FR-DSH-05's example, which made two fields appear to
+   * own one requirement and put the example on the field that provably cannot satisfy it.
+   * Settled 22 Jul before packet 06 was written, because the natural way to "fix" it is to
+   * start pushing task titles into the engine, and that ends the purity argument.)*
    *
    * Named `explanation`, NOT `reason`, deliberately: `PlacementResult`'s failure branch has a
    * `reason` field that is an ENUM. Two fields called `reason` — one prose, one union — on types
@@ -137,7 +208,8 @@ export type PlacementResult =
 export type RescheduleTrigger =
   | 'MISSED' // inferred: window elapsed, not complete, not skipped  (FR-RSC-01)
   | 'SKIPPED' // declared by the user, possibly before the window     (FR-RSC-08)
-  | 'DISPLACED'; // a new fixed commitment overlapped it                 (FR-RSC-02)
+  | 'DISPLACED' // a new fixed commitment overlapped it                 (FR-RSC-02)
+  | 'EDITED'; // the user changed the task's duration or window      (FR-TSK-04)
 
 export type PlacementStatus =
   | 'PLANNED'
@@ -149,7 +221,16 @@ export type PlacementStatus =
    * occurrence complete (FR-RSC-09). DR-06 requires a cancelled reschedule to stay
    * distinguishable from one that never happened — so it is marked, never deleted.
    */
-  | 'CANCELLED';
+  | 'CANCELLED'
+  /**
+   * This occurrence was REPLACED by a recommendation (FR-REC-02) — a higher-tier workout
+   * swapped for a warranted-tier one for this date only. Terminal, like MISSED/SKIPPED, but it
+   * records neither a user event nor an FR-RSC-09 withdrawal: nothing happened at the old time,
+   * the plan was overtaken. It occupies no time (excluded from the busy set) AND, unlike a task
+   * with no placement at all, it is NOT re-attempted by FR-RSC-05's sweep — that is what stops
+   * the replaced workout resurrecting. Per-occurrence: a recurring task's other dates are untouched.
+   */
+  | 'SUPERSEDED';
 
 export interface Placement {
   readonly id: string;
@@ -208,6 +289,16 @@ export type Metric =
 /** ISO 8601 calendar date, `YYYY-MM-DD`. */
 export type IsoDate = string;
 
+/**
+ * An ISO 8601 instant in UTC, `YYYY-MM-DDTHH:MM:SS.sssZ`. Used only by `Task.createdAt`.
+ *
+ * ALWAYS UTC with the trailing `Z` and always millisecond precision, because FR-SCH-10
+ * compares two of these to break a tie — and in that fixed format, and ONLY in that
+ * format, lexicographic string order IS chronological order. A local-time or
+ * offset-bearing string sorts wrongly while still looking like a valid timestamp.
+ */
+export type IsoTimestamp = string;
+
 export interface DailyMetricSet {
   readonly date: IsoDate;
   /** Keyed by metric name. FR-WER-02: the ONLY representation of wearable data downstream. */
@@ -241,6 +332,54 @@ export interface Meal {
   /** FR-LIB-06: not optional metadata — this is the field FR-REC-08 targets. */
   readonly calories: number;
   readonly dietaryFlags: readonly DietaryFlag[];
+}
+
+// ─── Recommendations ─────────────────────────────────────────────────────────
+//
+// Realizes, in TypeScript, the recommendation DATA types the §3.6 class diagram already
+// names: `Recommendation` (RecommendationEngine.recommend → Recommendation[]), `Decision`
+// (RecommendationRule.apply/fallback → Decision), and `CalorieTarget`. The RULES and the
+// `RecommendationEngine` that evaluates them are server-local (server/src/recommendation/) —
+// like `RescheduleService` and the `WearableAdapter`, which the SAME diagram names but which
+// live under server/. Only the data a rule produces lives in the contract, because the
+// wellness views (FR-WEL-02, packets 14/15) render it (SRS v2.26, decision log 25 Jul).
+
+/** kcal. §3.6: the decision `CaloriesToTargetRule` produces (FR-REC-08). */
+export type CalorieTarget = number;
+
+/**
+ * The raw decision a `RecommendationRule` produces (§3.6: `apply`/`fallback` → `Decision`).
+ * A discriminated union on `kind`, for the same reason `Metric`/`PlacementResult` are: the
+ * two rules in this release decide different things — `SleepToIntensityRule` an
+ * `IntensityTier`, `CaloriesToTargetRule` a `CalorieTarget` — and the union keeps each
+ * payload precise while leaving room for a third rule (FR-REC-12) without widening the others.
+ */
+export type Decision =
+  | { readonly kind: 'WORKOUT_INTENSITY'; readonly tier: IntensityTier } // FR-REC-01
+  | { readonly kind: 'CALORIE_TARGET'; readonly calorieTarget: CalorieTarget }; // FR-REC-08
+
+/**
+ * The machine-readable substrate of FR-REC-13's reason — the metric and value that drove the
+ * decision, and whether a documented fallback was used (FR-REC-06). The rendered English
+ * sentence ("Recovery session — your sleep score was 42 last night") is a VIEW concern.
+ *
+ * `metricValue` is null EXACTLY when the metric was unavailable — distinct from a measured
+ * zero, which is a real value (DR-02, NFR-ROB-01). A reader must not treat null as 0.
+ */
+export interface RecommendationReason {
+  readonly metricName: string;
+  readonly metricValue: number | null;
+  readonly usedFallback: boolean;
+}
+
+/**
+ * What `RecommendationEngine.recommend()` returns (§3.6: `recommend` → `Recommendation[]`):
+ * a `Decision` plus the reason it was made (FR-REC-13). The diagram names `Recommendation`
+ * but, being UML, carries no reason — this realization supplies it.
+ */
+export interface Recommendation {
+  readonly decision: Decision;
+  readonly reason: RecommendationReason;
 }
 
 // ─── The engine signature ────────────────────────────────────────────────────
